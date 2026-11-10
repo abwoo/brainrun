@@ -1,0 +1,72 @@
+[
+  {
+    "check": "page loads, title present",
+    "ok": true,
+    "detail": "title='Brain Physics Playground — Phase 1 Prototype'"
+  },
+  {
+    "check": "top bar visible",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "LIVE ACTIVITY panel",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "SIMULATION OFFLINE shown (no fake waveform)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "PHASE 1 PROTOTYPE footer",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "WebGL canvas present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "hover shows region tooltip",
+    "ok": true,
+    "detail": "visible=True text='lAMYG — 点击，刺激这里'"
+  },
+  {
+    "check": "click selects a region (panel updates)",
+    "ok": true,
+    "detail": "panel='REGION / CONNECTION\\nlAMYG\\n编号\\n#40 / 76\\n中心坐标\\n7.7, 16.5, -32.1 mm\\n皮层面积\\n1874.5 mm²\\n主要连接（按权重前 5）\\nlPHC\\nW 2.000 · 8.8 MM\\nlTCPOL\\nW 2.000 · 34.9 MM\\nlTCV\\nW 2.000 · 43.5 MM\\nrAMYG\\nW 1.000 · 38.4 MM\\nlTCC\\nW 1.000 ·'"
+  },
+  {
+    "check": "drag rotates the brain (pixels change)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "PLAY toggles rotate state",
+    "ok": true,
+    "detail": "'PLAY — 旋转中' -> 'PLAY — 已暂停'"
+  },
+  {
+    "check": "RESET clears selection",
+    "ok": true,
+    "detail": "panel='REGION / CONNECTION\\n\\n点击大脑选择一个脑区，查看名称与主要连接。'"
+  },
+  {
+    "check": "978px: no horizontal overflow",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "no console errors",
+    "ok": true,
+    "detail": "errors=[]"
+  },
+  {
+    "check": "no failed requests",
+    "ok": true,
+    "detail": "failed=[]"
+  }
+]

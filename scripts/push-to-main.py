@@ -164,6 +164,13 @@ def build_trees(files):
         mode = "100755" if rel.endswith(".sh") or os.access(files[rel], os.X_OK) else "100644"
         dirs.setdefault(parent, []).append(
             {"path": os.path.basename(rel), "mode": mode, "type": "blob", "sha": blob_sha[rel]})
+        # Register every ancestor dir as a tree, even when it holds no files
+        # directly. Without this, pure intermediate dirs (crates/, tests/,
+        # .github/, reference/) are never added as subtrees and their whole
+        # contents silently drop out of the pushed tree.
+        parts = parent.split("/") if parent else []
+        for i in range(1, len(parts)):
+            dirs.setdefault("/".join(parts[:i]), [])
 
     def tree_sha_for(directory):
         entries = list(dirs.get(directory, []))

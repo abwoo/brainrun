@@ -1,0 +1,117 @@
+[
+  {
+    "check": "sim ready, PLAY running",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "simulation clock advances",
+    "ok": true,
+    "detail": "TIME 1.7 -> 3.0 s"
+  },
+  {
+    "check": "click selects a region",
+    "ok": true,
+    "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 mm\\n皮层面积\\n1139.8 mm²\\n兴'"
+  },
+  {
+    "check": "click raises selected E (Phase 3 regression)",
+    "ok": true,
+    "detail": "max E[47] (peak tracker) = 0.492"
+  },
+  {
+    "check": "knob wheel decreases value",
+    "ok": true,
+    "detail": "STIMULUS 2.00 -> 1.95"
+  },
+  {
+    "check": "knob wheel increases value",
+    "ok": true,
+    "detail": "STIMULUS 1.95 -> 2.00"
+  },
+  {
+    "check": "knob drag increases value",
+    "ok": true,
+    "detail": "STIMULUS 1.74 -> 2.00"
+  },
+  {
+    "check": "knob double-click restores default",
+    "ok": true,
+    "detail": "STIMULUS after dblclick = 2.00 (default 2.00)"
+  },
+  {
+    "check": "E/I/BOTH toggles present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "chart toggle switches to I",
+    "ok": true,
+    "detail": "active='I'"
+  },
+  {
+    "check": "chart toggle switches to BOTH",
+    "ok": true,
+    "detail": "active='BOTH'"
+  },
+  {
+    "check": "TIME display matches snapshot clock",
+    "ok": true,
+    "detail": "snapshot 70.7 s vs display 70.6 s"
+  },
+  {
+    "check": "fly-to is gradual, not a snap",
+    "ok": true,
+    "detail": "moved 412.7 from default; fly progress samples = [0.5]"
+  },
+  {
+    "check": "fly-to lands on default view",
+    "ok": true,
+    "detail": "dist to default after flight = 0.00"
+  },
+  {
+    "check": "touch tap selects a region",
+    "ok": true,
+    "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 mm\\n皮层面积\\n1139.8 mm²\\n兴'"
+  },
+  {
+    "check": "two-finger pinch changes camera distance",
+    "ok": true,
+    "detail": "camera distance 273.3 -> 120.0"
+  },
+  {
+    "check": "G=0: other nodes unaffected",
+    "ok": true,
+    "detail": "max |dE| other = 0.00e+00"
+  },
+  {
+    "check": "G=0: stimulated node responds",
+    "ok": true,
+    "detail": "|dE| node 40 = 0.483"
+  },
+  {
+    "check": "pause freezes simulation time",
+    "ok": true,
+    "detail": "TIME 6.7 -> 6.7 s"
+  },
+  {
+    "check": "reset restores t=0",
+    "ok": true,
+    "detail": "TIME 400 ms after reset = 0.4 s"
+  },
+  {
+    "check": "978px: no horizontal overflow",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "no console errors",
+    "ok": true,
+    "detail": "errors=[]"
+  },
+  {
+    "check": "no failed requests",
+    "ok": true,
+    "detail": "failed=[]"
+  }
+]

@@ -1,0 +1,255 @@
+{
+  "g_sweep_demo": {
+    "G=0.0": {
+      "baseline_mean_E": 0.011059164043663725,
+      "baseline_max_temporal_std": 1.214306433183765e-17,
+      "stim_peak_dE": 0.48257266081926886,
+      "network_mean_peak_dE": 1.214306433183765e-17,
+      "network_max_peak_dE": 1.214306433183765e-17,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 66.0,
+      "network_mean_E_4000_5000ms": 0.011059164043663723
+    },
+    "G=0.1": {
+      "baseline_mean_E": 0.011766720579434065,
+      "baseline_max_temporal_std": 1.6339596067606604e-16,
+      "stim_peak_dE": 0.48250484196895066,
+      "network_mean_peak_dE": 0.0003316058633754013,
+      "network_max_peak_dE": 0.0018895569693811367,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 66.0,
+      "network_mean_E_4000_5000ms": 0.011766720579434098
+    },
+    "G=0.2": {
+      "baseline_mean_E": 0.01268472367441382,
+      "baseline_max_temporal_std": 2.041374823464447e-13,
+      "stim_peak_dE": 0.4824464697307757,
+      "network_mean_peak_dE": 0.0008925336361074582,
+      "network_max_peak_dE": 0.005248911193855623,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 68.0,
+      "network_mean_E_4000_5000ms": 0.01268472367444123
+    },
+    "G=0.3": {
+      "baseline_mean_E": 0.013976684970392393,
+      "baseline_max_temporal_std": 1.0439310612451507e-10,
+      "stim_peak_dE": 0.48241130831114726,
+      "network_mean_peak_dE": 0.0020837978612699907,
+      "network_max_peak_dE": 0.012853024076155743,
+      "nodes_over_0.01": 6,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 70.0,
+      "network_mean_E_4000_5000ms": 0.013976684987475486
+    },
+    "G=0.4": {
+      "baseline_mean_E": 0.01614702589240284,
+      "baseline_max_temporal_std": 7.745172453528586e-08,
+      "stim_peak_dE": 0.482462235434652,
+      "network_mean_peak_dE": 0.009683524713928098,
+      "network_max_peak_dE": 0.07413039123787293,
+      "nodes_over_0.01": 23,
+      "nodes_over_0.05": 2,
+      "return_ms_after_stimulus": 77.0,
+      "network_mean_E_4000_5000ms": 0.01614704170454826
+    },
+    "G=0.5": {
+      "baseline_mean_E": 0.42860894014813716,
+      "baseline_max_temporal_std": 0.1719934773444422,
+      "stim_peak_dE": 0.07206350933787609,
+      "network_mean_peak_dE": 0.03316633113939025,
+      "network_max_peak_dE": 0.07726060761542025,
+      "nodes_over_0.01": 67,
+      "nodes_over_0.05": 13,
+      "return_ms_after_stimulus": null,
+      "network_mean_E_4000_5000ms": 0.46223088610630386
+    },
+    "G=0.6": {
+      "baseline_mean_E": 0.4629245533529975,
+      "baseline_max_temporal_std": 2.579455979208949e-07,
+      "stim_peak_dE": 0.002426794644072916,
+      "network_mean_peak_dE": 9.319461456297473e-08,
+      "network_max_peak_dE": 4.764599222828458e-06,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 0.0,
+      "network_mean_E_4000_5000ms": 0.4629245558371382
+    }
+  },
+  "stim_amplitude_sweep": {
+    "amp=0.5": {
+      "baseline_mean_E": 0.014884620206131854,
+      "baseline_max_temporal_std": 2.414162937268104e-09,
+      "stim_peak_dE": 0.013170337945420711,
+      "network_mean_peak_dE": 5.600739422629027e-05,
+      "network_max_peak_dE": 0.0003255425900408927,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 4.0,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    },
+    "amp=1.0": {
+      "baseline_mean_E": 0.014884620206131854,
+      "baseline_max_temporal_std": 2.414162937268104e-09,
+      "stim_peak_dE": 0.07467497291156054,
+      "network_mean_peak_dE": 0.00030389298350387534,
+      "network_max_peak_dE": 0.0017927624786811328,
+      "nodes_over_0.01": 0,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 25.0,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    },
+    "amp=2.0": {
+      "baseline_mean_E": 0.014884620206131854,
+      "baseline_max_temporal_std": 2.414162937268104e-09,
+      "stim_peak_dE": 0.48241579316142097,
+      "network_mean_peak_dE": 0.0034793814623470375,
+      "network_max_peak_dE": 0.0223817085044174,
+      "nodes_over_0.01": 8,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 72.0,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    },
+    "amp=4.0": {
+      "baseline_mean_E": 0.014884620206131854,
+      "baseline_max_temporal_std": 2.414162937268104e-09,
+      "stim_peak_dE": 0.48771920665844803,
+      "network_mean_peak_dE": 0.0036724319208925865,
+      "network_max_peak_dE": 0.023837072721998285,
+      "nodes_over_0.01": 8,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 72.0,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    }
+  },
+  "c_ei_sweep": {
+    "c_ei=2.0": {
+      "baseline_mean_E": 0.016147611372339516,
+      "baseline_max_temporal_std": 1.5203044270564093e-08,
+      "stim_peak_dE": 0.4846612526309995,
+      "network_mean_peak_dE": 0.44511221256127165,
+      "network_max_peak_dE": 0.48586933179717495,
+      "nodes_over_0.01": 71,
+      "nodes_over_0.05": 69,
+      "return_ms_after_stimulus": null,
+      "network_mean_E_4000_5000ms": 0.46174589513656994
+    },
+    "c_ei=4.0": {
+      "baseline_mean_E": 0.014884620206131854,
+      "baseline_max_temporal_std": 2.414162937268104e-09,
+      "stim_peak_dE": 0.48241579316142097,
+      "network_mean_peak_dE": 0.0034793814623470375,
+      "network_max_peak_dE": 0.0223817085044174,
+      "nodes_over_0.01": 8,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 72.0,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    },
+    "c_ei=8.0": {
+      "baseline_mean_E": 0.012913932710140467,
+      "baseline_max_temporal_std": 1.1666071317488354e-10,
+      "stim_peak_dE": 0.46551088298020454,
+      "network_mean_peak_dE": 0.002206261302180572,
+      "network_max_peak_dE": 0.0135701686363514,
+      "nodes_over_0.01": 7,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 46.0,
+      "network_mean_E_4000_5000ms": 0.012913932729430805
+    }
+  },
+  "hold": {
+    "hold_500ms": {
+      "node40_pre": 0.011780297371734576,
+      "node40_end_of_hold": 0.49435730378639803,
+      "node40_post_4000ms": 0.011780297409637699,
+      "network_mean_E_4000_5000ms": 0.014884620645322796
+    },
+    "hold_2000ms": {
+      "node40_pre": 0.011780297371734576,
+      "node40_end_of_hold": 0.4988755001351428,
+      "node40_post_4000ms": 0.4860736558937475,
+      "network_mean_E_4000_5000ms": 0.24071722437864898
+    }
+  },
+  "dt_sensitivity": {
+    "dt=1.0_vs_0.5": {
+      "max_abs_dE": 0.0006252412331302359,
+      "rms_dE": 9.389183189081227e-06
+    },
+    "dt=2.0_vs_0.5": {
+      "max_abs_dE": 0.003106053554480348,
+      "rms_dE": 3.0788952063323493e-05
+    }
+  },
+  "boundary": {
+    "stim_amp_20": {
+      "outcome": "finished_finite",
+      "E_max": 0.499999998822816,
+      "E_min": 0.0
+    },
+    "G_20": {
+      "outcome": "finished_finite",
+      "E_max": 0.4999999999999999,
+      "E_min": 0.0
+    },
+    "G_100": {
+      "outcome": "finished_finite",
+      "E_max": 0.4999999999999999,
+      "E_min": 0.0
+    },
+    "stim_amp_20_G_20": {
+      "outcome": "finished_finite",
+      "E_max": 0.4999999999999999,
+      "E_min": 0.0
+    }
+  },
+  "coupling_comparison": {
+    "mean-field G=0.25 (A-set)": {
+      "baseline_mean_E": 0.0848916414583386,
+      "baseline_max_temporal_std": 9.939985670812503e-05,
+      "stim_peak_dE": 0.4129896467871858,
+      "network_mean_peak_dE": 0.05270182938438859,
+      "network_max_peak_dE": 0.39277934886160165,
+      "nodes_over_0.01": 40,
+      "nodes_over_0.05": 9,
+      "return_ms_after_stimulus": null,
+      "network_mean_E_4000_5000ms": 0.46842444819639406
+    },
+    "mean-field G=4.0 (b_e=3.5)": {
+      "baseline_mean_E": 0.01896975573802512,
+      "baseline_max_temporal_std": 2.4767236442653397e-14,
+      "stim_peak_dE": 0.47706815030074823,
+      "network_mean_peak_dE": 0.0007614588351363811,
+      "network_max_peak_dE": 0.011983966682200066,
+      "nodes_over_0.01": 1,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 491.0,
+      "network_mean_E_4000_5000ms": 0.018969755738029174
+    },
+    "raw G=0.2 (b_e=3.5)": {
+      "baseline_mean_E": 0.022468044250361245,
+      "baseline_max_temporal_std": 5.629028524333552e-09,
+      "stim_peak_dE": 0.47792006130576237,
+      "network_mean_peak_dE": 0.002715626472098991,
+      "network_max_peak_dE": 0.017563369233460427,
+      "nodes_over_0.01": 8,
+      "nodes_over_0.05": 0,
+      "return_ms_after_stimulus": 175.0,
+      "network_mean_E_4000_5000ms": 0.022468045258246385
+    }
+  },
+  "a_set_reference": {
+    "single_node_amp=0.05": {
+      "pre_E": 0.0729949852422132,
+      "peak_E": 0.10313082822704034,
+      "post_E_4000_5000ms": 0.07299503211356305
+    },
+    "single_node_amp=0.1": {
+      "pre_E": 0.0729949852422132,
+      "peak_E": 0.4749632771597133,
+      "post_E_4000_5000ms": 0.4749632771597134
+    }
+  }
+}

@@ -1,0 +1,21 @@
+[package]
+name = "brain-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "wasm-bindgen wrapper around brain-core for Brain Physics Playground (no math changes)"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+brain-core = { path = "../brain-core" }
+wasm-bindgen = "0.2"
+
+[profile.release]
+opt-level = 2
+
+# wasm-opt (binaryen) can't be downloaded in this sandbox (GitHub releases
+# blocked), so skip it.  The .wasm is a bit larger; correctness is unaffected.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

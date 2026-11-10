@@ -1,0 +1,67 @@
+[
+  {
+    "check": "D1 warm reload interactive",
+    "ok": false,
+    "detail": "warm ready in 8547 ms"
+  },
+  {
+    "check": "S2-retest stimulated node responds (peak tracker)",
+    "ok": true,
+    "detail": "max E[47] = 0.494"
+  },
+  {
+    "check": "S2-retest network responds (peak tracker)",
+    "ok": true,
+    "detail": "7/75 regions >0.01: [41, 44, 48, 49, 58, 59, 62]"
+  },
+  {
+    "check": "B2-retest slow drag (600 ms, 20 steps): no stimulus from drag",
+    "ok": true,
+    "detail": "new markers: []"
+  },
+  {
+    "check": "B2-retest slow drag (600 ms, 20 steps): no sustained input, no lock",
+    "ok": true,
+    "detail": "max|P|=0.0, locked=False"
+  },
+  {
+    "check": "B2-retest normal drag (10 steps): no stimulus from drag",
+    "ok": true,
+    "detail": "new markers: []"
+  },
+  {
+    "check": "B2-retest normal drag (10 steps): no sustained input, no lock",
+    "ok": true,
+    "detail": "max|P|=0.0, locked=False"
+  },
+  {
+    "check": "C2-retest both hemispheres reachable after rotation",
+    "ok": true,
+    "detail": "labels seen: ['lPFCDL', 'lTCI', 'rCCR', 'rM1', 'rPCM', 'rPFCORB']"
+  },
+  {
+    "check": "B6b-retest pause->RESET clock resumes",
+    "ok": true,
+    "detail": "TIME 1.0 -> 2.2 s after RESET"
+  },
+  {
+    "check": "B6b-retest UI shows running after RESET",
+    "ok": true,
+    "detail": "PLAY button = 'PLAY — 运行中'"
+  },
+  {
+    "check": "B6b-retest pause again freezes clock",
+    "ok": true,
+    "detail": "TIME 4.1 -> 4.1 s while paused"
+  },
+  {
+    "check": "B6b-retest resume restarts clock",
+    "ok": true,
+    "detail": "TIME 4.1 -> 5.3 s after resume"
+  },
+  {
+    "check": "no console errors in retest",
+    "ok": true,
+    "detail": "errors=[]"
+  }
+]

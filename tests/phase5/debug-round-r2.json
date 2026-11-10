@@ -1,0 +1,90 @@
+{
+  "results": [
+    {
+      "check": "auth no stimulus, no activity",
+      "ok": true,
+      "detail": "max E=0.0189 (baseline ~0.011), markers=0"
+    },
+    {
+      "check": "auth region 0 (47) baseline: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.011 snapshot=0.0112"
+    },
+    {
+      "check": "auth region 0 (47) held: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.494 snapshot=0.4938 (must be elevated >0.2)"
+    },
+    {
+      "check": "auth region 1 (66) baseline: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.013 snapshot=0.0130"
+    },
+    {
+      "check": "auth region 1 (66) held: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.5 snapshot=0.4999 (must be elevated >0.2)"
+    },
+    {
+      "check": "auth region 2 (56) baseline: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.5 snapshot=0.5000"
+    },
+    {
+      "check": "auth region 2 (56) held: panel E == snapshot E",
+      "ok": true,
+      "detail": "panel=0.5 snapshot=0.5000 (must be elevated >0.2)"
+    },
+    {
+      "check": "usability 5 clicks select regions",
+      "ok": true,
+      "detail": "selected ids in order: [47, 53, 75, 31, 40] (5 distinct)"
+    },
+    {
+      "check": "usability knob STIMULUS wheel changes value+engine",
+      "ok": true,
+      "detail": "STIMULUS: 2.00 -> 1.95, engine stim_amplitude: 2 -> 1.945309894824571"
+    },
+    {
+      "check": "usability knob DURATION wheel changes value+engine",
+      "ok": true,
+      "detail": "DURATION: 100 MS -> 90 MS, engine stim_duration_ms: 100 -> 90.4"
+    },
+    {
+      "check": "usability knob EXC / INH wheel changes value+engine",
+      "ok": true,
+      "detail": "EXC / INH: 4.0 -> 3.9, engine c_ei: 4 -> 3.9000000000000004"
+    },
+    {
+      "check": "usability knob CONNECTIVITY wheel changes value+engine",
+      "ok": true,
+      "detail": "CONNECTIVITY: 0.35 -> 0.34, engine g: 0.35 -> 0.34199999999999997"
+    },
+    {
+      "check": "usability PLAY pauses clock",
+      "ok": true,
+      "detail": "TIME 39.9 -> 39.9 s"
+    },
+    {
+      "check": "usability PLAY resumes clock",
+      "ok": true,
+      "detail": "TIME 39.9 -> 41.0 s"
+    },
+    {
+      "check": "usability RESET restores t~0 and defaults",
+      "ok": true,
+      "detail": "TIME 0.5 s, params={'g': 0.35, 'c_ei': 4, 'stim_amplitude': 2, 'stim_duration_ms': 100}"
+    },
+    {
+      "check": "usability 978px click selects, no overflow",
+      "ok": true,
+      "detail": "selected=#47, horizontal overflow=False"
+    },
+    {
+      "check": "usability no console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    }
+  ],
+  "observations": []
+}

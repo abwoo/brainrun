@@ -1,0 +1,442 @@
+{
+  "results": [
+    {
+      "check": "D1 first screen interactive (sim ready)",
+      "ok": false,
+      "detail": "ready in 5270 ms"
+    },
+    {
+      "check": "S1 sim running, clock advances",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "S1 simulation clock advances",
+      "ok": true,
+      "detail": "TIME 2.8 -> 4.0 s"
+    },
+    {
+      "check": "S1 WebGL canvas present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "S1 real cortex visible (not blank/solid)",
+      "ok": true,
+      "detail": "stddev=29.67 non-bg frac=0.297"
+    },
+    {
+      "check": "S1 drag rotates brain (pixels change)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "S1 wheel zooms (camera distance changes)",
+      "ok": true,
+      "detail": "dist 273.3 -> 200.9"
+    },
+    {
+      "check": "C2 hover labels on opposite sides differ in hemisphere",
+      "ok": true,
+      "detail": "left='lHC — 点击刺激 · 按住持续输入' right='rS2 — 点击刺激 · 按住持续输入'"
+    },
+    {
+      "check": "S2 hover shows region tooltip",
+      "ok": true,
+      "detail": "tooltip='lHC — 点击刺激 · 按住持续输入'"
+    },
+    {
+      "check": "S2 click selects a region",
+      "ok": true,
+      "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 mm\\n皮层面积\\n1139.8 mm²\\n兴'"
+    },
+    {
+      "check": "S2 input marker recorded",
+      "ok": true,
+      "detail": "markers 0 -> 1, last={'t_ms': 11596, 'node': 47, 'kind': 'pulse'}"
+    },
+    {
+      "check": "B1 click does not rotate camera",
+      "ok": true,
+      "detail": "camera moved 0.00 mm"
+    },
+    {
+      "check": "C3 highlight matches actual region (tooltip == panel)",
+      "ok": true,
+      "detail": "tooltip='lHC — 点击刺激 · 按住持续输入' panel='lHC'"
+    },
+    {
+      "check": "S2 stimulated node responds",
+      "ok": true,
+      "detail": "max E[47] = 0.494"
+    },
+    {
+      "check": "S2 network responds (other regions)",
+      "ok": true,
+      "detail": "7/75 regions >0.01: [41, 44, 48, 49, 58, 59, 62]"
+    },
+    {
+      "check": "A6 panel E matches snapshot E (rendering traces to model)",
+      "ok": true,
+      "detail": "panel 0.011 vs snapshot 0.0112"
+    },
+    {
+      "check": "S2 live chart changes after click (pixels differ)",
+      "ok": true,
+      "detail": "chart stddev=22.38"
+    },
+    {
+      "check": "B2 drag does not stimulate",
+      "ok": true,
+      "detail": "markers 1->1, max|P| 0->0"
+    },
+    {
+      "check": "B3 hold applies input while held",
+      "ok": true,
+      "detail": "P[47] during hold = 2"
+    },
+    {
+      "check": "B3 release stops input",
+      "ok": true,
+      "detail": "P[47] 400 ms after release = 0"
+    },
+    {
+      "check": "S3 low amplitude -> small response",
+      "ok": true,
+      "detail": "amp 0.5 peak E = 0.0249"
+    },
+    {
+      "check": "S3 high amplitude -> large response",
+      "ok": true,
+      "detail": "amp 2.0 peak E = 0.4942"
+    },
+    {
+      "check": "S3 response differs with amplitude",
+      "ok": true,
+      "detail": "Δpeak = 0.469"
+    },
+    {
+      "check": "S3 coupling changes network response",
+      "ok": true,
+      "detail": "responders G=0.1: 0/75 vs G=0.35: 8/75"
+    },
+    {
+      "check": "B4 knob 0 changes real param stim_amplitude",
+      "ok": true,
+      "detail": "stim_amplitude: 2 -> 1.945309894824571"
+    },
+    {
+      "check": "B4 knob 0 double-click restores default",
+      "ok": true,
+      "detail": "stim_amplitude restored to 2 (default 2.0)"
+    },
+    {
+      "check": "B4 knob 1 changes real param stim_duration_ms",
+      "ok": true,
+      "detail": "stim_duration_ms: 100 -> 90.4"
+    },
+    {
+      "check": "B4 knob 1 double-click restores default",
+      "ok": true,
+      "detail": "stim_duration_ms restored to 100 (default 100)"
+    },
+    {
+      "check": "B4 knob 2 changes real param c_ei",
+      "ok": true,
+      "detail": "c_ei: 4 -> 3.9000000000000004"
+    },
+    {
+      "check": "B4 knob 2 double-click restores default",
+      "ok": true,
+      "detail": "c_ei restored to 4 (default 4.0)"
+    },
+    {
+      "check": "B4 knob 3 changes real param g",
+      "ok": true,
+      "detail": "g: 0.35 -> 0.34199999999999997"
+    },
+    {
+      "check": "B4 knob 3 double-click restores default",
+      "ok": true,
+      "detail": "g restored to 0.35 (default 0.35)"
+    },
+    {
+      "check": "S4 G=0: other nodes unaffected (real UI click)",
+      "ok": true,
+      "detail": "max |dE| other = 0.00e+00"
+    },
+    {
+      "check": "S4 G=0: stimulated node still responds",
+      "ok": true,
+      "detail": "|dE| node 47 = 0.483"
+    },
+    {
+      "check": "S4 click still recorded as a stimulus",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "S5 replay: both runs respond",
+      "ok": true,
+      "detail": "peaks 0.494 / 0.494"
+    },
+    {
+      "check": "S5 replay: peak reproducible (sampling tolerance 0.1)",
+      "ok": true,
+      "detail": "|peak1 - peak2| = 0.0000"
+    },
+    {
+      "check": "S5 replay: E at +200 ms reproducible (tol 0.05)",
+      "ok": true,
+      "detail": "E+200ms 0.01656777292771841 vs 0.01656777292771841"
+    },
+    {
+      "check": "A5 neighbor peak does not precede stimulated peak",
+      "ok": true,
+      "detail": "node40 peak t=1664 ms (E=0.494); neighbor peak t=1704 ms (E=0.016)"
+    },
+    {
+      "check": "A4 no NaN/Inf, engine not diverged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "B5 pause freezes simulation time",
+      "ok": true,
+      "detail": "TIME 5.9 -> 5.9 s"
+    },
+    {
+      "check": "B6 reset restores t=0",
+      "ok": true,
+      "detail": "TIME 400 ms after reset = 0.4 s"
+    },
+    {
+      "check": "B6 reset restores default params",
+      "ok": true,
+      "detail": "params={'g': 0.35, 'c_ei': 4, 'stim_amplitude': 2, 'stim_duration_ms': 100}"
+    },
+    {
+      "check": "B6 reset clears markers",
+      "ok": true,
+      "detail": "markers after reset = 0"
+    },
+    {
+      "check": "B6b pause->RESET: clock resumes (no desync)",
+      "ok": true,
+      "detail": "TIME 1.0 -> 2.2 s after RESET"
+    },
+    {
+      "check": "D3 state delivery: new snapshot visible within 100 ms",
+      "ok": true,
+      "detail": "max wall gap between distinct snapshots = 74 ms (158 samples)"
+    },
+    {
+      "check": "D4 desktop frame rate (local SwiftShader, not real GPU)",
+      "ok": null,
+      "detail": "measured 1.0 FPS at 1920x1080; 50-60 FPS target NOT verifiable on this machine"
+    },
+    {
+      "check": "C6/D7 120 s soak: display stays in sync with model",
+      "ok": true,
+      "detail": "final snap 131.7 s vs display 131.8 s"
+    },
+    {
+      "check": "D7 120 s soak: no divergence",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "D7 heap over 120 s",
+      "ok": null,
+      "detail": "JS heap growth -1.4 MB (12.7 -> 11.3 MB); 10-min run still unverified on this machine"
+    },
+    {
+      "check": "B7 978px: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "B7 978px: click still selects a region after resize",
+      "ok": true,
+      "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 '"
+    },
+    {
+      "check": "B7 1920px: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "B7 1920px: click still selects a region after resize",
+      "ok": true,
+      "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 '"
+    },
+    {
+      "check": "D6 simulation uses no remote services",
+      "ok": true,
+      "detail": "remote URLs seen: [] (total requests: 12)"
+    },
+    {
+      "check": "no console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "no failed requests",
+      "ok": true,
+      "detail": "failed=[]"
+    }
+  ],
+  "measurements": {
+    "time_to_interactive_ms": 5270,
+    "scene_shot": {
+      "stddev_mean": 29.67,
+      "non_bg_frac": 0.297,
+      "size": [
+        1293,
+        979
+      ]
+    },
+    "camera_dist_before": 273.3,
+    "camera_dist_after_wheel": 200.9,
+    "hover_labels": {
+      "left": "lHC — 点击刺激 · 按住持续输入",
+      "right": "rS2 — 点击刺激 · 按住持续输入"
+    },
+    "click_to_next_frame_ms": 2172.0,
+    "scene2": {
+      "node": 47,
+      "responders": {
+        "maxE": 0.49378138838239716,
+        "count": 7,
+        "nodes": [
+          41,
+          44,
+          48,
+          49,
+          58,
+          59,
+          62
+        ]
+      }
+    },
+    "scene3": {
+      "amp0.5_peak": 0.0249,
+      "amp2.0_peak": 0.4942,
+      "g0.1_responders": 0,
+      "g0.35_responders": 8
+    },
+    "scene4": {
+      "node": 47,
+      "maxOther": 0.0,
+      "node_peak": 0.4936
+    },
+    "scene5": {
+      "run1_maxE": 0.4942,
+      "run2_maxE": 0.4942,
+      "run1_E+200ms": 0.0166,
+      "run2_E+200ms": 0.0166
+    },
+    "delay_lag": {
+      "peak40": {
+        "e": 0.49419609053315555,
+        "t": 1664
+      },
+      "peakN": {
+        "e": 0.015839720253998726,
+        "t": 1704
+      }
+    },
+    "snapshot_cadence": {
+      "n": 158,
+      "maxGapMs": 74
+    },
+    "fps_1920_swiftshader": 1,
+    "soak_120s": [
+      {
+        "wall_s": 10,
+        "snap_s": 21.1,
+        "disp_s": 21.1,
+        "heap_mb": 9.9,
+        "diverged": false
+      },
+      {
+        "wall_s": 20,
+        "snap_s": 31.2,
+        "disp_s": 31.2,
+        "heap_mb": 10.8,
+        "diverged": false
+      },
+      {
+        "wall_s": 30,
+        "snap_s": 41.2,
+        "disp_s": 41.2,
+        "heap_mb": 12.2,
+        "diverged": false
+      },
+      {
+        "wall_s": 40,
+        "snap_s": 51.2,
+        "disp_s": 51.3,
+        "heap_mb": 12.9,
+        "diverged": false
+      },
+      {
+        "wall_s": 50,
+        "snap_s": 61.2,
+        "disp_s": 61.2,
+        "heap_mb": 13.6,
+        "diverged": false
+      },
+      {
+        "wall_s": 60,
+        "snap_s": 71.4,
+        "disp_s": 71.4,
+        "heap_mb": 10.5,
+        "diverged": false
+      },
+      {
+        "wall_s": 70,
+        "snap_s": 81.4,
+        "disp_s": 81.5,
+        "heap_mb": 11.3,
+        "diverged": false
+      },
+      {
+        "wall_s": 80,
+        "snap_s": 91.5,
+        "disp_s": 91.5,
+        "heap_mb": 12.0,
+        "diverged": false
+      },
+      {
+        "wall_s": 90,
+        "snap_s": 101.5,
+        "disp_s": 101.5,
+        "heap_mb": 12.7,
+        "diverged": false
+      },
+      {
+        "wall_s": 100,
+        "snap_s": 111.6,
+        "disp_s": 111.6,
+        "heap_mb": 9.9,
+        "diverged": false
+      },
+      {
+        "wall_s": 110,
+        "snap_s": 121.7,
+        "disp_s": 121.7,
+        "heap_mb": 10.6,
+        "diverged": false
+      },
+      {
+        "wall_s": 120,
+        "snap_s": 131.7,
+        "disp_s": 131.8,
+        "heap_mb": 11.3,
+        "diverged": false
+      }
+    ],
+    "heap_growth_mb_120s": -1.4
+  }
+}

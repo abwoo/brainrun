@@ -1,0 +1,82 @@
+[
+  {
+    "check": "sim ready, PLAY running",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "simulation clock advances",
+    "ok": true,
+    "detail": "TIME 3.2 -> 4.4 s"
+  },
+  {
+    "check": "click selects a region",
+    "ok": true,
+    "detail": "panel='REGION / CONNECTION\\nlHC\\n编号\\n#47 / 76\\n中心坐标\\n-10.7, 11.6, -17.5 mm\\n皮层面积\\n1139.8 mm²\\n兴'"
+  },
+  {
+    "check": "selected region E rose after click",
+    "ok": true,
+    "detail": "max E[47] (peak tracker) = 0.494 (baseline ~0.011)"
+  },
+  {
+    "check": "E readout visible in panel",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "click changes the picture (3D + waveform)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "G=0: other nodes unaffected",
+    "ok": true,
+    "detail": "max |dE| on other 75 nodes = 0.00e+00"
+  },
+  {
+    "check": "G=0: stimulated node still responds",
+    "ok": true,
+    "detail": "|dE| node 40 = 0.483"
+  },
+  {
+    "check": "hold applies input",
+    "ok": true,
+    "detail": "P[40] while held = 2"
+  },
+  {
+    "check": "release stops input",
+    "ok": true,
+    "detail": "P[40] after release = 0"
+  },
+  {
+    "check": "pause freezes simulation time",
+    "ok": true,
+    "detail": "TIME 6.7 -> 6.7 s"
+  },
+  {
+    "check": "resume restarts the clock",
+    "ok": true,
+    "detail": "TIME 6.7 -> 7.7 s"
+  },
+  {
+    "check": "reset restores t=0",
+    "ok": true,
+    "detail": "TIME 400 ms after reset = 0.5 s (was ~7.8 s)"
+  },
+  {
+    "check": "978px: no horizontal overflow",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "no console errors",
+    "ok": true,
+    "detail": "errors=[]"
+  },
+  {
+    "check": "no failed requests",
+    "ok": true,
+    "detail": "failed=[]"
+  }
+]

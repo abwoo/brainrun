@@ -1,0 +1,69 @@
+# Deploy the Vite app to GitHub Pages (project site: https://abwoo.github.io/brainrun/).
+#
+# Triggers only on pushes to main. Build order matters:
+#   1. Rust + wasm-pack, then scripts/build-wasm.sh regenerates app/public/wasm/
+#      (the WASM engine is a build artifact and is NOT committed).
+#   2. npm ci + npm run build:pages (VITE_BASE=/brainrun/ so assets resolve
+#      under the /brainrun/ sub-path; local dev/preview keep base '/').
+#   3. Upload app/dist as the Pages artifact and deploy it.
+#
+# Required repo settings (already done by the maintainer): the repository is
+# public and Pages is enabled with "GitHub Actions" as the source.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build WASM engine
+        run: bash scripts/build-wasm.sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build for Pages
+        working-directory: app
+        run: npm run build:pages
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

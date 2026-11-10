@@ -1,0 +1,11 @@
+PASS  phase3 browser (16)  16/16 ok
+PASS  phase4 browser (23)  23/23 ok
+PASS  phase5 acceptance  54/55 ok; allowed non-blocking failures: ['D1 first screen interactive (sim ready)']
+PASS  phase5 retest  12/13 ok; allowed non-blocking failures: ['D1 warm reload interactive']
+PASS  debug-round (auth + usability)  17/17 ok
+PASS  compare.py Python<->Rust  max|dE|=3.331e-16 max|dI|=1.943e-16 (tolerance 1e-9)
+PASS  cargo test  test result: ok. 8 passed; 0 failed
+PASS  node causal 9/9  9/9 checks passed
+PASS  npm run build  vite build succeeded
+
+ROUND 1 VERDICT: PASS (9/9 groups passed)
