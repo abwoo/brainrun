@@ -1,0 +1,28 @@
+{
+  "source": {
+    "connectivity_76.zip": "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/tvb_data/connectivity/connectivity_76.zip",
+    "cortex_16384.zip": "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/tvb_data/surfaceData/cortex_16384.zip",
+    "regionMapping_16k_76.txt": "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/tvb_data/regionMapping/regionMapping_16k_76.txt"
+  },
+  "note": "tvb-data GitHub 仓库已声明 DEPRECATED, 建议改用 Zenodo https://zenodo.org/records/10128131 (内容一致性未核实)。",
+  "license_note": "TVB 数据再分发许可未明确 (tvb-data LICENSE 为 GPLv3 但未单独说明数据文件是否适用); 原始文件不进仓库, 本资产仅为构建时下载的预处理结果。",
+  "citation": "Sanz-Leon et al. 2013, Front. Neuroinform. 7:10, doi:10.3389/fninf.2013.00010",
+  "counts": {
+    "regions": 76,
+    "vertices": 16384,
+    "triangles": 32760,
+    "nonzero_weights_after_diag_zero": 1494,
+    "edges_with_length_kept": 1494
+  },
+  "checks": [
+    "weights 76x76 OK, 值域 0-3, 非零元 1560 个",
+    "tract_lengths 76x76 OK, 值域 0.00-153.49 mm, 非零元 5402 个",
+    "vertices 16384x3 OK, x [-89.7, 89.0], y [-73.6, 71.5], z [-68.7, 68.4] (mm 量级)",
+    "triangles 32760x3 OK, 索引全部在 0-16383 内",
+    "regionMapping 16384 个值 OK, 取值 0-75, 76 区全部出现, 无 -1",
+    "centres/areas/cortical 各 76 行 OK",
+    "对角线清零: 原对角元 max 3, 清零后非零元 1494 个",
+    "长度矩阵只保留权重>0 的边: 保留 1494 条边 (原非零 5402 个)",
+    "权重值: 5742 个为整数 0/1/2/3, 另有 34 个非整数值 (0.0046-2.5786), 均在 0-3 内, 原值保存不取整"
+  ]
+}

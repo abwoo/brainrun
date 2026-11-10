@@ -1,0 +1,210 @@
+/**
+ * LIVE ACTIVITY 示波器（Phase 3，Phase 4 打磨：时间竖线、刻度、顶格标注）。
+ *
+ * 只画模型快照：当前选中脑区的 E（琥珀）/ I（蓝），横轴仿真时间，
+ * 最近 10 秒窗口，自动滚动；刺激事件画竖线标记。
+ * 明确标注 Regional Neural Activity（任意单位），不是 EEG 电压。
+ * 暂停时停止追加、保留近期曲线；换脑区立即切换并清空。
+ */
+import { useEffect, useRef, useState } from 'react';
+import type { SimClient } from '../lib/simClient';
+import type { Snapshot } from '../worker/protocol';
+
+const WINDOW_MS = 10_000;
+const Y_MAX = 0.6;
+
+interface Props {
+  sim: SimClient | null;
+  selectedId: number | null;
+  resetSignal: number;
+}
+
+type Trace = 'E' | 'I' | 'BOTH';
+
+export default function ActivityChart({ sim, selectedId, resetSignal }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [trace, setTrace] = useState<Trace>('E');
+  const traceRef = useRef<Trace>('E');
+  traceRef.current = trace;
+
+  // 每个选中脑区一条环形缓冲：{t_ms, e, i}，只保留最近 12 秒。
+  const bufferRef = useRef<Array<{ t_ms: number; e: number; i: number }>>([]);
+  const selectedRef = useRef<number | null>(selectedId);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    selectedRef.current = selectedId;
+    bufferRef.current = [];
+  }, [selectedId]);
+
+  useEffect(() => {
+    bufferRef.current = [];
+  }, [resetSignal]);
+
+  useEffect(() => {
+    if (!sim) return;
+    const unsub = sim.subscribe((snap: Snapshot) => {
+      pausedRef.current = snap.paused;
+      const id = selectedRef.current;
+      if (id === null || snap.paused) return;
+      const buf = bufferRef.current;
+      buf.push({ t_ms: snap.t_ms, e: snap.e[id], i: snap.i[id] });
+      while (buf.length > 0 && snap.t_ms - buf[0].t_ms > 12_000) buf.shift();
+    });
+    return unsub;
+  }, [sim]);
+
+  // 绘图循环：只读缓冲，不改模型。
+  useEffect(() => {
+    let raf = 0;
+    const draw = () => {
+      raf = requestAnimationFrame(draw);
+      const canvas = canvasRef.current;
+      const wrap = wrapRef.current;
+      if (!canvas || !wrap) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      // 横向网格：0.1 小刻度（淡）、0.2/0.4/0.6 主刻度；0 基线略亮。
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(19, 57, 84, 0.35)';
+      ctx.beginPath();
+      for (const gy of [0.1, 0.3, 0.5]) {
+        const y = h - 8 - (gy / Y_MAX) * (h - 16);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(19, 57, 84, 0.8)';
+      ctx.beginPath();
+      for (const gy of [0.2, 0.4, 0.6]) {
+        const y = h - 8 - (gy / Y_MAX) * (h - 16);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(127, 168, 196, 0.6)';
+      ctx.beginPath();
+      ctx.moveTo(0, h - 8);
+      ctx.lineTo(w, h - 8);
+      ctx.stroke();
+      ctx.fillStyle = '#7fa8c4';
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      // 0.6 线贴着画布顶边（y≈8），标签画到线下方才不会被切掉。
+      ctx.fillText('0.6', 4, h - 8 - (0.6 / Y_MAX) * (h - 16) + 10);
+      ctx.fillText('0.4', 4, h - 8 - (0.4 / Y_MAX) * (h - 16) - 3);
+      ctx.fillText('0.2', 4, h - 8 - (0.2 / Y_MAX) * (h - 16) - 3);
+      ctx.fillText('0', 4, h - 10);
+
+      const buf = bufferRef.current;
+      if (buf.length < 2) {
+        ctx.fillStyle = '#7fa8c4';
+        ctx.font = '11px system-ui, sans-serif';
+        // 空状态文字下移到 y=36，避开顶部的 0.6 标签。
+        ctx.fillText(selectedId === null ? '点击大脑选择一个脑区' : '等待仿真数据…', 10, 36);
+        return;
+      }
+      const t1 = buf[buf.length - 1].t_ms;
+      const t0 = t1 - WINDOW_MS;
+      const xOf = (t: number) => ((t - t0) / WINDOW_MS) * w;
+      const yOf = (v: number) => h - 8 - (Math.min(v, Y_MAX) / Y_MAX) * (h - 16);
+
+      // 纵向时间网格：每 2 s 一条，底部标仿真时间（秒）。
+      ctx.strokeStyle = 'rgba(19, 57, 84, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#7fa8c4';
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      const firstGrid = Math.ceil(t0 / 2000) * 2000;
+      for (let gt = firstGrid; gt <= t1; gt += 2000) {
+        const x = xOf(gt);
+        ctx.beginPath();
+        ctx.moveTo(x, 4);
+        ctx.lineTo(x, h - 8);
+        ctx.stroke();
+        const label = `${(gt / 1000).toFixed(0)}s`;
+        if (x > 14 && x < w - 60) ctx.fillText(label, x + 3, h - 10);
+      }
+
+      // 刺激事件竖线（最近窗口内）
+      if (sim) {
+        ctx.strokeStyle = 'rgba(255, 179, 64, 0.65)';
+        ctx.lineWidth = 1;
+        for (const m of sim.getMarkers()) {
+          if (m.t_ms < t0 || m.t_ms > t1) continue;
+          const x = xOf(m.t_ms);
+          ctx.beginPath();
+          ctx.moveTo(x, 4);
+          ctx.lineTo(x, h - 8);
+          ctx.stroke();
+        }
+      }
+
+      const drawTrace = (key: 'e' | 'i', color: string) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        let started = false;
+        for (const pt of buf) {
+          if (pt.t_ms < t0) continue;
+          const x = xOf(pt.t_ms);
+          const y = yOf(pt[key]);
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      };
+
+      if (traceRef.current === 'E' || traceRef.current === 'BOTH') {
+        drawTrace('e', '#ffb340');
+      }
+      if (traceRef.current === 'I' || traceRef.current === 'BOTH') {
+        drawTrace('i', '#4fb6f2');
+      }
+
+      // 右下角时间标尺
+      ctx.fillStyle = '#7fa8c4';
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      ctx.fillText(`${(t1 / 1000).toFixed(1)} s`, w - 52, h - 10);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [sim, selectedId]);
+
+  return (
+    <div className="chart-wrap" ref={wrapRef}>
+      <canvas ref={canvasRef} className="chart-canvas" />
+      <div className="chart-controls">
+        <span className="chart-label">REGIONAL NEURAL ACTIVITY · a.u. · 10 S</span>
+        <span className="chart-toggles">
+          {(['E', 'I', 'BOTH'] as Trace[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`chart-toggle ${trace === t ? 'chart-toggle-on' : ''}`}
+              onClick={() => setTrace(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </span>
+      </div>
+      <p className="panel-text chart-note">
+        纵轴为神经群体活动（任意单位），不是微伏级 EEG 电压。
+      </p>
+    </div>
+  );
+}

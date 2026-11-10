@@ -1,0 +1,4 @@
+# TVB 原始数据（绝不提交进仓库）
+# 原始文件只放 raw/，构建时下载；前端只用 app/public/brain-assets/ 里
+# 预处理生成的轻量资产。详见 prepare.py 头部与 docs/model-spec.md §7。
+raw/

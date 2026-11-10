@@ -1,0 +1,544 @@
+/* Brain Physics Playground — Phase 1 样式。CHIMERA 仪器风：
+   背景 #05080C，细线框 #133954，结构蓝 #4fb6f2，文字 #eef6f8。
+   无阴影、无玻璃拟物、无大圆角、无渐变面板。见 docs/design-spec.md。 */
+
+:root {
+  --bg: #05080c;
+  --panel: #05080c;
+  --frame: #133954;
+  --blue: #4fb6f2;
+  --blue-mid: #3487c4;
+  --blue-dim: #1f5f8c;
+  --text: #eef6f8;
+  --text-dim: #7fa8c4;
+  --sans: system-ui, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 560px;
+  background: var(--bg);
+}
+
+/* ---- 顶栏 ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--frame);
+  flex: 0 0 auto;
+}
+
+.topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--text);
+}
+
+.topbar-sub {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+
+.topbar-controls {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--frame);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--blue-mid);
+}
+
+.chip-on {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.chip:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ---- 主区 ---- */
+.main {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  min-height: 0;
+}
+
+.screen {
+  border: 1px solid var(--frame);
+  background: var(--panel);
+  position: relative;
+}
+
+.screen-title {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--blue);
+  background: var(--bg);
+  pointer-events: none;
+}
+
+.stage {
+  flex: 0 0 68%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.panels {
+  flex: 1 1 32%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.panel {
+  flex: 0 0 auto;
+  padding: 30px 12px 12px;
+}
+
+.region-panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.panel-foot {
+  font-size: 11px;
+  border-top: 1px solid var(--frame);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.offline {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  border: 1px dashed var(--frame);
+  padding: 10px;
+  text-align: center;
+}
+
+/* ---- 旋钮（Phase 3 已接入引擎） ---- */
+.knobs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.knobs-live {
+  opacity: 1;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  user-select: none;
+}
+
+.knob-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.knob-dragging .knob-dial {
+  border-color: var(--blue);
+}
+
+.knob-dial {
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--blue-mid);
+  border-radius: 50%;
+  position: relative;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.knob-disabled .knob-dial {
+  cursor: not-allowed;
+}
+
+.knob-dial:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* 表盘刻度：11 格，-135° ~ +135°，每 27° 一格；两端与中点加粗。 */
+.knob-tick {
+  position: absolute;
+  left: calc(50% - 0.5px);
+  top: calc(50% - 2.5px);
+  width: 1px;
+  height: 5px;
+  background: var(--blue-dim);
+  pointer-events: none;
+}
+
+.knob-tick-major {
+  height: 7px;
+  background: var(--blue-mid);
+}
+
+.knob-pointer {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 1px;
+  height: 14px;
+  background: var(--blue);
+  transform-origin: 50% 23px;
+  transform: translateX(-50%) rotate(35deg);
+}
+
+.knob-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.knob-name {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.knob-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.knob-model {
+  font-size: 10px;
+  color: var(--blue);
+  text-align: center;
+  line-height: 1.35;
+  /* Phase 4：允许换行，不再 nowrap 截断（窄屏下模型文字曾被切掉）。 */
+}
+
+/* ---- 活动波形（Phase 3） ---- */
+.chart-wrap {
+  position: relative;
+  height: 150px;
+}
+
+.chart-canvas {
+  display: block;
+  width: 100%;
+  height: 118px;
+  border: 1px solid var(--frame);
+  background: var(--bg);
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.chart-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+.chart-toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-toggle {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--frame);
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.chart-toggle-on {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.chart-toggle:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.chart-note {
+  padding-top: 4px;
+}
+
+/* ---- 3D 舞台工具与锁定横幅 ---- */
+.stage-tools {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 6;
+}
+
+.chip-small {
+  padding: 4px 9px;
+  font-size: 10px;
+}
+
+.locked-banner {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  background: var(--bg);
+  border: 1px solid #ffb340;
+  color: #ffb340;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+/* ---- 脑区面板 ---- */
+.region-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.region-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.region-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.region-facts dt {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.region-facts dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.conn-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--blue);
+  border-top: 1px solid var(--frame);
+  padding-top: 8px;
+}
+
+.conn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conn-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(19, 57, 84, 0.5);
+  padding-bottom: 4px;
+}
+
+.conn-label {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.conn-nums {
+  font-family: var(--mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ---- 3D 场景 ---- */
+.brain-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.brain-scene canvas {
+  display: block;
+  touch-action: none;
+}
+
+.brain-tooltip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--bg);
+  border: 1px solid var(--blue);
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.brain-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  z-index: 5;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.stage-loading,
+.stage-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.stage-error {
+  color: #ff5d40;
+}
+
+/* ---- 底栏 ---- */
+.bottombar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--frame);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.bottombar-mid {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* ---- 窄屏：纵向堆叠（与 CHIMERA 一致） ---- */
+@media (max-width: 1100px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .main {
+    flex-direction: column;
+  }
+
+  .stage {
+    flex: none;
+    height: 62vh;
+  }
+
+  .panels {
+    flex: none;
+  }
+
+  .bottombar {
+    flex-wrap: wrap;
+  }
+}
