@@ -70,6 +70,31 @@ try{
   const reset=await voltage();
   assert.ok(Math.abs(reset-base)<1e-4,
     'restored source index, orientation and current return the reference voltage');
+  // PR5 independent local cortical ODE -> assumed synaptic current -> MRI
+  // cortical normal -> MNE/BEM electrode projection (no pre-authored trace).
+  await dialog.getByLabel('BEM物理源模式').selectOption('local-column');
+  await dialog.getByText('等效偶极矩：', {exact:false}).waitFor();
+  const momentText=()=>dialog.getByText('等效偶极矩：',{exact:false}).textContent();
+  const beforeMoment=await momentText();
+  assert.ok(beforeMoment?.includes('0.0000 nA·m'),'column starts at equilibrium');
+  await dialog.getByRole('button',{name:'施加局部刺激'}).click();
+  await page.waitForTimeout(120);
+  const duringMoment=await momentText();
+  const match=duringMoment?.match(/(-?[0-9]+(?:[.][0-9]+)?) nA·m/);
+  assert.ok(match,'source must expose numerical physical units');
+  assert.ok(Math.abs(Number(match[1]))>.005,
+    'stimulus must change ODE-driven equivalent current dipole');
+  const observed=await dialog.getByText('电位：',{exact:false}).textContent();
+  assert.match(observed??'',/µV/,'dipole projects through EEG BEM');
+  await dialog.getByRole('button',{name:'暂停神经动力学'}).click();
+  const paused=await dialog.getByText('模拟时钟',{exact:false}).textContent();
+  await page.waitForTimeout(130);
+  const pausedAgain=await dialog.getByText('模拟时钟',{exact:false}).textContent();
+  assert.equal(pausedAgain,paused,'pause must freeze model clock');
+  await dialog.getByRole('button',{name:'重置神经动力学'}).click();
+  const baseline=await momentText();
+  assert.ok(baseline?.includes('0.0000 nA·m'),'reset must restore equilibrium');
+  await dialog.getByLabel('BEM物理源模式').selectOption('manual');
   assert.deepEqual(errors,[],'zero browser runtime errors');
 
   console.log(JSON.stringify({
