@@ -60,6 +60,14 @@ jobs:
       - name: Generate brain assets (build-time)
         run: python3 scripts/prepare-brain-data/fetch.py && python3 scripts/prepare-brain-data/prepare.py
 
+      # PR5: MNE validated, independent four-layer spherical EEG demo.
+      # Generated at build time, never checked in as third-party assets.
+      - name: Install MNE-Python for forward fixture
+        run: python3 -m pip install mne==1.11.0
+
+      - name: Generate four-layer sphere forward matrix
+        run: python3 scientific/forward/generate_sphere_model.py
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
