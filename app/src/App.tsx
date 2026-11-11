@@ -20,8 +20,135 @@ import type {
   ResponseSummary,
   ResponseWindow,
 } from './lib/simClient';
+import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
 import type { Snapshot } from './worker/protocol';
 import './App.css';
+
+/**
+ * PR3 — 小型滑杆 + 数字框控件（沿用 PR2 ParamControl 的交互模式：
+ * 横向滑杆 + 直接输数值 + −/+ 步进 + 双击恢复默认值）。
+ *
+ * 刻意不用 `.param` / `.param-*` 类名：PR2 测试断言全页恰好 4 个
+ * `.param`（四个主参数），权重/偏置行必须不计入；功能模式相同，
+ * 样式类独立（`.edge-*`，见 App.css）。
+ * 滚轮改值不在此实现（四个主参数保留滚轮）；滑杆、数字框、步进、
+ * 双击恢复已覆盖精确输入与快速调整。
+ */
+interface ValueSliderProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+  decimals: number;
+  disabled?: boolean;
+  onChange: (v: number) => void;
+}
+
+function ValueSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  defaultValue,
+  decimals,
+  disabled,
+  onChange,
+}: ValueSliderProps) {
+  const [text, setText] = useState(value.toFixed(decimals));
+  const numberRef = useRef<HTMLInputElement>(null);
+
+  // 外部值变化时同步数字框；正在框里打字时不抢。
+  useEffect(() => {
+    if (document.activeElement !== numberRef.current) setText(value.toFixed(decimals));
+  }, [value, decimals]);
+
+  const k = (value - min) / (max - min);
+
+  /** 提交数字框：解析失败回落当前值；越界 clamp 到范围边界。 */
+  const commitNumber = () => {
+    const v = parseFloat(text);
+    if (Number.isNaN(v)) {
+      setText(value.toFixed(decimals));
+      return;
+    }
+    const clamped = Math.min(max, Math.max(min, v));
+    setText(clamped.toFixed(decimals));
+    onChange(clamped);
+  };
+
+  const stepBy = (dv: number) => {
+    if (disabled) return;
+    onChange(Math.min(max, Math.max(min, value + dv)));
+  };
+
+  return (
+    <div className="edge-row">
+      <div className="edge-controls">
+        <button
+          type="button"
+          className="edge-step"
+          aria-label={`${label} 减小`}
+          disabled={disabled}
+          title="减小"
+          onClick={() => stepBy(-step)}
+        >
+          −
+        </button>
+        <input
+          type="range"
+          className="edge-slider"
+          min={0}
+          max={1000}
+          step={1}
+          value={Math.round(k * 1000)}
+          aria-label={label}
+          disabled={disabled}
+          title="拖动改值 · 双击恢复原始值"
+          onChange={(e) =>
+            onChange(min + (Number(e.target.value) / 1000) * (max - min))
+          }
+          onDoubleClick={() => {
+            if (!disabled) onChange(defaultValue);
+          }}
+        />
+        <button
+          type="button"
+          className="edge-step"
+          aria-label={`${label} 增大`}
+          disabled={disabled}
+          title="增大"
+          onClick={() => stepBy(step)}
+        >
+          +
+        </button>
+        <input
+          type="number"
+          className="edge-number mono"
+          ref={numberRef}
+          aria-label={`${label} 数值`}
+          min={min}
+          max={max}
+          step={step}
+          value={text}
+          disabled={disabled}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commitNumber}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitNumber();
+              numberRef.current?.blur();
+            }
+          }}
+        />
+        <span className="edge-value mono">{value.toFixed(decimals)}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [data, setData] = useState<BrainData | null>(null);
@@ -77,6 +204,12 @@ export default function App() {
   const [kDur, setKDur] = useState(() => KNOB_MAP.durationK(DEFAULT_PARAMS.stim_duration_ms));
   const [kExcInh, setKExcInh] = useState(() => KNOB_MAP.c_eiK(DEFAULT_PARAMS.c_ei));
   const [kConn, setKConn] = useState(() => KNOB_MAP.gK(DEFAULT_PARAMS.g));
+
+  // PR3：已改的连接权重（key `${i},${j}` → 当前值；只存与 TVB 原始值
+  // 不同的边）。RESET 不动它——权重只能由恢复动作改回。
+  const [weightEdits, setWeightEdits] = useState<Record<string, number>>({});
+  // PR3：持续偏置输入（node → 幅度；只存非零项）。RESET 清掉它。
+  const [biasMap, setBiasMap] = useState<Record<number, number>>({});
 
   const simRef = useRef<SimClient | null>(null);
   const lastUiUpdateRef = useRef(0);
@@ -203,6 +336,17 @@ export default function App() {
   const selectedE = selectedId !== null && snap ? snap.e[selectedId] : null;
   const selectedI = selectedId !== null && snap ? snap.i[selectedId] : null;
   const selectedP = selectedId !== null && snap ? snap.p[selectedId] : null;
+  // PR3：选中脑区的持续偏置（0 = 无偏置）与全网已改权重数。
+  const selectedBias = selectedId !== null ? (biasMap[selectedId] ?? 0) : 0;
+  const modifiedWeightCount = Object.keys(weightEdits).length;
+  const biasList = useMemo(
+    () =>
+      Object.entries(biasMap).map(([node, value]) => ({
+        node: Number(node),
+        value,
+      })),
+    [biasMap],
+  );
 
   // PR2：回放当前时刻的录制快照（窗口内最近一条 ≤ 回放时刻的快照）。
   // 直播时为 null，BrainScene 改读直播快照。
@@ -255,6 +399,69 @@ export default function App() {
     setHoldMs(null);
   }, []);
 
+  // PR3：改一条连接权重（单边：只改 C[i][j]，不改 C[j][i]）。
+  const handleWeightChange = useCallback(
+    (i: number, j: number, w: number) => {
+      const sim = simRef.current;
+      if (!sim || !data) return;
+      const stored = sim.setWeight(i, j, w);
+      const orig = data.connectivity.weights[i][j];
+      const key = `${i},${j}`;
+      setWeightEdits((prev) => {
+        const next = { ...prev };
+        if (Math.abs(stored - orig) > 1e-9) next[key] = stored;
+        else delete next[key];
+        return next;
+      });
+    },
+    [data],
+  );
+  const handleWeightReset = useCallback((i: number, j: number) => {
+    simRef.current?.resetWeight(i, j);
+    const key = `${i},${j}`;
+    setWeightEdits((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+  const handleWeightResetAll = useCallback(() => {
+    simRef.current?.resetAllWeights();
+    setWeightEdits({});
+  }, []);
+
+  // PR3：持续偏置输入（与点击脉冲不同：一直加到关掉或归零为止）。
+  const handleBiasToggle = useCallback(() => {
+    const sim = simRef.current;
+    if (!sim || selectedId === null) return;
+    const cur = biasMap[selectedId] ?? 0;
+    if (cur !== 0) {
+      sim.clearBias(selectedId);
+      setBiasMap((prev) => {
+        const next = { ...prev };
+        delete next[selectedId];
+        return next;
+      });
+    } else {
+      sim.setBias(selectedId, BIAS_DEFAULT_ON);
+      setBiasMap((prev) => ({ ...prev, [selectedId]: BIAS_DEFAULT_ON }));
+    }
+  }, [biasMap, selectedId]);
+  const handleBiasChange = useCallback(
+    (v: number) => {
+      const sim = simRef.current;
+      if (!sim || selectedId === null) return;
+      const stored = sim.setBias(selectedId, v); // 0 = 清除偏置
+      setBiasMap((prev) => {
+        const next = { ...prev };
+        if (stored === 0) delete next[selectedId];
+        else next[selectedId] = stored;
+        return next;
+      });
+    },
+    [selectedId],
+  );
+
   const handlePlayPause = () => {
     const sim = simRef.current;
     if (!sim || !simReady) return;
@@ -281,6 +488,11 @@ export default function App() {
     setSimError(null);
     setSelectedId(null);
     setHoldMs(null);
+    // PR3 — RESET 的语义（界面上写明）：恢复仿真状态、清除刺激与偏置
+    // 输入，但保留用户改过的连接权重；权重只能由恢复动作改回。
+    // SimClient.reset() 已清引擎侧偏置，这里只清 App 侧的偏置状态。
+    setBiasMap({});
+    // 注意：这里刻意不碰 weightEdits、不调 resetAllWeights。
     // PR2：RESET 清掉视图回放与响应数据（基线、窗口、标记随之下一次刺激重建）。
     setReplay({
       active: false,
@@ -322,7 +534,7 @@ export default function App() {
           >
             CONNECT — {showConnections ? '显示' : '隐藏'}
           </button>
-          <button type="button" className="chip" onClick={handleReset} title="恢复默认参数、清除刺激、恢复确定性初始状态、清空曲线">
+          <button type="button" className="chip" onClick={handleReset} title="恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）">
             RESET
           </button>
           <button
@@ -396,6 +608,7 @@ export default function App() {
               baselineE={resp.baselineE}
               replayE={replayE}
               responseGroups={resp.summary ? resp.groups : null}
+              biasList={biasList}
             />
           )}
         </section>
@@ -714,6 +927,15 @@ export default function App() {
                       <dt>外部输入 P</dt>
                       <dd>{selectedP !== null ? selectedP.toFixed(2) : '—'}</dd>
                     </div>
+                    {selectedBias !== 0 && (
+                      <div>
+                        <dt>持续偏置</dt>
+                        <dd>
+                          {selectedBias > 0 ? '兴奋' : '抑制'} {selectedBias >= 0 ? '+' : ''}
+                          {selectedBias.toFixed(2)}（持续输入，非脉冲）
+                        </dd>
+                      </div>
+                    )}
                     {holdMs !== null && (
                       <div>
                         <dt>按住输入中</dt>
@@ -721,20 +943,117 @@ export default function App() {
                       </div>
                     )}
                   </dl>
-                  <div className="conn-title">主要连接（按权重前 5）</div>
+                  <div className="conn-title">主要连接（按权重前 5）· 可编辑</div>
                   {connections.length === 0 ? (
                     <p className="panel-text">该脑区无权重 &gt; 0 的连接。</p>
                   ) : (
-                    <ul className="conn-list">
-                      {connections.map((c) => (
-                        <li key={c.target.id}>
-                          <span className="conn-label">{c.target.label}</span>
-                          <span className="conn-nums">
-                            W {c.weight.toFixed(3)} · {c.lengthMm.toFixed(1)} MM
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <ul className="weight-list">
+                        {connections.map((c) => {
+                          const orig = c.weight;
+                          const key = `${selectedId},${c.target.id}`;
+                          const cur = weightEdits[key] ?? orig;
+                          const modified = Math.abs(cur - orig) > 1e-9;
+                          return (
+                            <li
+                              key={c.target.id}
+                              className="weight-item"
+                              data-edge={`${selectedId}-${c.target.id}`}
+                            >
+                              <div className="weight-line">
+                                <span className="conn-label">
+                                  {c.target.label} → {selected.label}
+                                </span>
+                                <span className="conn-nums">{c.lengthMm.toFixed(1)} MM</span>
+                                {modified && <span className="weight-badge">已修改</span>}
+                              </div>
+                              <ValueSlider
+                                label={`${c.target.label} 到 ${selected.label} 的连接权重`}
+                                value={cur}
+                                min={WEIGHT_MIN}
+                                max={WEIGHT_MAX}
+                                step={0.05}
+                                defaultValue={orig}
+                                decimals={3}
+                                disabled={!simReady}
+                                onChange={(w) =>
+                                  // 此分支已保证 selected !== null，从而 selectedId !== null。
+                                  handleWeightChange(selectedId!, c.target.id, w)
+                                }
+                              />
+                              <div className="weight-sub mono">
+                                当前 {cur.toFixed(3)} · 原始 {orig.toFixed(3)}
+                                {modified && (
+                                  <button
+                                    type="button"
+                                    className="chip chip-small weight-restore"
+                                    onClick={() =>
+                                      // 此分支已保证 selectedId !== null。
+                                      handleWeightReset(selectedId!, c.target.id)
+                                    }
+                                  >
+                                    恢复原始值
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {modifiedWeightCount > 0 && (
+                        <button
+                          type="button"
+                          className="chip chip-small weight-restore-all"
+                          onClick={handleWeightResetAll}
+                        >
+                          恢复全部原始值（{modifiedWeightCount} 条已改）
+                        </button>
+                      )}
+                      <p className="panel-text panel-foot">
+                        权重范围 0–3，越界自动 clamp 到边界。单边修改：只改「来源脑区
+                        → 选中脑区」这一方向，不改反向；TVB 原始矩阵基本对称但不完全对称
+                        （最大差 3.0）。RESET 恢复仿真状态，但保留已改权重；权重只能用恢复
+                        动作改回。当前权重可能已被用户修改，不再是 TVB 原始数据。
+                      </p>
+                    </>
+                  )}
+                  <div className="conn-title">持续偏置输入 · BIAS（不是点击脉冲）</div>
+                  <p className="panel-text">
+                    持续偏置：加到 Wilson–Cowan 输入项上的持续量，开着就一直生效，
+                    直到关掉或归零；与「点击刺激」脉冲不同——脉冲只持续 20–500 ms。
+                    范围 −1.0–+1.0，开启默认值 +0.50。正值兴奋（抬高该脑区 E），
+                    负值抑制（压低 E）。3D 图中以紫色八面体标记（与脉冲的琥珀色环不同）。
+                  </p>
+                  <div className="bias-controls">
+                    <button
+                      type="button"
+                      className={`chip chip-small ${selectedBias !== 0 ? 'chip-on' : ''}`}
+                      disabled={!simReady}
+                      onClick={handleBiasToggle}
+                    >
+                      偏置 {selectedBias !== 0 ? '开' : '关'}
+                    </button>
+                    <span className="panel-text mono">
+                      当前：
+                      {selectedBias === 0
+                        ? '无偏置'
+                        : `${selectedBias > 0 ? '兴奋' : '抑制'} ${selectedBias >= 0 ? '+' : ''}${selectedBias.toFixed(2)}`}
+                    </span>
+                  </div>
+                  {selectedBias !== 0 && (
+                    <div className="bias-slider">
+                      <ValueSlider
+                        label={`${selected.label} 持续偏置`}
+                        value={selectedBias}
+                        min={BIAS_MIN}
+                        max={BIAS_MAX}
+                        step={0.05}
+                        defaultValue={BIAS_DEFAULT_ON}
+                        decimals={2}
+                        disabled={!simReady}
+                        onChange={handleBiasChange}
+                      />
+                    </div>
                   )}
                   <p className="panel-text panel-foot">
                     连接线为结构连接示意，不是白质纤维追踪结果。
@@ -773,6 +1092,19 @@ export default function App() {
                 这不是某个真人的 MRI / 扩散 MRI 测得的个体化连接网络。
                 TVB 官方声明：该数据集“为数值测试与理论探索定制，
                 生物物理真实性有限，不应以此为依据”。
+              </p>
+              <div className="conn-title">直接操纵 · 当前权重可能已被修改</div>
+              <p className="panel-text">
+                连接权重可编辑：选中脑区的主要连接可逐条改权重（0–3，单边：
+                只改来源脑区 → 选中脑区的方向，不改反向）。改过的权重标「已修改」
+                并与 TVB 原始值并列显示，可单条或全部恢复。RESET 恢复仿真状态，
+                但保留已改权重；当前权重可能已被用户修改，不再是 TVB 原始数据。
+              </p>
+              <p className="panel-text">
+                持续偏置输入：对选中脑区可加持续的正（兴奋）/负（抑制）偏置
+                （−1–+1，开启默认 +0.50），加到 Wilson–Cowan 输入项上直到关掉
+                或归零；与点击脉冲不同。RESET 清除偏置输入。刺激标记画在鼠标
+                实际触碰的皮层表面点上，不再是脑区中心。
               </p>
               <div className="conn-title">皮层网格</div>
               <p className="panel-text">

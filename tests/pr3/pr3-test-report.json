@@ -1,0 +1,202 @@
+{
+  "peak54_baseline": 0.026994128027422973,
+  "peak54_zeroed": 0.0012502632558753675,
+  "peak54_restored": 0.025376005304522574,
+  "peak40_baseline": 0.0037999331294253976,
+  "peak40_doubled": 0.008461057222010826,
+  "bias_E40": {
+    "baseline": 0.011780297409637671,
+    "pos": 0.024963999442603295,
+    "neg": 0.006050623668509796,
+    "off": 0.011780297409637671
+  },
+  "bias_E0": {
+    "baseline": 0.01346796415529166,
+    "pos": 0.013468431698268814
+  },
+  "marker_pair": {
+    "node": 61,
+    "dist_mm": 17.65487073719676,
+    "surface_mm": [
+      1.259293544848971,
+      1.189188720015996
+    ]
+  },
+  "checks": [
+    {
+      "check": "W1 pulse 73 -> downstream peak dE[54] measurable at baseline",
+      "ok": true,
+      "detail": "peak dE[54]=0.026994128027422973"
+    },
+    {
+      "check": "W2 zeroed edge kills downstream response (<30% and <0.01)",
+      "ok": true,
+      "detail": "zeroed=0.0012502632558753675 baseline=0.026994128027422973 ratio=0.046"
+    },
+    {
+      "check": "W3 zeroing is single-sided: reverse edge W[73][54] untouched",
+      "ok": true,
+      "detail": "W[73][54]=0 W[54][73]=0"
+    },
+    {
+      "check": "W4 restoring the edge restores the downstream response",
+      "ok": true,
+      "detail": "restored=0.025376005304522574 baseline=0.026994128027422973"
+    },
+    {
+      "check": "W5 doubled edge enhances downstream response (>1.5x)",
+      "ok": true,
+      "detail": "doubled=0.008461057222010826 baseline=0.0037999331294253976 ratio=2.23x"
+    },
+    {
+      "check": "W6 doubling is single-sided: reverse edge W[69][40] stays 1.0",
+      "ok": true,
+      "detail": "W[69][40]=1"
+    },
+    {
+      "check": "W7 out-of-range weights clamp to [0, 3]",
+      "ok": true,
+      "detail": "set 9 -> 3, set -1 -> 0"
+    },
+    {
+      "check": "W8 reset-all restores every weight",
+      "ok": true,
+      "detail": "modified=[]"
+    },
+    {
+      "check": "WU1 panel shows 5 editable weight rows for node 54, first is lV1 -> lPCS",
+      "ok": true,
+      "detail": "rows=5 first='lV1 → lPCS\\n65.7 MM\\n−\\n+\\n3.000\\n当前 3.000 · 原始 3.000'"
+    },
+    {
+      "check": "WU2 unmodified edge shows original value, no badge",
+      "ok": true,
+      "detail": "row='lV1 → lPCS\\n65.7 MM\\n−\\n+\\n3.000\\n当前 3.000 · 原始 3.000'"
+    },
+    {
+      "check": "WU3 number entry edits weight: badge + original shown side by side",
+      "ok": true,
+      "detail": "row='lV1 → lPCS\\n65.7 MM\\n已修改\\n−\\n+\\n0.000\\n当前 0.000 · 原始 3.000\\n恢复原始值' modified=[{'i': 54, 'j': 73, 'w': 0, 'original': 3}]"
+    },
+    {
+      "check": "WU4 slider drag edits weight to 1.500",
+      "ok": true,
+      "detail": "row='lV1 → lPCS\\n65.7 MM\\n已修改\\n−\\n+\\n1.500\\n当前 1.500 · 原始 3.000\\n恢复原始值'"
+    },
+    {
+      "check": "WU5 per-edge restore returns to the original value",
+      "ok": true,
+      "detail": "modified=[]"
+    },
+    {
+      "check": "WU6 two edges modified at once",
+      "ok": true,
+      "detail": "modified=[{'i': 54, 'j': 55, 'w': 1, 'original': 3}, {'i': 54, 'j': 73, 'w': 0.5, 'original': 3}]"
+    },
+    {
+      "check": "WU7 restore-all returns every weight to original",
+      "ok": true,
+      "detail": "modified=[]"
+    },
+    {
+      "check": "WU8 panel states the RESET semantics (weights survive RESET)",
+      "ok": true,
+      "detail": "panel has semantics text: True"
+    },
+    {
+      "check": "WU9 RESET preserves the edited weight",
+      "ok": true,
+      "detail": "modified after RESET=[{'i': 54, 'j': 73, 'w': 0.5, 'original': 3}]"
+    },
+    {
+      "check": "WU10 edited weight still marked after RESET + reselect",
+      "ok": true,
+      "detail": "row='lV1 → lPCS\\n65.7 MM\\n已修改\\n−\\n+\\n0.500\\n当前 0.500 · 原始 3.000\\n恢复原始值'"
+    },
+    {
+      "check": "B1 baseline steady E[40] ~0.012 before bias",
+      "ok": true,
+      "detail": "E[40]=0.011780297409637671"
+    },
+    {
+      "check": "B2 positive bias raises steady E[40]",
+      "ok": true,
+      "detail": "E[40] 0.0118 -> 0.0250"
+    },
+    {
+      "check": "B3 positive bias leaves unconnected node 0 alone",
+      "ok": true,
+      "detail": "E[0] 0.0135 -> 0.0135"
+    },
+    {
+      "check": "B4 negative bias lowers steady E[40]",
+      "ok": true,
+      "detail": "E[40] 0.0118 -> 0.0061"
+    },
+    {
+      "check": "B5 clearing the bias restores baseline behaviour",
+      "ok": true,
+      "detail": "E[40] 0.0118 -> 0.0118"
+    },
+    {
+      "check": "BU1 bias section is worded as NOT a pulse",
+      "ok": true,
+      "detail": "bias section present: True"
+    },
+    {
+      "check": "BU2 bias starts off",
+      "ok": true,
+      "detail": "toggle='偏置 关'"
+    },
+    {
+      "check": "BU3 switching bias on applies +0.50 with a violet octahedron marker",
+      "ok": true,
+      "detail": "bias=0.5 markers=[{'node': 40, 'value': 0.5, 'geometry': 'OctahedronGeometry', 'color': '#b78cff', 'position': [8.02666373071289, 17.565792312988282, -31.922600335449218]}]"
+    },
+    {
+      "check": "BU4 bias slider moves to inhibitory -0.50",
+      "ok": true,
+      "detail": "bias=-0.5"
+    },
+    {
+      "check": "BU5 switching bias off clears it and removes the marker",
+      "ok": true,
+      "detail": "bias=0 markers=[]"
+    },
+    {
+      "check": "BU6 RESET clears the bias",
+      "ok": true,
+      "detail": "bias=0 all=[]"
+    },
+    {
+      "check": "M1 two different clicks on the same region give points >= 8 mm apart",
+      "ok": true,
+      "detail": "found=61 dist=17.7 mm"
+    },
+    {
+      "check": "M2 both hit points are real ray hits (not centroid fallback)",
+      "ok": true,
+      "detail": "fromHit=True, True"
+    },
+    {
+      "check": "M3 both hit points lie on the mesh surface (near-vertex < 8 mm)",
+      "ok": true,
+      "detail": "surface dist=1.26 mm, 1.19 mm"
+    },
+    {
+      "check": "M4 persistent input ring sits on the hit point (< 1 mm)",
+      "ok": true,
+      "detail": "ring-to-hit=0.0"
+    },
+    {
+      "check": "M5 hit point is not the region centroid (> 3 mm away)",
+      "ok": true,
+      "detail": "hit-to-centre=8.5 mm"
+    },
+    {
+      "check": "H1 zero console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    }
+  ]
+}

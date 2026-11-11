@@ -55,6 +55,15 @@ bit-identical to the Rust implementation, drawn once per node per
 derivative evaluation, in node order, predictor draws before
 corrector draws.  With ``noise_amp == 0`` the RNG is never used.
 
+PR3 — direct manipulation (mirrors crates/brain-core/src/lib.rs):
+``set_weight(i, j, w)`` is SINGLE-SIDED (only C_ij changes, C_ji
+untouched; the TVB matrix is only roughly symmetric), range 0–3 with
+clamping; ``bias[node]`` is a sustained input added to P on every step,
+range −1..+1 with clamping, 0 = no bias.  ``reset()`` clears the bias
+but NEVER the weights; only ``reset_weight`` / ``reset_all_weights``
+restore TVB originals.  Idelays are built once from the original
+weights and never recomputed (see the Rust module docs for why).
+
 No smoothing, no beautification, no hidden activity: every number
 returned comes from the equations above.
 """
@@ -235,6 +244,10 @@ class Simulator:
         p = self.params
         self.n = weights.shape[0]
         self.weights = np.array(weights, dtype=np.float64, copy=True)
+        # PR3: TVB originals (restore source; never mutated) and the
+        # sustained per-node bias (0 = no bias).
+        self.weights_orig = np.array(weights, dtype=np.float64, copy=True)
+        self.bias = np.zeros(self.n, dtype=np.float64)
         self.lengths = np.array(lengths, dtype=np.float64, copy=True)
         # Raw-sum coupling (TVB convention): coupling_E_i =
         # G * sum_j C_ij * E_j(t - d_ij).  No normalisation.
@@ -246,11 +259,84 @@ class Simulator:
 
     # -- state ---------------------------------------------------------
     def reset(self) -> None:
-        """Deterministic initial state: E = e0, I = i0 everywhere, history = IC."""
+        """Deterministic initial state: E = e0, I = i0 everywhere, history = IC.
+
+        PR3: clears the sustained bias (an applied input) but NEVER the
+        weights — edited weights survive a reset by design.
+        """
         self.E = np.full(self.n, self.e0, dtype=np.float64)
         self.I = np.full(self.n, self.i0, dtype=np.float64)
         self.step_count = 0
         self.rng = SplitMix64(self.params.seed)
+        self.bias = np.zeros(self.n, dtype=np.float64)
+
+    # -- PR3: runtime weight editing (single-sided, range 0–3) ---------
+    WEIGHT_MIN = 0.0
+    WEIGHT_MAX = 3.0
+    BIAS_MIN = -1.0
+    BIAS_MAX = 1.0
+
+    def weight(self, i: int, j: int) -> float:
+        """Current live weight C_ij."""
+        return float(self.weights[i, j])
+
+    def original_weight(self, i: int, j: int) -> float:
+        """TVB original weight C_ij (as passed to the constructor)."""
+        return float(self.weights_orig[i, j])
+
+    def set_weight(self, i: int, j: int, w: float) -> float:
+        """Set one weight, SINGLE-SIDED: only C_ij changes, C_ji untouched.
+
+        Clamps to [0, 3] and returns the value actually stored.  The
+        diagonal stays zero and out-of-range indices raise ValueError.
+        Takes effect from the next step.
+        """
+        if not (0 <= i < self.n and 0 <= j < self.n):
+            raise ValueError(f"weight index ({i},{j}) out of range for n={self.n}")
+        if i == j:
+            raise ValueError("diagonal weights stay zero")
+        w = min(self.WEIGHT_MAX, max(self.WEIGHT_MIN, float(w)))
+        self.weights[i, j] = w
+        return w
+
+    def reset_weight(self, i: int, j: int) -> float:
+        """Restore one weight to its TVB original value; returns that value."""
+        if not (0 <= i < self.n and 0 <= j < self.n):
+            raise ValueError(f"weight index ({i},{j}) out of range for n={self.n}")
+        if i == j:
+            raise ValueError("diagonal weights stay zero")
+        w = float(self.weights_orig[i, j])
+        self.weights[i, j] = w
+        return w
+
+    def reset_all_weights(self) -> None:
+        """Restore ALL weights to their TVB original values."""
+        self.weights = self.weights_orig.copy()
+
+    # -- PR3: sustained bias input (range −1..+1, 0 = off) --------------
+    def bias_value(self, node: int) -> float:
+        """Current sustained bias on ``node`` (0 = no bias)."""
+        return float(self.bias[node])
+
+    def set_bias(self, node: int, value: float) -> float:
+        """Set the sustained bias on ``node``, clamped to [−1, +1];
+        returns the value actually stored.  Added to P on every step
+        until cleared."""
+        if not 0 <= node < self.n:
+            raise ValueError(f"bias node {node} out of range for n={self.n}")
+        value = min(self.BIAS_MAX, max(self.BIAS_MIN, float(value)))
+        self.bias[node] = value
+        return value
+
+    def clear_bias(self, node: int) -> None:
+        """Clear the sustained bias on one node (back to 0 = no bias)."""
+        if not 0 <= node < self.n:
+            raise ValueError(f"bias node {node} out of range for n={self.n}")
+        self.bias[node] = 0.0
+
+    def clear_all_bias(self) -> None:
+        """Clear the sustained bias on all nodes."""
+        self.bias = np.zeros(self.n, dtype=np.float64)
 
     # -- core ----------------------------------------------------------
     def _sigmoid(self, x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -304,6 +390,11 @@ class Simulator:
                 P[ev.node] += ev.amplitude
         return P
 
+    def _applied_p(self, t_ms: float, events: list[StimulusEvent]) -> np.ndarray:
+        """External input actually applied: stimulus events PLUS the
+        sustained per-node bias (PR3).  This is what ``run`` records."""
+        return self._stimulus_vector(t_ms, events) + self.bias
+
     def run(
         self,
         duration_ms: float,
@@ -326,11 +417,11 @@ class Simulator:
         P_out = np.zeros((n_steps + 1, self.n), dtype=np.float64)
         E_out[0] = self.E
         I_out[0] = self.I
-        P_out[0] = self._stimulus_vector(0.0, events)
+        P_out[0] = self._applied_p(0.0, events)
 
         for n in range(n_steps):
             t = n * p.dt
-            P = self._stimulus_vector(t, events)
+            P = self._applied_p(t, events)
             # Predictor (Euler) using delayed E at step n.
             e_del1 = self._delayed_E(e_hist, n)
             dE1, dI1 = self._deriv(self.E, self.I, e_del1, P)
@@ -348,7 +439,7 @@ class Simulator:
             e_hist[n + 1] = self.E
             E_out[n + 1] = self.E
             I_out[n + 1] = self.I
-            P_out[n + 1] = self._stimulus_vector((n + 1) * p.dt, events)
+            P_out[n + 1] = self._applied_p((n + 1) * p.dt, events)
 
         t_ms = np.arange(n_steps + 1, dtype=np.float64) * p.dt
         if snapshot_every > 1:

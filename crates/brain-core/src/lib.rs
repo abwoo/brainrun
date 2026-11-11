@@ -12,6 +12,30 @@
 //! `d_ij = length_ij / speed`.  No normalisation, no smoothing, no
 //! hidden activity: every number returned comes from the equations.
 //!
+//! PR3 — direct manipulation (review §5 problem 3, §7 PR3):
+//! * Weights are editable at runtime via `set_weight(i, j, w)`.
+//!   Semantics are SINGLE-SIDED: only C_ij changes, C_ji is untouched.
+//!   The TVB matrix is only roughly symmetric (max |C_ij − C_ji| = 3.0
+//!   over the 76×76 matrix), so the direction matters; single-sided is
+//!   the semantics the review asked for ("运行时单边权重修改接口").
+//!   Idelays are built once from the ORIGINAL weights and never
+//!   recomputed: every edge the UI can edit has original weight > 0, so
+//!   its delay already exists; setting the weight to 0 only silences the
+//!   coupling term (`deriv` skips `w == 0`), and restoring the weight
+//!   reuses the original delay.  Range 0–3 (TVB raw weight range);
+//!   out-of-range values are clamped to [0, 3].
+//! * Bias: `bias[i]` is a sustained external input added to P_i on
+//!   every step (added in `step_one`, so it enters the Heun predictor
+//!   AND corrector identically and appears in the reported P).  Range
+//!   −1..+1, 0 = no bias.  Positive is excitatory (raises E), negative
+//!   is inhibitory (lowers E).  This is NOT a pulse: it stays on until
+//!   cleared.
+//! * `reset()` restores the deterministic initial state and clears the
+//!   bias (bias is an applied input, like a stimulus) but NEVER touches
+//!   the weights: weights are structural edits and only
+//!   `reset_weight` / `reset_all_weights` change them back.  The UI
+//!   states this RESET semantics explicitly.
+//!
 //! The library has no dependencies; `serde` is only used by the
 //! `brain-core-run` binary.
 
@@ -208,7 +232,14 @@ impl std::error::Error for DivergenceError {}
 pub struct Simulator {
     pub params: Params,
     pub n: usize,
+    /// Live coupling matrix (PR3: edited at runtime via `set_weight`).
     weights: Vec<Vec<f64>>,
+    /// TVB original weights as passed to `new()` (PR3: restore source).
+    /// Never mutated after construction; `reset()` does not touch it.
+    weights_orig: Vec<Vec<f64>>,
+    /// Sustained per-node bias input added to P every step (PR3).
+    /// 0 = no bias. Range −1..+1, clamped on set.
+    bias: Vec<f64>,
     #[allow(dead_code)]
     lengths: Vec<Vec<f64>>,
     idelays: Vec<Vec<i64>>,
@@ -243,7 +274,9 @@ impl Simulator {
         let mut sim = Simulator {
             params,
             n,
-            weights,
+            weights: weights.clone(),
+            weights_orig: weights,
+            bias: vec![0.0; n],
             lengths,
             idelays,
             max_idelay,
@@ -261,6 +294,8 @@ impl Simulator {
     }
 
     /// Deterministic initial state: E = e0, I = i0 everywhere, history = IC.
+    /// PR3: clears the sustained bias (an applied input) but NEVER the
+    /// weights — edited weights survive a reset by design (see module docs).
     pub fn reset(&mut self) {
         self.e = vec![self.e0; self.n];
         self.i = vec![self.i0; self.n];
@@ -268,6 +303,96 @@ impl Simulator {
         self.hist_base = 0;
         self.step_count = 0;
         self.rng = SplitMix64::new(self.params.seed);
+        self.bias = vec![0.0; self.n];
+    }
+
+    // -- PR3: runtime weight editing (single-sided, range 0–3) ---------
+    /// Live weight range (TVB raw weights are 0–3); out-of-range clamped.
+    pub const WEIGHT_MIN: f64 = 0.0;
+    pub const WEIGHT_MAX: f64 = 3.0;
+    /// Sustained bias range (model units of P); out-of-range clamped.
+    pub const BIAS_MIN: f64 = -1.0;
+    pub const BIAS_MAX: f64 = 1.0;
+
+    /// Current live weight C_ij.
+    pub fn weight(&self, i: usize, j: usize) -> f64 {
+        self.weights[i][j]
+    }
+
+    /// TVB original weight C_ij (as passed to `new()`).
+    pub fn original_weight(&self, i: usize, j: usize) -> f64 {
+        self.weights_orig[i][j]
+    }
+
+    /// Whole live weight matrix (row-major).
+    pub fn weights(&self) -> &Vec<Vec<f64>> {
+        &self.weights
+    }
+
+    /// Set one weight, SINGLE-SIDED: only C_ij changes, C_ji untouched.
+    /// Clamps to [0, 3] and returns the value actually stored.
+    /// The diagonal stays zero (rejected) and out-of-range indices are
+    /// rejected; neither panics.  Takes effect from the next step: the
+    /// coupling sum in `deriv` reads `self.weights` live.
+    pub fn set_weight(&mut self, i: usize, j: usize, w: f64) -> Result<f64, String> {
+        if i >= self.n || j >= self.n {
+            return Err(format!("weight index ({i},{j}) out of range for n={}", self.n));
+        }
+        if i == j {
+            return Err("diagonal weights stay zero".to_string());
+        }
+        let w = w.clamp(Self::WEIGHT_MIN, Self::WEIGHT_MAX);
+        self.weights[i][j] = w;
+        Ok(w)
+    }
+
+    /// Restore one weight to its TVB original value; returns that value.
+    pub fn reset_weight(&mut self, i: usize, j: usize) -> Result<f64, String> {
+        if i >= self.n || j >= self.n {
+            return Err(format!("weight index ({i},{j}) out of range for n={}", self.n));
+        }
+        if i == j {
+            return Err("diagonal weights stay zero".to_string());
+        }
+        let w = self.weights_orig[i][j];
+        self.weights[i][j] = w;
+        Ok(w)
+    }
+
+    /// Restore ALL weights to their TVB original values.
+    pub fn reset_all_weights(&mut self) {
+        self.weights = self.weights_orig.clone();
+    }
+
+    // -- PR3: sustained bias input (range −1..+1, 0 = off) --------------
+    /// Current sustained bias on `node` (0 = no bias).
+    pub fn bias(&self, node: usize) -> f64 {
+        self.bias[node]
+    }
+
+    /// Set the sustained bias on `node`, clamped to [−1, +1]; returns the
+    /// value actually stored.  Added to P on every step until cleared.
+    pub fn set_bias(&mut self, node: usize, value: f64) -> Result<f64, String> {
+        if node >= self.n {
+            return Err(format!("bias node {node} out of range for n={}", self.n));
+        }
+        let value = value.clamp(Self::BIAS_MIN, Self::BIAS_MAX);
+        self.bias[node] = value;
+        Ok(value)
+    }
+
+    /// Clear the sustained bias on one node (back to 0 = no bias).
+    pub fn clear_bias(&mut self, node: usize) -> Result<(), String> {
+        if node >= self.n {
+            return Err(format!("bias node {node} out of range for n={}", self.n));
+        }
+        self.bias[node] = 0.0;
+        Ok(())
+    }
+
+    /// Clear the sustained bias on all nodes.
+    pub fn clear_all_bias(&mut self) {
+        self.bias = vec![0.0; self.n];
     }
 
     pub fn set_initial(&mut self, e0: f64, i0: f64) {
@@ -340,7 +465,9 @@ impl Simulator {
     pub fn step_one(&mut self, t_ms: f64, events: &[StimulusEvent]) -> Result<Vec<f64>, DivergenceError> {
         let dt = self.params.dt;
         let step = self.step_count as i64;
-        let p = self.stimulus_vector(t_ms, events);
+        // PR3: applied P = stimulus events + sustained per-node bias.
+        // The bias enters the predictor AND the corrector identically.
+        let p = self.applied_p(t_ms, events);
         // Predictor (Euler) using delayed E at this step.
         let (de1, di1) = self.deriv(&self.e.clone(), &self.i.clone(), step, None, &p);
         let e_star: Vec<f64> = self.e.iter().zip(de1.iter()).map(|(e, d)| e + dt * d).collect();
@@ -412,6 +539,17 @@ impl Simulator {
         p
     }
 
+    /// External input actually applied during a step: stimulus events
+    /// PLUS the sustained per-node bias (PR3).  This is what `step_one`
+    /// returns and what `run()` records in `RunResult.p`.
+    fn applied_p(&self, t_ms: f64, events: &[StimulusEvent]) -> Vec<f64> {
+        let mut p = self.stimulus_vector(t_ms, events);
+        for k in 0..self.n {
+            p[k] += self.bias[k];
+        }
+        p
+    }
+
     fn check(&self) -> Result<(), DivergenceError> {
         for (k, v) in self.e.iter().enumerate() {
             if !v.is_finite() || v.abs() > 1e6 {
@@ -448,7 +586,7 @@ impl Simulator {
         t_ms.push(self.step_count as f64 * dt);
         e_out.push(self.e.clone());
         i_out.push(self.i.clone());
-        p_out.push(self.stimulus_vector(self.step_count as f64 * dt, events));
+        p_out.push(self.applied_p(self.step_count as f64 * dt, events));
 
         for _ in 0..n_steps {
             let t = self.step_count as f64 * dt;
@@ -456,7 +594,7 @@ impl Simulator {
             t_ms.push((self.step_count) as f64 * dt);
             e_out.push(self.e.clone());
             i_out.push(self.i.clone());
-            p_out.push(self.stimulus_vector(self.step_count as f64 * dt, events));
+            p_out.push(self.applied_p(self.step_count as f64 * dt, events));
         }
 
         Ok(RunResult { t_ms, e: e_out, i: i_out, p: p_out, n_steps })
@@ -589,5 +727,133 @@ mod tests {
         let r2 = sim.run(1500.0, &ev).unwrap();
         assert_eq!(r1.e, r2.e);
         assert_eq!(r1.i, r2.i);
+    }
+
+    // -- PR3: runtime weight editing + sustained bias -------------------
+
+    fn chain_sim(w10: f64) -> Simulator {
+        let w = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![w10, 0.0, 0.0],
+            vec![0.0, 1.5, 0.0],
+        ];
+        let l = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![30.0, 0.0, 0.0],
+            vec![0.0, 30.0, 0.0],
+        ];
+        Simulator::new(w, l, Params::demo()).unwrap()
+    }
+
+    /// Peak rise of `node`'s E after t=500 ms, relative to its value at
+    /// t=500 ms (settled baseline), for a 100 ms pulse on node 0.
+    fn chain_peak_delta(w10: f64) -> f64 {
+        let ev = [StimulusEvent { node: 0, start_ms: 500.0, duration_ms: 100.0, amplitude: 2.0 }];
+        let mut sim = chain_sim(w10);
+        let r = sim.run(1500.0, &ev).unwrap();
+        let base = r.e[500][1];
+        r.e.iter().skip(500).map(|row| row[1] - base).fold(0.0f64, f64::max)
+    }
+
+    #[test]
+    fn pr3_set_weight_single_sided_and_clamped() {
+        let w = vec![vec![0.0, 1.0], vec![2.0, 0.0]];
+        let l = vec![vec![0.0, 10.0], vec![10.0, 0.0]];
+        let mut sim = Simulator::new(w, l, Params::demo()).unwrap();
+        // Clamp above the range; opposite side untouched (single-sided).
+        assert_eq!(sim.set_weight(0, 1, 5.0).unwrap(), 3.0);
+        assert_eq!(sim.weight(0, 1), 3.0);
+        assert_eq!(sim.weight(1, 0), 2.0);
+        assert_eq!(sim.original_weight(0, 1), 1.0);
+        // Clamp below the range.
+        assert_eq!(sim.set_weight(0, 1, -2.0).unwrap(), 0.0);
+        // Diagonal and out-of-range indices are rejected, never panic.
+        assert!(sim.set_weight(0, 0, 1.0).is_err());
+        assert!(sim.set_weight(0, 2, 1.0).is_err());
+        assert!(sim.set_weight(2, 0, 1.0).is_err());
+        assert_eq!(sim.weight(0, 0), 0.0);
+        // Restore one edge / all edges.
+        assert_eq!(sim.reset_weight(0, 1).unwrap(), 1.0);
+        sim.set_weight(1, 0, 0.5).unwrap();
+        sim.reset_all_weights();
+        assert_eq!(sim.weight(0, 1), 1.0);
+        assert_eq!(sim.weight(1, 0), 2.0);
+    }
+
+    #[test]
+    fn pr3_weight_zero_kills_downstream_double_enhances() {
+        // Baseline: w[1][0] = 1.0, pulse on node 0 reaches node 1.
+        // (Measured peak: 0.002967 — small but well above the fixed-point
+        // residual; the Python reference gives the identical number.)
+        let peak_base = chain_peak_delta(1.0);
+        assert!(peak_base > 0.002, "baseline peak too small: {peak_base}");
+        // Zero the only edge into node 1: its response must vanish
+        // (node 1 then has no inputs at all, so it stays at its fixed
+        // point; the residual is only the fixed-point approach).
+        let mut sim = chain_sim(1.0);
+        sim.set_weight(1, 0, 0.0).unwrap();
+        let ev = [StimulusEvent { node: 0, start_ms: 500.0, duration_ms: 100.0, amplitude: 2.0 }];
+        let r = sim.run(1500.0, &ev).unwrap();
+        let base = r.e[500][1];
+        let peak_zero = r.e.iter().skip(500).map(|row| (row[1] - base).abs()).fold(0.0f64, f64::max);
+        assert!(peak_zero < 1e-6, "zeroed edge still responds: {peak_zero}");
+        // Double the edge: the downstream peak must grow clearly.
+        let peak_double = chain_peak_delta(2.0);
+        assert!(
+            peak_double > peak_base * 1.5,
+            "doubled edge did not enhance: base {peak_base}, doubled {peak_double}"
+        );
+    }
+
+    #[test]
+    fn pr3_bias_raises_and_lowers_steady_e() {
+        // Demo preset single node: settled E* ≈ 0.011.
+        let mut sim = Simulator::new(vec![vec![0.0]], vec![vec![0.0]], Params::demo()).unwrap();
+        let r0 = sim.run(2000.0, &[]).unwrap();
+        let e_base = r0.e.last().unwrap()[0];
+        assert!((e_base - 0.011).abs() < 0.002, "baseline E* moved: {e_base}");
+        // Positive (excitatory) bias raises the steady state, and the
+        // reported P actually carries the bias.
+        // (Measured: 0.011059 -> 0.023128 at +0.5; Python reference agrees.)
+        sim.reset();
+        assert_eq!(sim.set_bias(0, 0.5).unwrap(), 0.5);
+        let r1 = sim.run(2000.0, &[]).unwrap();
+        let e_pos = r1.e.last().unwrap()[0];
+        assert!(e_pos > e_base + 0.005, "positive bias did not raise E: {e_base} -> {e_pos}");
+        assert!((r1.p[100][0] - 0.5).abs() < 1e-12, "reported P lacks bias: {}", r1.p[100][0]);
+        // Negative (inhibitory) bias lowers it.
+        // (Measured: 0.011059 -> 0.005706 at −0.5.)
+        sim.reset();
+        assert_eq!(sim.set_bias(0, -0.5).unwrap(), -0.5);
+        let r2 = sim.run(2000.0, &[]).unwrap();
+        let e_neg = r2.e.last().unwrap()[0];
+        assert!(e_neg < e_base - 0.002, "negative bias did not lower E: {e_base} -> {e_neg}");
+        assert!(e_neg > 0.0, "E went non-positive under negative bias: {e_neg}");
+        // Bias clamps to [−1, +1]; bad node rejected.
+        assert_eq!(sim.set_bias(0, 2.0).unwrap(), 1.0);
+        assert_eq!(sim.set_bias(0, -2.0).unwrap(), -1.0);
+        assert!(sim.set_bias(1, 0.5).is_err());
+        // Clearing the bias restores the un-biased trajectory exactly.
+        sim.reset(); // reset() also clears bias (PR3 semantics)
+        assert_eq!(sim.bias(0), 0.0);
+        let r3 = sim.run(2000.0, &[]).unwrap();
+        assert_eq!(r3.e, r0.e);
+        assert_eq!(r3.i, r0.i);
+    }
+
+    #[test]
+    fn pr3_reset_preserves_weights_but_clears_bias() {
+        let mut sim = chain_sim(1.0);
+        sim.set_weight(1, 0, 0.0).unwrap();
+        sim.set_bias(0, 0.5).unwrap();
+        sim.run(100.0, &[]).unwrap();
+        sim.reset();
+        assert_eq!(sim.weight(1, 0), 0.0, "reset must NOT restore weights");
+        assert_eq!(sim.original_weight(1, 0), 1.0);
+        assert_eq!(sim.bias(0), 0.0, "reset must clear bias");
+        assert_eq!(sim.step_count(), 0);
+        assert_eq!(sim.state_e(), &[0.0, 0.0, 0.0]);
+        sim.reset_all_weights();
+        assert_eq!(sim.weight(1, 0), 1.0);
     }
 }

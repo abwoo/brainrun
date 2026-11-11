@@ -62,6 +62,16 @@ export interface ResponseSummary {
   responders: RegionPeak[];
 }
 
+/** PR3 — direct manipulation ranges (mirror the Rust engine).
+ *  Weight 0–3 (TVB raw weight range, out-of-range clamped);
+ *  sustained bias −1..+1 (model units of P, 0 = no bias). */
+export const WEIGHT_MIN = 0;
+export const WEIGHT_MAX = 3;
+export const BIAS_MIN = -1;
+export const BIAS_MAX = 1;
+/** Bias value applied when the user switches the bias on (excitatory). */
+export const BIAS_DEFAULT_ON = 0.5;
+
 /** 三类标记的脑区 id 列表（供 __brainSim 调试桥与 3D 标记读取）。 */
 export interface ResponseGroups {
   /** 输入位置：被刺激的脑区（琥珀色环）。 */
@@ -141,6 +151,18 @@ export class SimClient {
   private replayProvider: (() => ReplayState) | null = null;
   private holdStartWall: { node: number; wallMs: number } | null = null;
   private params: SimParams = { ...DEFAULT_PARAMS };
+  /** PR3: TVB original weights (as passed to start()) and the live
+   *  weights the engine is using.  The client mirrors what it sent to
+   *  the Worker so the debug bridge can read weights back synchronously;
+   *  the causal behaviour itself is verified against the engine.
+   *  `modified` holds only edges whose live value differs from the
+   *  original.  RESET never touches any of this (weights survive reset). */
+  private originalWeights: number[][] | null = null;
+  private currentWeights: number[][] | null = null;
+  private modifiedWeights = new Map<string, number>();
+  /** PR3: sustained bias per node (0 / absent = no bias).  RESET clears
+   *  this (bias is an applied input, like a stimulus). */
+  private biasMap = new Map<number, number>();
   private ready = false;
   private readyListeners: Array<() => void> = [];
   private error: string | null = null;
@@ -194,6 +216,11 @@ export class SimClient {
       }
     });
     const flat = (m: number[][]): number[] => m.flat();
+    // PR3: keep the TVB originals + a live mirror of the weights.
+    this.originalWeights = weights.map((r) => [...r]);
+    this.currentWeights = weights.map((r) => [...r]);
+    this.modifiedWeights.clear();
+    this.biasMap.clear();
     this.send({
       type: 'init',
       weights: flat(weights),
@@ -450,7 +477,119 @@ export class SimClient {
     this.baselineT = null;
     this.baselineNode = null;
     this.pinnedWindow = null;
+    // PR3: RESET clears the sustained bias (applied input) but NEVER
+    // the edited weights — modifiedWeights / currentWeights survive.
+    // The engine side clears its bias in its own reset().
+    this.biasMap.clear();
     this.send({ type: 'reset' });
+  }
+
+  // -- PR3: runtime weight editing (single-sided, range 0–3) -----------
+  /** Set one weight, SINGLE-SIDED (only C_ij, never C_ji).  Clamped to
+   *  [0, 3]; returns the value actually stored.  Takes effect from the
+   *  next simulation step and survives reset. */
+  setWeight(i: number, j: number, w: number): number {
+    const clamped = Math.min(WEIGHT_MAX, Math.max(WEIGHT_MIN, w));
+    if (this.currentWeights && this.originalWeights) {
+      this.currentWeights[i][j] = clamped;
+      const key = `${i},${j}`;
+      if (Math.abs(clamped - this.originalWeights[i][j]) > 1e-12) {
+        this.modifiedWeights.set(key, clamped);
+      } else {
+        this.modifiedWeights.delete(key);
+      }
+    }
+    this.send({ type: 'set_weight', i, j, w: clamped });
+    return clamped;
+  }
+
+  /** Current live weight C_ij (client mirror of what was sent). */
+  getWeight(i: number, j: number): number | null {
+    return this.currentWeights ? this.currentWeights[i][j] : null;
+  }
+
+  /** TVB original weight C_ij. */
+  getOriginalWeight(i: number, j: number): number | null {
+    return this.originalWeights ? this.originalWeights[i][j] : null;
+  }
+
+  /** Live weights, flat row-major (null before start). */
+  getWeights(): number[] | null {
+    return this.currentWeights ? this.currentWeights.flat() : null;
+  }
+
+  /** TVB original weights, flat row-major (null before start). */
+  getOriginalWeights(): number[] | null {
+    return this.originalWeights ? this.originalWeights.flat() : null;
+  }
+
+  /** Edges whose live value differs from the TVB original. */
+  getModifiedWeights(): Array<{ i: number; j: number; w: number; original: number }> {
+    const out: Array<{ i: number; j: number; w: number; original: number }> = [];
+    for (const [key, w] of this.modifiedWeights) {
+      const [i, j] = key.split(',').map(Number);
+      out.push({ i, j, w, original: this.originalWeights?.[i]?.[j] ?? NaN });
+    }
+    out.sort((a, b) => a.i - b.i || a.j - b.j);
+    return out;
+  }
+
+  /** Restore one weight to its TVB original value. */
+  resetWeight(i: number, j: number): void {
+    if (this.currentWeights && this.originalWeights) {
+      this.currentWeights[i][j] = this.originalWeights[i][j];
+      this.modifiedWeights.delete(`${i},${j}`);
+    }
+    this.send({ type: 'reset_weight', i, j });
+  }
+
+  /** Restore ALL weights to their TVB original values. */
+  resetAllWeights(): void {
+    if (this.currentWeights && this.originalWeights) {
+      this.currentWeights = this.originalWeights.map((r) => [...r]);
+      this.modifiedWeights.clear();
+    }
+    this.send({ type: 'reset_all_weights' });
+  }
+
+  // -- PR3: sustained bias input (range −1..+1, 0 = off) ---------------
+  /** Set the sustained bias on `node` (a continuous input added to P
+   *  every step, NOT a pulse).  Clamped to [−1, +1]; 0 clears it.
+   *  Returns the value actually stored. */
+  setBias(node: number, value: number): number {
+    const clamped = Math.min(BIAS_MAX, Math.max(BIAS_MIN, value));
+    if (clamped === 0) {
+      this.biasMap.delete(node);
+      this.send({ type: 'clear_bias', node });
+    } else {
+      this.biasMap.set(node, clamped);
+      this.send({ type: 'set_bias', node, value: clamped });
+    }
+    return clamped;
+  }
+
+  /** Clear the sustained bias on one node (back to 0 = no bias). */
+  clearBias(node: number): void {
+    this.biasMap.delete(node);
+    this.send({ type: 'clear_bias', node });
+  }
+
+  /** Clear the sustained bias on all nodes. */
+  clearAllBias(): void {
+    this.biasMap.clear();
+    this.send({ type: 'clear_all_bias' });
+  }
+
+  /** Current sustained bias on `node` (0 = no bias). */
+  getBias(node: number): number {
+    return this.biasMap.get(node) ?? 0;
+  }
+
+  /** All nodes with a non-zero sustained bias. */
+  getAllBias(): Array<{ node: number; value: number }> {
+    return [...this.biasMap.entries()]
+      .map(([node, value]) => ({ node, value }))
+      .sort((a, b) => a.node - b.node);
   }
 
   /** 测试桥：只读状态 + 与 UI 相同的命令，不产生额外活动。 */
@@ -521,6 +660,21 @@ export class SimClient {
       reset: () => this.reset(),
       isReady: () => this.isReady(),
       getError: () => this.getError(),
+      // PR3 调试桥：权重与偏置（只读已发送的值 + 与 UI 相同的命令，
+      // 不产生额外活动；因果行为本身由脉冲响应验证）。
+      setWeight: (i: number, j: number, w: number) => this.setWeight(i, j, w),
+      getWeight: (i: number, j: number) => this.getWeight(i, j),
+      getOriginalWeight: (i: number, j: number) => this.getOriginalWeight(i, j),
+      getWeights: () => this.getWeights(),
+      getOriginalWeights: () => this.getOriginalWeights(),
+      getModifiedWeights: () => this.getModifiedWeights(),
+      resetWeight: (i: number, j: number) => this.resetWeight(i, j),
+      resetAllWeights: () => this.resetAllWeights(),
+      setBias: (node: number, value: number) => this.setBias(node, value),
+      getBias: (node: number) => this.getBias(node),
+      getAllBias: () => this.getAllBias(),
+      clearBias: (node: number) => this.clearBias(node),
+      clearAllBias: () => this.clearAllBias(),
     };
   }
 }

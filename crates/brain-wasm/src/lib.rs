@@ -175,12 +175,72 @@ impl WasmSim {
     }
 
     /// Reset to the deterministic initial state (E = I = 0 everywhere),
-    /// clear all events, clear the divergence flag.  Parameters are kept.
+    /// clear all events, clear the sustained bias, clear the divergence
+    /// flag.  Parameters AND edited weights are kept (PR3: weights are
+    /// structural edits; only reset_weight / reset_all_weights change
+    /// them back).
     pub fn reset(&mut self) {
         self.sim.reset();
         self.events.clear();
         self.last_p = vec![0.0; self.sim.n];
         self.diverged = None;
+    }
+
+    // -- PR3: runtime weight editing (single-sided, range 0–3) ---------
+    /// Set one coupling weight, SINGLE-SIDED: only C_ij changes, C_ji
+    /// is untouched (the TVB matrix is only roughly symmetric, so the
+    /// direction matters).  Clamps to [0, 3]; returns the stored value.
+    /// Takes effect from the next step.  Survives `reset()`.
+    pub fn set_weight(&mut self, i: usize, j: usize, w: f64) -> Result<f64, JsValue> {
+        self.sim.set_weight(i, j, w).map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Current live weight C_ij.
+    pub fn get_weight(&self, i: usize, j: usize) -> f64 {
+        self.sim.weight(i, j)
+    }
+
+    /// TVB original weight C_ij.
+    pub fn original_weight(&self, i: usize, j: usize) -> f64 {
+        self.sim.original_weight(i, j)
+    }
+
+    /// All live weights, flat row-major (76×76).
+    pub fn get_weights(&self) -> Vec<f64> {
+        self.sim.weights().iter().flatten().copied().collect()
+    }
+
+    /// Restore one weight to its TVB original value; returns that value.
+    pub fn reset_weight(&mut self, i: usize, j: usize) -> Result<f64, JsValue> {
+        self.sim.reset_weight(i, j).map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Restore ALL weights to their TVB original values.
+    pub fn reset_all_weights(&mut self) {
+        self.sim.reset_all_weights();
+    }
+
+    // -- PR3: sustained bias input (range −1..+1, 0 = off) --------------
+    /// Set the sustained bias on `node` (a continuous input added to P
+    /// on every step, NOT a pulse), clamped to [−1, +1]; returns the
+    /// stored value.  Cleared by `reset()`.
+    pub fn set_bias(&mut self, node: usize, value: f64) -> Result<f64, JsValue> {
+        self.sim.set_bias(node, value).map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Current sustained bias on `node` (0 = no bias).
+    pub fn get_bias(&self, node: usize) -> f64 {
+        self.sim.bias(node)
+    }
+
+    /// Clear the sustained bias on one node (back to 0 = no bias).
+    pub fn clear_bias(&mut self, node: usize) -> Result<(), JsValue> {
+        self.sim.clear_bias(node).map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Clear the sustained bias on all nodes.
+    pub fn clear_all_bias(&mut self) {
+        self.sim.clear_all_bias();
     }
 
     /// Current excitatory activity, one value per node.
