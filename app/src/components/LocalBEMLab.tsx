@@ -234,6 +234,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                 </select>
               </label>
               <p className="panel-text">电位：{currentV===null?'—':currentV.toFixed(4)+' µV'}</p>
+              <p className="panel-text">MNI305 (mm)：{data.source_positions[sourceIndex].mni305_mm.map(v=>v.toFixed(1)).join(', ')}</p>
               <button type="button" className="chip chip-small" onClick={()=>{
                 setMoment(10);setAxis('X');setSourceIndex(0);
                 setReference('average');setSelectedSensor(
