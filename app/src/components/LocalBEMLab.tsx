@@ -254,6 +254,16 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
               style={{height:460,width:'100%',border:'1px solid #133954'}}/>
             <div>
               <div className="conn-title">解剖与电流源</div>
+              <label className="panel-text">物理源模式
+                <select aria-label="BEM物理源模式" value={sourceMode}
+                  onChange={e=>{
+                    setSourceMode(e.target.value as 'manual'|'local-column');
+                    resetColumn();
+                  }}>
+                  <option value="manual">手动控制偶极子</option>
+                  <option value="local-column">局部 E/I 神经群体（假设参数）</option>
+                </select>
+              </label>
               <label className="panel-text">选择已验证皮层点
                 <select value={sourceIndex} aria-label="皮层源位置"
                   onChange={e=>setSourceIndex(Number(e.target.value))}>
@@ -261,18 +271,50 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                     <option key={i} value={i}>{i+1} · {p.region} · {p.hemisphere}</option>)}
                 </select>
               </label>
-              <label className="panel-text">电流偶极子方向
+              {sourceMode==='manual' && <label className="panel-text">电流偶极子方向
                 <select aria-label="MRI BEM源方向" value={axis}
                   onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
                   <option value="X">X · 左右</option>
                   <option value="Y">Y · 前后</option>
                   <option value="Z">Z · 上下</option>
                 </select>
-              </label>
-              <p className="panel-text">偶极矩：{moment.toFixed(1)} nA·m</p>
-              <input type="range" aria-label="MRI BEM源强度" min="-30" max="30" step=".5"
+              </label>}
+              {sourceMode==='manual' && <p className="panel-text">偶极矩：{moment.toFixed(1)} nA·m</p>}
+              {sourceMode==='manual' && <input type="range" aria-label="MRI BEM源强度" min="-30" max="30" step=".5"
                 value={moment} onChange={e=>setMoment(Number(e.target.value))}
-                style={{width:'100%'}}/>
+                style={{width:'100%'}}/>}
+              {sourceMode==='local-column' && <div>
+                <p className="panel-text" style={{color:'#ffb340'}}>{COUPLING_LIMITATION}</p>
+                <p className="panel-text">模型：{COUPLING_ID}</p>
+                <p className="panel-text">E：{columnState.e.toFixed(5)} · I：{columnState.i.toFixed(5)} · 模拟时钟 {columnState.tMs.toFixed(0)} ms</p>
+                <p className="panel-text">等效偶极矩：{columnState.equivalentMomentNAm.toFixed(4)} nA·m</p>
+                <p className="panel-text">皮层法向：{direction.map(n=>n.toFixed(3)).join(', ')}</p>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  <button type="button" className="chip chip-small"
+                    onClick={()=>setRunning(p=>!p)}>{running?'暂停神经动力学':'运行神经动力学'}</button>
+                  <button type="button" className="chip chip-small"
+                    onClick={stimulate}>施加局部刺激</button>
+                  <button type="button" className="chip chip-small"
+                    onClick={resetColumn}>重置神经动力学</button>
+                </div>
+                <label className="panel-text">无量纲刺激驱动 {pulseDrive.toFixed(1)}
+                  <input aria-label="局部刺激驱动" type="range" min="0.4" max="2.5" step="0.1"
+                    value={pulseDrive} onChange={e=>setPulseDrive(Number(e.target.value))}
+                    style={{width:'100%'}}/>
+                </label>
+                <svg viewBox="0 0 300 65" role="img" aria-label="物理偶极矩时间轨迹（nA·m）"
+                  style={{width:'100%',height:65,background:'#08131d'}}>
+                  <line x1="0" x2="300" y1="32.5" y2="32.5" stroke="#426074"/>
+                  <polyline fill="none" stroke="#ffb340" strokeWidth="1.8"
+                    points={columnHistory.map((v,i)=>{
+                      const maxQ=Math.max(.25,...columnHistory.map(q=>Math.abs(q)));
+                      return (i*3)+','+(32.5-27*v/maxQ);
+                    }).join(' ')}/>
+                </svg>
+                <p className="panel-text">假设：{DEFAULT_MORPHOLOGY.effectivePyramidalCells.toLocaleString()} 个有效锥体细胞；
+                  同步比例 {DEFAULT_MORPHOLOGY.coherence}；电流 {DEFAULT_MORPHOLOGY.excitatoryCurrentPA}/{DEFAULT_MORPHOLOGY.inhibitoryCurrentPA} pA；
+                  有效源汇距离 {DEFAULT_MORPHOLOGY.dipoleSeparationMm} mm。此参数尚无人体数据校准。</p>
+              </div>}
               <label className="panel-text">EEG参考
                 <select aria-label="MRI BEM参考" value={reference}
                   onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
@@ -290,7 +332,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
               <p className="panel-text">电位：{currentV===null?'—':currentV.toFixed(4)+' µV'}</p>
               <p className="panel-text">MNI305 (mm)：{data.source_positions[sourceIndex].mni305_mm.map(v=>v.toFixed(1)).join(', ')}</p>
               <button type="button" className="chip chip-small" onClick={()=>{
-                setMoment(10);setAxis('X');setSourceIndex(0);
+                resetColumn();setMoment(10);setAxis('X');setSourceIndex(0);
                 setReference('average');setSelectedSensor(
                   data.electrodes.some(e=>e.label==='Cz')?'Cz':data.electrodes[0].label
                 );
@@ -313,7 +355,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
           </div>
           <p className="panel-text">方法：MNE make_forward_dipole + fsaverage MRI 三层 BEM；
             HEAD RAS 毫米，nA·m→µV。模型源只能选已预计算节点，不进行空间插值。
-            现未建立 Wilson–Cowan E/I 到电流源的校准，亦未提供经验证的 Talairach 转换。
+            可选局部 E/I→电流源采用明确假设参数，尚无人体校准；与 TVB 76 区网络不互通，亦无经验证的 Talairach 转换。
           </p>
         </>}
       </div>
