@@ -61,6 +61,38 @@ try {
 
   await mkdir('../tests/pr5/shots', { recursive: true });
   await page.screenshot({ path: '../tests/pr5/shots/dipole-lab.png', fullPage: true });
+  // MNE four-layer sphere: layout switching, physical gain changes and reset.
+  await modal.getByRole('button', { name: '关闭' }).click();
+  await page.getByRole('button', { name: 'HEAD EEG' }).click();
+  const head = page.getByRole('dialog', { name: '分层球形头EEG物理实验' });
+  await head.getByText('mne-four-layer-sphere-ras-v1', {exact:false}).waitFor();
+  await head.getByLabel('选中电极').selectOption('Fp1');
+  const measure = async () => {
+    const value = await head.getByText('当前电极电位：', {exact:false}).textContent();
+    const match = value?.match(/(-?[0-9]+(?:\\.[0-9]+)?)\\s*µV/);
+    assert.ok(match, 'EEG electrode reading must have numeric µV unit: '+value);
+    return Number(match[1]);
+  };
+  const base = await measure();
+  const gain = head.getByRole('slider', { name: '球形头偶极矩' });
+  await gain.focus();
+  await gain.press('End');
+  const stronger = await measure();
+  assert.ok(Math.abs(stronger-base) > 0.001,
+    'changing the MNE sphere source moment must change real EEG voltage');
+  await head.getByLabel('球形头电流源方向').selectOption('Z');
+  const rotatedVoltage = await measure();
+  assert.ok(Math.abs(rotatedVoltage-stronger) > 0.001,
+    'changing the sphere source orientation must change EEG voltage');
+  await head.getByLabel('电极布局').selectOption('10-05');
+  assert.equal(await head.getByLabel('选中电极').locator('option').count(),343);
+  await head.getByLabel('电极布局').selectOption('10-20');
+  assert.equal(await head.getByLabel('选中电极').locator('option').count(),19);
+  await head.getByRole('button', { name: '重置球形实验' }).click();
+  const resetHead = await measure();
+  assert.ok(Math.abs(resetHead-base) < 0.001,
+    'reset must recover original MNE sphere EEG voltage');
+  await page.screenshot({ path: '../tests/pr5/shots/mne-head-sphere.png', fullPage: true });
   assert.deepEqual(errors, [], 'no JavaScript runtime exceptions');
   console.log('PR5 browser smoke PASS: 12 voltages, moment, orientation, reset, 3D drag, screenshot, no pageerror');
 } finally {
