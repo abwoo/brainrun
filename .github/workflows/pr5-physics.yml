@@ -33,6 +33,8 @@ jobs:
         run: python scientific/forward/generate_sphere_model.py
       - name: Validate direct MNE physics and off-grid interpolation
         run: python -m unittest discover -s tests/pr5 -p 'test_sphere_model.py' -v
+      - name: Validate coordinate frame transforms and refuse unregistered atlases
+        run: node --experimental-strip-types --test tests/pr5/coordinates.test.mjs
       - name: Test browser spherical leadfield runtime
         run: node --experimental-strip-types --test tests/pr5/sphere-forward.test.mjs
       - name: Verify infinite-conductor analytical model (12 cases)
