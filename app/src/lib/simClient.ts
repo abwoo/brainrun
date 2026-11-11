@@ -108,12 +108,22 @@ export const DEFAULT_BACKGROUND_MODE: BackgroundMode = 'spontaneous';
  *  the manual snapshot. */
 export const MANUAL_SNAPSHOT_KEY = 'brainrun.snapshot.manual.v1';
 
+/** Snapshot storage schema version (PR5 contract).  The localStorage key
+ *  already carries a `.v1` suffix; this field is the in-record version so
+ *  a future schema change can be detected even if the key is reused.
+ *  Readers must accept a missing `version` as 1 (records written before
+ *  this field existed) and reject any other value.  See
+ *  docs/frontend-backend-contract.md §4. */
+export const SNAPSHOT_SCHEMA_VERSION = 1;
+
 /** One stored snapshot: Worker time + full state JSON + wall-clock save time. */
 export interface StoredSnapshot {
   id: string;
   t_ms: number;
   json: string;
   savedAtWall: number;
+  /** Schema version; absent (= 1) on records written before PR5. */
+  version?: number;
 }
 
 /** Snapshot summary parsed back out of a snapshot JSON (params /
@@ -319,6 +329,7 @@ export class SimClient {
           t_ms: msg.t_ms,
           json: msg.json,
           savedAtWall: Date.now(),
+          version: SNAPSHOT_SCHEMA_VERSION,
         };
         this.snapshots.set(msg.id, stored);
         if (msg.id === 'manual') {
@@ -409,7 +420,15 @@ export class SimClient {
       const raw = window.localStorage.getItem(MANUAL_SNAPSHOT_KEY);
       if (raw) {
         const stored = JSON.parse(raw) as StoredSnapshot;
-        if (stored && stored.id === 'manual' && typeof stored.json === 'string') {
+        // Missing version = pre-PR5 record, treated as v1; any other
+        // version is rejected (no silent migration of unknown schemas).
+        const version = stored.version ?? 1;
+        if (
+          stored &&
+          stored.id === 'manual' &&
+          typeof stored.json === 'string' &&
+          version === SNAPSHOT_SCHEMA_VERSION
+        ) {
           this.snapshots.set('manual', stored);
         }
       }
@@ -844,6 +863,18 @@ export class SimClient {
     this.send({ type: 'advance_ms', ms });
   }
 
+  /** Set the Worker snapshot broadcast rate (Hz).  The Worker clamps to
+   *  1–120 Hz (default 60 Hz); this method mirrors that clamp so the
+   *  client never asks for an out-of-range rate.  PR5 contract fix: the
+   *  `set_snapshot_hz` message previously had a Worker handler but no
+   *  client sender at all (orphan message).  It is exposed through the
+   *  debug bridge for tests; the live UI keeps the 60 Hz default and
+   *  never calls it. */
+  setSnapshotHz(hz: number): void {
+    const clamped = Math.min(120, Math.max(1, Math.round(hz)));
+    this.send({ type: 'set_snapshot_hz', hz: clamped });
+  }
+
   // -- PR4: experiment snapshots ----------------------------------------
   /** Save a manual snapshot (returns a promise resolved when the
    *  Worker confirms).  Manual snapshots persist in localStorage
@@ -1003,6 +1034,7 @@ export class SimClient {
       setSeed: (seed: number) => this.setSeed(seed),
       getSeed: () => this.getSeed(),
       advanceMs: (ms: number) => this.advanceMs(ms),
+      setSnapshotHz: (hz: number) => this.setSnapshotHz(hz),
       saveSnapshot: () => this.saveSnapshot(),
       restoreSnapshot: (id: string) => this.restoreSnapshot(id),
       getSnapshotInfo: () => this.getSnapshotInfo(),

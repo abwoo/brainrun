@@ -10,6 +10,24 @@ import {
   COUPLING_ID,COUPLING_LIMITATION,DEFAULT_MORPHOLOGY,
   alignedDipoleVectorNAm,createLocalCorticalColumn,
 } from '../lib/localCorticalColumn';
+import {
+  JANSEN_RIT_ID,JANSEN_RIT_LIMITATION,JR_PSP_TO_CURRENT_PA_PER_MV,
+  DEFAULT_JANSEN_RIT_PARAMS,createJansenRitColumn,
+} from '../lib/jansenRitColumn';
+
+/** Small q(t) sparkline reused by the WC/JR side-by-side panel. */
+function QTrace({values,color,label}:{values:number[];color:string;label:string}) {
+  const maxQ=Math.max(.25,...values.map(q=>Math.abs(q)));
+  return <div>
+    <p className="panel-text" style={{marginBottom:2}}>{label}</p>
+    <svg viewBox="0 0 300 65" role="img" aria-label={label+' 偶极矩时间轨迹（nA·m）'}
+      style={{width:'100%',height:65,background:'#08131d'}}>
+      <line x1="0" x2="300" y1="32.5" y2="32.5" stroke="#426074"/>
+      <polyline fill="none" stroke={color} strokeWidth="1.8"
+        points={values.map((v,i)=>(i*3)+','+(32.5-27*v/maxQ)).join(' ')}/>
+    </svg>
+  </div>;
+}
 
 /**
  * Human-template BEM 3D demo. The user must supply licensed local fsaverage
@@ -29,28 +47,53 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
   const simulator=useMemo(()=>createLocalCorticalColumn(),[]);
   const simulatorRef=useRef(simulator);
   const [columnState,setColumnState]=useState(()=>simulator.read());
+  // Jansen-Rit runs in lockstep with the WC column (same stimulus clock,
+  // same source/normal): the toggle only picks which route drives the 3D
+  // view, while the comparison panel always shows both.
+  const [columnModel,setColumnModel]=useState<'wc'|'jr'>('wc');
+  const jrSimulator=useMemo(()=>createJansenRitColumn(),[]);
+  const jrSimulatorRef=useRef(jrSimulator);
+  const [jrState,setJrState]=useState(()=>jrSimulator.read());
+  const [jrHistory,setJrHistory]=useState<number[]>(()=>[0]);
   const [running,setRunning]=useState(false);
   const pulseUntilMs=useRef(-1);
   const [pulseDrive,setPulseDrive]=useState(1.4);
   const [columnHistory,setColumnHistory]=useState<number[]>(()=>[0]);
+  /** JR pulse (1/s) linked to the WC drive slider: 1.4 <-> 120 1/s,
+   *  the comparison protocol of docs/pr5-jansen-rit.md. */
+  const jrPulsePerS=pulseDrive/1.4*120;
   const mount=useRef<HTMLDivElement>(null);
   const display=useRef<((idx:number,dir:Vec3Mm,v:number[])=>void)|null>(null);
   const manualDirection=useMemo<Vec3Mm>(()=>axis==='X'?[1,0,0]:axis==='Y'?[0,1,0]:[0,0,1],[axis]);
   const direction=sourceMode==='local-column' && data?
     data.source_positions[sourceIndex].normal_head_unit:manualDirection;
-  const momentVector=useMemo<Vec3Mm>(()=>sourceMode==='local-column'?
+  const wcMomentVector=useMemo<Vec3Mm>(()=>sourceMode==='local-column'?
     alignedDipoleVectorNAm(columnState.equivalentMomentNAm,direction):
     [direction[0]*moment,direction[1]*moment,direction[2]*moment],[
       sourceMode,columnState.equivalentMomentNAm,direction,moment,
     ]);
-  const volts=useMemo(()=>data?templateSourcePotentials(data,sourceIndex,
-    momentVector,{mode:reference}):[],[data,sourceIndex,momentVector,reference]);
+  const jrMomentVector=useMemo<Vec3Mm>(()=>sourceMode==='local-column'?
+    alignedDipoleVectorNAm(jrState.equivalentMomentNAm,direction):
+    [direction[0]*moment,direction[1]*moment,direction[2]*moment],[
+      sourceMode,jrState.equivalentMomentNAm,direction,moment,
+    ]);
+  const voltsFor=useMemo(()=>({
+    wc:data?templateSourcePotentials(data,sourceIndex,
+      wcMomentVector,{mode:reference}):[],
+    jr:data?templateSourcePotentials(data,sourceIndex,
+      jrMomentVector,{mode:reference}):[],
+  }),[data,sourceIndex,wcMomentVector,jrMomentVector,reference]);
+  const volts=columnModel==='jr'?voltsFor.jr:voltsFor.wc;
   const max=Math.max(.001,...volts.map(Math.abs));
   const current=data?.electrodes.findIndex(x=>x.label===selectedSensor)??-1;
   const currentV=current>=0?volts[current]:null;
+  const currentVwc=current>=0?voltsFor.wc[current]:null;
+  const currentVjr=current>=0?voltsFor.jr[current]:null;
 
-  // The independent local population runs only when this visible experiment
-  // is open and selected. Its ODE clock is not inferred from Three.js frames.
+  // The independent local populations run only when this visible experiment
+  // is open and selected. Their ODE clocks are not inferred from Three.js
+  // frames. Both routes step in lockstep on the same stimulus clock; the
+  // JR sim uses a 0.5 ms RK4 step, so it takes two substeps per 1 ms tick.
   useEffect(()=>{
     if(!data || sourceMode!=='local-column' || !running)return;
     let frame=0,last=0,acc=0;
@@ -62,12 +105,19 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
       if(steps>0){
         for(let k=0;k<steps;k++){
           const time=simulatorRef.current.read().tMs;
-          simulatorRef.current.step(time<pulseUntilMs.current?pulseDrive:0);
+          const on=time<pulseUntilMs.current;
+          simulatorRef.current.step(on?pulseDrive:0);
+          const jrPulse=on?pulseDrive/1.4*120:0;
+          jrSimulatorRef.current.step(jrPulse);
+          jrSimulatorRef.current.step(jrPulse);
         }
         acc-=steps;
         const next=simulatorRef.current.read();
         setColumnState(next);
         setColumnHistory(prev=>[...prev.slice(-99),next.equivalentMomentNAm]);
+        const nextJr=jrSimulatorRef.current.read();
+        setJrState(nextJr);
+        setJrHistory(prev=>[...prev.slice(-99),nextJr.equivalentMomentNAm]);
       }
       frame=requestAnimationFrame(tick);
     };
@@ -80,6 +130,9 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
     const next=simulatorRef.current.reset();
     setColumnState(next);
     setColumnHistory([0]);
+    const nextJr=jrSimulatorRef.current.reset();
+    setJrState(nextJr);
+    setJrHistory([0]);
   };
   const stimulate=()=>{
     pulseUntilMs.current=simulatorRef.current.read().tMs+200;
@@ -282,12 +335,24 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
               {sourceMode==='manual' && <p className="panel-text">偶极矩：{moment.toFixed(1)} nA·m</p>}
               {sourceMode==='manual' && <input type="range" aria-label="MRI BEM源强度" min="-30" max="30" step=".5"
                 value={moment} onChange={e=>setMoment(Number(e.target.value))}
-                style={{width:'100%'}}/>}
+                style={{width:'100%',margin:0}}/>}
               {sourceMode==='local-column' && <div>
-                <p className="panel-text" style={{color:'#ffb340'}}>{COUPLING_LIMITATION}</p>
-                <p className="panel-text">模型：{COUPLING_ID}</p>
-                <p className="panel-text">E：{columnState.e.toFixed(5)} · I：{columnState.i.toFixed(5)} · 模拟时钟 {columnState.tMs.toFixed(0)} ms</p>
-                <p className="panel-text">等效偶极矩：{columnState.equivalentMomentNAm.toFixed(4)} nA·m</p>
+                <label className="panel-text">源模型（两条路线同步运行，切换只改 3D 显示用哪条）
+                  <select aria-label="局部源模型" value={columnModel}
+                    onChange={e=>{
+                      setColumnModel(e.target.value as 'wc'|'jr');
+                      resetColumn();
+                    }}>
+                    <option value="wc">Wilson–Cowan 局部 E/I 神经群体</option>
+                    <option value="jr">Jansen–Rit 锥体 PSP（独立验证路线）</option>
+                  </select>
+                </label>
+                <p className="panel-text" style={{color:'#ffb340'}}>{columnModel==='jr'?JANSEN_RIT_LIMITATION:COUPLING_LIMITATION}</p>
+                <p className="panel-text">模型：{columnModel==='jr'?JANSEN_RIT_ID:COUPLING_ID}</p>
+                {columnModel==='wc'?
+                  <p className="panel-text">E：{columnState.e.toFixed(5)} · I：{columnState.i.toFixed(5)} · 模拟时钟 {columnState.tMs.toFixed(0)} ms</p>:
+                  <p className="panel-text">y0 锥体 PSP：{jrState.y0.toFixed(4)} mV · y1：{jrState.y1.toFixed(3)} · y2：{jrState.y2.toFixed(3)} · 模拟时钟 {jrState.tMs.toFixed(0)} ms</p>}
+                <p className="panel-text">等效偶极矩：{(columnModel==='jr'?jrState:columnState).equivalentMomentNAm.toFixed(4)} nA·m</p>
                 <p className="panel-text">皮层法向：{direction.map(n=>n.toFixed(3)).join(', ')}</p>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                   <button type="button" className="chip chip-small"
@@ -297,23 +362,26 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                   <button type="button" className="chip chip-small"
                     onClick={resetColumn}>重置神经动力学</button>
                 </div>
-                <label className="panel-text">无量纲刺激驱动 {pulseDrive.toFixed(1)}
+                <label className="panel-text">刺激驱动 {pulseDrive.toFixed(1)}（WC 无量纲）/ Δp {jrPulsePerS.toFixed(0)} 1/s（JR）
                   <input aria-label="局部刺激驱动" type="range" min="0.4" max="2.5" step="0.1"
                     value={pulseDrive} onChange={e=>setPulseDrive(Number(e.target.value))}
-                    style={{width:'100%'}}/>
+                    style={{width:'100%',margin:0}}/>
                 </label>
-                <svg viewBox="0 0 300 65" role="img" aria-label="物理偶极矩时间轨迹（nA·m）"
-                  style={{width:'100%',height:65,background:'#08131d'}}>
-                  <line x1="0" x2="300" y1="32.5" y2="32.5" stroke="#426074"/>
-                  <polyline fill="none" stroke="#ffb340" strokeWidth="1.8"
-                    points={columnHistory.map((v,i)=>{
-                      const maxQ=Math.max(.25,...columnHistory.map(q=>Math.abs(q)));
-                      return (i*3)+','+(32.5-27*v/maxQ);
-                    }).join(' ')}/>
-                </svg>
+                <div className="conn-title">两条路线并排比较（同一刺激、同一源、同一 BEM）</div>
+                <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:8}}>
+                  <div>
+                    <p className="panel-text" style={{marginBottom:2}}>Wilson–Cowan · q {columnState.equivalentMomentNAm.toFixed(4)} nA·m · {selectedSensor} {currentVwc===null?'—':currentVwc.toFixed(3)+' µV'}</p>
+                    <QTrace values={columnHistory} color="#ffb340" label="Wilson–Cowan 偶极矩"/>
+                  </div>
+                  <div>
+                    <p className="panel-text" style={{marginBottom:2}}>Jansen–Rit · q {jrState.equivalentMomentNAm.toFixed(4)} nA·m · {selectedSensor} {currentVjr===null?'—':currentVjr.toFixed(3)+' µV'}</p>
+                    <QTrace values={jrHistory} color="#4fb6f2" label="Jansen–Rit 偶极矩"/>
+                  </div>
+                </div>
                 <p className="panel-text">假设：{DEFAULT_MORPHOLOGY.effectivePyramidalCells.toLocaleString()} 个有效锥体细胞；
                   同步比例 {DEFAULT_MORPHOLOGY.coherence}；电流 {DEFAULT_MORPHOLOGY.excitatoryCurrentPA}/{DEFAULT_MORPHOLOGY.inhibitoryCurrentPA} pA；
-                  有效源汇距离 {DEFAULT_MORPHOLOGY.dipoleSeparationMm} mm。此参数尚无人体数据校准。</p>
+                  有效源汇距离 {DEFAULT_MORPHOLOGY.dipoleSeparationMm} mm。此参数尚无人体数据校准。
+                  JR 路线：锥体 PSP→电流斜率 {JR_PSP_TO_CURRENT_PA_PER_MV} pA/mV，静息输入 {DEFAULT_JANSEN_RIT_PARAMS.baselineInputPerS} 1/s（低分支），步长 {DEFAULT_JANSEN_RIT_PARAMS.dtMs} ms；两条路线都不是真实脑电，详见 docs/pr5-jansen-rit.md。</p>
               </div>}
               <label className="panel-text">EEG参考
                 <select aria-label="MRI BEM参考" value={reference}
@@ -355,7 +423,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
           </div>
           <p className="panel-text">方法：MNE make_forward_dipole + fsaverage MRI 三层 BEM；
             HEAD RAS 毫米，nA·m→µV。模型源只能选已预计算节点，不进行空间插值。
-            可选局部 E/I→电流源采用明确假设参数，尚无人体校准；与 TVB 76 区网络不互通，亦无经验证的 Talairach 转换。
+            可选局部 E/I（Wilson–Cowan）或 Jansen–Rit 锥体 PSP→电流源均采用明确假设参数，尚无人体校准；与 TVB 76 区网络不互通，亦无经验证的 Talairach 转换。
           </p>
         </>}
       </div>

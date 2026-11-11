@@ -10,7 +10,11 @@ export interface SimParams {
   g: number;
   /** 抑制自耦合 c_ei，范围 3–8（Phase 2：降到 2 会翻转全网）。 */
   c_ei: number;
-  /** 刺激幅度（模型单位），STIMULUS 滑杆非线性映射结果，范围 0.5–2.0。 */
+  /** 刺激幅度（模型单位），STIMULUS 滑杆非线性映射结果，UI 暴露范围
+   *  0.5–2.0。注意：引擎侧 clamp 是 0–4.0（crates/brain-wasm/src/lib.rs
+   *  set_stim_amplitude），UI 范围是引擎范围的真子集——前端发出的值
+   *  一定能被引擎原样接受，但调试桥/直接消息可以发出 2.0–4.0 的值。
+   *  见 docs/frontend-backend-contract.md 残留项 R1。 */
   stim_amplitude: number;
   /** 脉冲持续时间 ms（DURATION 滑杆），范围 20–500。 */
   stim_duration_ms: number;

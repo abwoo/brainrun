@@ -30,7 +30,33 @@ export interface SpatialTransform {
   errorMm: number | null;
 }
 
+/**
+ * Spaces that PR5 explicitly refuses to convert into or out of.
+ * - 'mni152-mm' / 'talairach-mm': no validated MNI152 or true Talairach
+ *   registration exists in PR5 (only FreeSurfer/MNE MNI305 via mni_tal).
+ *   Any transform touching them is a fabrication, not a conversion.
+ * - 'tvb-demo-mm': the 76-node TVB demo connectome is a cross-species
+ *   example network with no validated registration to any human template
+ *   (fsaverage or otherwise). No TVB <-> human-template mapping exists.
+ * These are rejected in validateTransform, the single choke point every
+ * public entry point (applyTransform, inverseTransform, composeTransforms)
+ * goes through, so a plausible-looking matrix can never silently produce
+ * numbers in a disabled space.
+ */
+const DISABLED_SPACES: ReadonlySet<CoordinateSpace> = new Set([
+  'mni152-mm',
+  'talairach-mm',
+  'tvb-demo-mm',
+]);
+
 export function validateTransform(t: SpatialTransform): void {
+  if (DISABLED_SPACES.has(t.from) || DISABLED_SPACES.has(t.to)) {
+    throw new RangeError(
+      `Invalid coordinate transform: conversion involving '${t.from}' -> '${t.to}' is disabled in PR5: ` +
+      `MNI152 / Talairach have no validated registration (only MNI305 via FreeSurfer/MNE mni_tal), ` +
+      `and the TVB demo network has no validated mapping to any human template`,
+    );
+  }
   if (!t.method.trim() || !t.provenance.trim() ||
       !Array.isArray(t.matrix) || t.matrix.length !== 16 ||
       !t.matrix.every(Number.isFinite) ||
@@ -86,8 +112,11 @@ export function inverseTransform(t: SpatialTransform): SpatialTransform {
 
 /** Compose b ∘ a. Unknown or inconsistent registrations are rejected. */
 export function composeTransforms(a:SpatialTransform,b:SpatialTransform):SpatialTransform {
-  validateTransform(a);validateTransform(b);
+  // Frame continuity is checked before validating either transform's
+  // contents, so composing across mismatched frames reports the frame
+  // error even when one side also names a disabled space.
   if(a.to!==b.from)throw new Error('Spatial transform frames do not match');
+  validateTransform(a);validateTransform(b);
   const c=new Array<number>(16).fill(0);
   for(let r=0;r<4;r++)for(let col=0;col<4;col++)
     for(let k=0;k<4;k++)c[r*4+col]+=b.matrix[r*4+k]*a.matrix[k*4+col];

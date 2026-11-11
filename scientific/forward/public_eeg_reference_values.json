@@ -1,0 +1,303 @@
+{
+  "schema": "public-eeg-constraint-v1",
+  "dataset": {
+    "name": "EEG data from an auditory oddball task",
+    "author": "Arnaud Delorme",
+    "year": 2020,
+    "openneuro_id": "ds003061",
+    "version": "1.1.2",
+    "doi": "10.18112/openneuro.ds003061.v1.1.2",
+    "license": "CC0",
+    "license_source": "dataset_description.json field \"License\": \"CC0\"",
+    "url": "https://openneuro.org/datasets/ds003061",
+    "s3_base": "https://s3.amazonaws.com/openneuro.org/ds003061",
+    "subject_used": "sub-001",
+    "run_used": "run-1",
+    "n_participants_total": 13,
+    "task": "auditory oddball, eyes closed",
+    "stimuli": "70% standard 500 Hz tones, 15% oddball 1000 Hz tones, 15% white-noise distractors; ~1/s",
+    "recording": "BioSemi ActiveTwo, 64 EEG channels, 10-20 cap, CMS/DRL reference, 256 Hz, 758 s"
+  },
+  "method": {
+    "tool": "MNE 1.11.0, NumPy, SciPy",
+    "filter_hz": [
+      0.5,
+      40.0
+    ],
+    "reference": "average",
+    "epoch_s": [
+      -0.2,
+      0.8
+    ],
+    "baseline_s": [
+      -0.2,
+      0.0
+    ],
+    "reject_peak_to_peak_uv": 150.0,
+    "psd": {
+      "method": "Welch",
+      "fmin_hz": 1.0,
+      "fmax_hz": 40.0,
+      "n_fft": 1024
+    },
+    "p300_window_ms": [
+      250.0,
+      600.0
+    ],
+    "p300_mean_window_ms": [
+      300.0,
+      500.0
+    ],
+    "n1_window_ms": [
+      80.0,
+      150.0
+    ],
+    "conditions": "oddball = oddball + oddball_with_reponse; standard = standard + standard_with_reponse",
+    "note": "One subject, one run only (sub-001 run-1). Single-subject values are an order-of-magnitude constraint, not a group norm. The P300 is a distributed response; the spherical single-source gain is an order-of-magnitude bridge, not a per-subject source localisation."
+  },
+  "measured": {
+    "epoch_counts": {
+      "oddball": 99,
+      "standard": 476,
+      "noise": 103,
+      "presented": {
+        "1": 113,
+        "2": 522,
+        "3": 112
+      },
+      "rejected": 69
+    },
+    "amplitude": {
+      "unit": "uV",
+      "channels": {
+        "Pz": {
+          "baseline_rms_pre_stimulus_uv": 6.07,
+          "continuous_rms_uv": 8.58
+        },
+        "Cz": {
+          "baseline_rms_pre_stimulus_uv": 5.48,
+          "continuous_rms_uv": 7.07
+        },
+        "Oz": {
+          "baseline_rms_pre_stimulus_uv": 10.02,
+          "continuous_rms_uv": 11.21
+        }
+      }
+    },
+    "erp": {
+      "oddball": {
+        "Pz": {
+          "p300_window_peak_uv": 8.89,
+          "p300_window_peak_latency_ms": 410.0,
+          "mean_300_500_ms_uv": 6.94,
+          "n1_window_min_uv": -1.76,
+          "n1_window_min_latency_ms": 86.0
+        },
+        "Cz": {
+          "p300_window_peak_uv": 8.24,
+          "p300_window_peak_latency_ms": 402.0,
+          "mean_300_500_ms_uv": 5.09,
+          "n1_window_min_uv": -2.83,
+          "n1_window_min_latency_ms": 109.0
+        }
+      },
+      "standard": {
+        "Pz": {
+          "p300_window_peak_uv": 1.11,
+          "p300_window_peak_latency_ms": 273.0,
+          "mean_300_500_ms_uv": 0.06,
+          "n1_window_min_uv": -0.52,
+          "n1_window_min_latency_ms": 86.0
+        },
+        "Cz": {
+          "p300_window_peak_uv": 1.34,
+          "p300_window_peak_latency_ms": 273.0,
+          "mean_300_500_ms_uv": -0.45,
+          "n1_window_min_uv": -2.73,
+          "n1_window_min_latency_ms": 117.0
+        }
+      },
+      "difference_oddball_minus_standard": {
+        "Pz": {
+          "p300_window_peak_uv": 9.14,
+          "p300_window_peak_latency_ms": 414.0,
+          "mean_300_500_ms_uv": 6.88,
+          "n1_window_min_uv": -1.57,
+          "n1_window_min_latency_ms": 141.0
+        },
+        "Cz": {
+          "p300_window_peak_uv": 8.35,
+          "p300_window_peak_latency_ms": 402.0,
+          "mean_300_500_ms_uv": 5.55,
+          "n1_window_min_uv": -1.1,
+          "n1_window_min_latency_ms": 102.0
+        }
+      }
+    },
+    "psd": {
+      "channels": {
+        "Pz": {
+          "alpha_band_peak_hz_4_13": 10.0,
+          "global_peak_hz_1_40": 1.0,
+          "band_power_share_pct_of_1_40_hz": {
+            "delta": 43.4,
+            "theta": 10.9,
+            "alpha": 30.3,
+            "beta": 13.6
+          }
+        },
+        "Oz": {
+          "alpha_band_peak_hz_4_13": 9.25,
+          "global_peak_hz_1_40": 9.25,
+          "band_power_share_pct_of_1_40_hz": {
+            "delta": 14.7,
+            "theta": 5.9,
+            "alpha": 69.3,
+            "beta": 9.2
+          }
+        },
+        "Cz": {
+          "alpha_band_peak_hz_4_13": 9.5,
+          "global_peak_hz_1_40": 9.5,
+          "band_power_share_pct_of_1_40_hz": {
+            "delta": 33.1,
+            "theta": 13.1,
+            "alpha": 37.4,
+            "beta": 14.1
+          }
+        }
+      }
+    }
+  },
+  "lead_field": {
+    "model": "MNE four-layer sphere, same parameters as generate_sphere_model.py; average reference",
+    "electrode": "Pz",
+    "central_variant": "parietal midline, radial",
+    "central_gain_uv_per_nAm": 0.16,
+    "gain_range_uv_per_nAm": [
+      0.13,
+      0.188
+    ],
+    "variants": [
+      {
+        "label": "parietal midline, radial",
+        "pz_gain_uv_per_nAm": 0.16
+      },
+      {
+        "label": "parietal left, radial",
+        "pz_gain_uv_per_nAm": 0.138
+      },
+      {
+        "label": "parietal right, radial",
+        "pz_gain_uv_per_nAm": 0.13
+      },
+      {
+        "label": "parietal midline, vertical",
+        "pz_gain_uv_per_nAm": 0.188
+      }
+    ]
+  },
+  "model_waveforms": {
+    "wilson_cowan": {
+      "fixture": "local-column-reference.json",
+      "peak_abs_q_nAm": 4.413,
+      "peak_latency_ms": 108.0,
+      "peak_sign": 1,
+      "q_mean_300_500_ms_nAm": 0.0001,
+      "q_max_abs_300_500_ms_nAm": 0.0011,
+      "dominant_freq_hz_post_120ms": 2.07,
+      "morphology": {
+        "N": 1000000,
+        "coherence": 0.08,
+        "I_exc_pA": 200.0,
+        "I_inh_pA": 100.0,
+        "length_mm": 0.5
+      }
+    },
+    "jansen_rit": {
+      "fixture": "jansen-rit-reference.json",
+      "peak_abs_q_nAm": 1.032,
+      "peak_latency_ms": 176.0,
+      "peak_sign": 1,
+      "q_mean_300_500_ms_nAm": -0.0103,
+      "q_max_abs_300_500_ms_nAm": 0.0406,
+      "dominant_freq_hz_post_120ms": 2.07,
+      "morphology": {
+        "N": 1000000,
+        "coherence": 0.08,
+        "g_pA_per_mV": 200.0,
+        "length_mm": 0.5
+      }
+    }
+  },
+  "comparison": {
+    "pz_gain_uv_per_nAm": 0.16,
+    "gain_range_uv_per_nAm": [
+      0.13,
+      0.188
+    ],
+    "measured_reference": {
+      "p300_peak_uv_at_Pz": 8.89,
+      "p300_mean_300_500_ms_uv_at_Pz": 6.94,
+      "baseline_rms_uv_at_Pz": 6.07,
+      "alpha_peak_hz_at_Pz": 10.0
+    },
+    "routes": {
+      "wilson_cowan": {
+        "model_peak_q_nAm": 4.413,
+        "model_peak_latency_ms": 108.0,
+        "model_peak_pz_uv": 0.71,
+        "model_peak_pz_uv_range": [
+          0.57,
+          0.83
+        ],
+        "measured_p300_peak_uv": 8.89,
+        "amplitude_ratio_measured_over_model": 12.6,
+        "product_rescale_needed_to_match_p300_peak": 12.6,
+        "amplitude_verdict": "FAIL",
+        "model_max_abs_q_300_500_ms_uv_at_Pz": 0.0002,
+        "measured_mean_300_500_ms_uv": 6.94,
+        "morphology_verdict": "FAIL",
+        "model_baseline_q_nAm": 0.0,
+        "measured_baseline_rms_uv": 6.07,
+        "baseline_verdict": "FAIL",
+        "model_dominant_freq_hz": 2.07,
+        "measured_alpha_peak_hz": 10.0,
+        "frequency_verdict": "FAIL"
+      },
+      "jansen_rit": {
+        "model_peak_q_nAm": 1.032,
+        "model_peak_latency_ms": 176.0,
+        "model_peak_pz_uv": 0.17,
+        "model_peak_pz_uv_range": [
+          0.13,
+          0.19
+        ],
+        "measured_p300_peak_uv": 8.89,
+        "amplitude_ratio_measured_over_model": 53.8,
+        "product_rescale_needed_to_match_p300_peak": 53.8,
+        "amplitude_verdict": "FAIL",
+        "model_max_abs_q_300_500_ms_uv_at_Pz": 0.0065,
+        "measured_mean_300_500_ms_uv": 6.94,
+        "morphology_verdict": "FAIL",
+        "model_baseline_q_nAm": 0.0,
+        "measured_baseline_rms_uv": 6.07,
+        "baseline_verdict": "FAIL",
+        "model_dominant_freq_hz": 2.07,
+        "measured_alpha_peak_hz": 10.0,
+        "frequency_verdict": "FAIL"
+      }
+    }
+  },
+  "non_identifiability": "Amplitude matching rescales the product N x coherence x per-neuron current x source-sink length only. That product is structurally non-identifiable from EEG amplitude: no rescaling factor reported here certifies a cell count, a synchrony fraction, or a per-neuron current.",
+  "literature_consistency": {
+    "p300": "Polich (2007, Clin. Neurophysiol. 118:2128-2148): auditory oddball P300 at Pz typically peaks 300-600 ms with amplitude of order 10 uV in young adults. Measured here: 8.89 uV at 410 ms -- inside that range.",
+    "alpha": "Eyes-closed resting EEG is dominated by posterior alpha, 8-13 Hz. Measured here: Oz peak 9.25 Hz, alpha 69.3% of 1-40 Hz power -- the expected pattern."
+  },
+  "residual": [
+    "Single subject, single run: repeat on more ds003061 subjects before quoting a group-level constraint.",
+    "Spherical-head gain, not the fsaverage BEM lead field: re-run the model comparison through the real BEM once its zero-config distribution is settled.",
+    "Jansen-Rit comparison uses the p0=90 low fixed-point branch; its standard p0=220 operating point is a ~10.5 Hz limit cycle, which is the route's own candidate for the alpha rhythm and has not been tested against this data yet.",
+    "No eyes-open condition in this dataset (eyes closed throughout): alpha blocking cannot be checked here."
+  ]
+}

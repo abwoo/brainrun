@@ -80,7 +80,25 @@ jobs:
         run: npm install --no-save --package-lock=false playwright@1.56.1
       - name: Install Playwright Chromium
         working-directory: app
-        run: npx playwright install --with-deps chromium
+        # 2026-11-11: run 43032235876 failed ONLY here (step 26) while steps
+        # 1-25 passed — a transient environment failure of the apt/system-deps
+        # install, not a product failure. Keep `--with-deps chromium` (the
+        # pinned Playwright 1.56.1 browser + its exact system deps is what the
+        # smoke test was validated against; switching to a runner-provided
+        # system Chromium would silently change the browser under test), and
+        # retry the install up to 3 times with a backoff instead.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright Chromium install, attempt $attempt/3"
+            if npx playwright install --with-deps chromium; then
+              echo "Playwright Chromium install succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Playwright Chromium install failed after 3 attempts" >&2
+          exit 1
       - name: Browser smoke test of 3D physical causality
         working-directory: app
         run: node tests/pr5-browser-smoke.mjs
