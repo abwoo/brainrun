@@ -41,7 +41,17 @@ const TABS: { key: EegLabTab; label: string }[] = [
   { key: 'inverse', label: '源定位' },
 ];
 
-export default function EegAnalysisLab({ onClose }: { onClose: () => void }) {
+export default function EegAnalysisLab({
+  onClose,
+  inline = false,
+  initialTab,
+}: {
+  onClose: () => void;
+  /** inline：EEG 模式内联渲染（无 backdrop、无关闭按钮），不是弹窗。 */
+  inline?: boolean;
+  /** 打开时默认切到的 tab；变化时切过去（S8–S11 的“打开实验台”用）。 */
+  initialTab?: EegLabTab;
+}) {
   const [fixture, setFixture] = useState<SphereFixture | null>(null);
   const [fixtureError, setFixtureError] = useState<string | null>(null);
   const [recording, setRecording] = useState<EegRecording | null>(null);
@@ -56,8 +66,14 @@ export default function EegAnalysisLab({ onClose }: { onClose: () => void }) {
   const [durationMs, setDurationMs] = useState(10000);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<EegLabTab>('eeg');
+  const [activeTab, setActiveTab] = useState<EegLabTab>(initialTab ?? 'eeg');
   const [atTimeMs, setAtTimeMs] = useState(400);
+
+  // PR8-A：initialTab 变化时切过去（例如已在 EEG 模式时从场景启动器点
+  // “打开实验台 ERP”）；只在有明确要求时切，不碰用户自己切的 tab。
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -125,32 +141,28 @@ export default function EegAnalysisLab({ onClose }: { onClose: () => void }) {
     }, 30);
   };
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal screen eeg-lab-modal"
-        role="dialog"
-        aria-label="EEG 分析实验"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
-        <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === t.key}
-              className={`chip chip-small${activeTab === t.key ? ' chip-on' : ''}`}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+  const labBody = (
+    <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'}>
+      <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
+      <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === t.key}
+            className={`chip chip-small${activeTab === t.key ? ' chip-on' : ''}`}
+            onClick={() => setActiveTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+        {!inline && (
           <button type="button" className="chip chip-small eeg-lab-close" onClick={onClose}>
             关闭
           </button>
-        </div>
+        )}
+      </div>
         {runError && <p className="eeg-error">{runError}</p>}
         {activeTab === 'eeg' && (
           <EegWaveTab
@@ -194,6 +206,14 @@ export default function EegAnalysisLab({ onClose }: { onClose: () => void }) {
           正向模型 {SPHERE_MODEL_ID} · 同一份 EEG 记录供六个 tab 共用 ·
           噪声是伪迹，不作神经源活动解释。
         </p>
+    </div>
+  );
+
+  if (inline) return labBody;
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div role="dialog" aria-label="EEG 分析实验" onClick={(e) => e.stopPropagation()}>
+        {labBody}
       </div>
     </div>
   );

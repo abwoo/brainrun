@@ -55,6 +55,7 @@ body {
   padding: 10px 14px;
   border-bottom: 1px solid var(--frame);
   flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .topbar-title {
@@ -74,6 +75,30 @@ body {
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---- PR8-A：四个模式 + 渐进式展示 ---- */
+.mode-switch {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--frame);
+}
+
+.main-eeg {
+  display: block;
+  overflow-y: auto;
+}
+
+.eeg-lab-inline {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 30px 16px 16px;
+  min-height: 100%;
 }
 
 .chip {

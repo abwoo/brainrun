@@ -35,7 +35,7 @@
 ### 能分发什么、不能分发什么（截至 2026-11-11 的实情）
 
 - **原则上可分发（须同时满足以下全部条件，缺一不可）**：MGH 自身权利范围内的 fsaverage 派生数据（轻量化皮层网格、三层 BEM 几何、BEM lead-field、`aparc` 标签），且分发包内完整附带 Part B 全部条款（以 §1(b) 固定措辞开头）、保留全部署名与版权标记、明确标注为修改过的衍生品、附“仅限研究、非临床”声明、不使用 MGH 名称作背书。
-- **目前不能分发**：上述条件中“随附许可包”尚未制作；§3 涉及的第三方权利（40 名受试者底层 MRI 数据、`aparc` 图谱的单独权利）尚未逐项核实清除；实际使用的副本来自 MNE 的 OSF 镜像下载（`mne.datasets.fetch_fsaverage`），而非直接从 FreeSurfer 下载，该镜像副本的来源链与随附条款未经核实——MNE 文档只说明提供该下载函数，未给出 fsaverage 的再分发许可。因此 **fsaverage 派生数据目前仍不得进入 GitHub Pages 公开部署**，继续只走本地导入（`.local-assets/`，已在 `.gitignore` 中排除）。
+- **目前不能分发**：上述条件中“随附许可包”尚未制作；§3 涉及的第三方权利（40 名受试者底层 MRI 数据、`aparc` 图谱的单独权利）尚未逐项核实清除；实际使用的副本来自 MNE 的 OSF 镜像下载（`mne.datasets.fetch_fsaverage`），而非直接从 FreeSurfer 下载，该镜像副本的来源链与随附条款未经核实——MNE 文档只说明提供该下载函数，未给出 fsaverage 的再分发许可。因此 **fsaverage 派生数据目前仍不得进入 GitHub Pages 公开部署**，继续只走本地导入（`.local-assets/`，已在 `.gitignore` 中排除）。（2026-11-12 PR8-C 复核：状态无变化。）
 - **署名要求（分发时必须做到的清单）**：附完整 Part B 文本 + §1(b) 固定开头措辞；保留 FreeSurfer/MGH 署名与版权标记；每件衍生资产标注“修改版、非原版”；注明模板来源为 FreeSurfer fsaverage（40 名受试者平均模板）及 MNE 下载链路；注明 `aparc` 图谱来源；附研究用途声明与免责声明；不使用 MGH/FreeSurfer 名称作推广背书。
 
 ## 二、BrainRun PR5 数据和程序清单
@@ -63,7 +63,18 @@
 
 **候选：onavg 皮层表面模板（CC0，可行替代的几何来源）。** onavg（OpenNeuro Average）是 Ma 等人 2024 年发表于《Nature Methods》的皮层表面模板（Ma, Guo, Gobbini & Haxby, *Nat Methods* 21, 1736–1742, 2024, DOI 10.1038/s41592-024-02346-y），基于 1,031 名受试者、30 个 OpenNeuro 数据集构建，**以 CC0（公共领域奉献）发布**，托管于 TemplateFlow（`templateflow/tpl-onavg`）与 GitHub（`feilong/tpl-onavg`）。CC0 意味着该模板几何可自由复制、修改与再分发，无需许可谈判（引用原论文仍是规范做法）。这是目前唯一已核实的许可干净的真实人脑皮层几何来源。
 
-**但 onavg 现在还不能直接顶替 fsaverage，缺口如实写清**：onavg 只有皮层表面，没有头皮/颅骨 BEM 边界壳、没有电极位置、没有与 HEAD 坐标的已验证配准。要建成零配置真实 BEM 还需三件未完成的工作（均不在 PR5 本轮范围，需后续单独立项验证）：(1) 导入并轻量化 onavg 皮层网格，验证其 HEAD 配准与左右方向；(2) 头皮/颅骨壳的来源——或用明确标注为合成的程序化外壳（新几何，需单独验证其 BEM 数值合理性，不得冒充真实解剖），或另找许可干净的完整头部模型（**截至 2026-11-11 暂无已核实的现成来源，不要编**）；(3) 用 MNE 重新求解 BEM lead-field 并跑通与 fsaverage 同等的数值对照与浏览器验收。**在上述工作完成并验证之前，不得声称“onavg 零配置真实 BEM 已就绪”。**
+**2026-11-12 调查更新（PR8-C）：** CC0 已再次核实——TemplateFlow
+仓库 `template_description.json` 的 `"License": "CC0"`（实测），
+GitHub 仓库页同样显示 CC0-1.0。密度档位每半球 10k / 41k / 164k /
+655k 顶点；格式为 GIFTI（`.surf.gii` 表面 + `.label.gii` 分区标签）。
+但 2026-11-12 实测 TemplateFlow 仓库根目录清单只含**球面**表面
+（`_sphere.surf.gii`）与 dparc 标签（`_desc-cortex_dparc.label.gii`），
+**未见 pial / white / inflated 等解剖折叠表面**；文件为 DataLad
+软链接（annex 对象），须 `datalad get` 后才能拿到实体，**单文件大小
+未核实**。**建议：推进，但只作为一个单独立项的小验证，不在本批建新
+数据管线、不换网格**（详见 `docs/model-spec.md` §13.2）。
+
+**但 onavg 现在还不能直接顶替 fsaverage，缺口如实写清**：onavg 只有皮层表面，没有头皮/颅骨 BEM 边界壳、没有电极位置、没有与 HEAD 坐标的已验证配准。要建成零配置真实 BEM 还需三件未完成的工作（均不在 PR5 本轮范围，需后续单独立项验证）：(1) 导入并轻量化 onavg 皮层网格，验证其 HEAD 配准与左右方向；(2) 头皮/颅骨壳的来源——或用明确标注为合成的程序化外壳（新几何，需单独验证其 BEM 数值合理性，不得冒充真实解剖），或另找许可干净的完整头部模型（**截至 2026-11-12 暂无已核实的现成来源，不要编**）；(3) 用 MNE 重新求解 BEM lead-field 并跑通与 fsaverage 同等的数值对照与浏览器验收。**在上述工作完成并验证之前，不得声称“onavg 零配置真实 BEM 已就绪”。**
 
 **不采用的替代**：TemplateFlow 的 `tpl-fsaverage` 只是同一 fsaverage 模板的另一分发渠道，继承 FreeSurfer 许可，不解决许可问题；MNI152 体模板未采用——PR5 已明确禁用 MNI152 转换，且其许可链未核实。
 
