@@ -112,7 +112,7 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="电流偶极子物理实验"
       onClick={e=>e.stopPropagation()} style={{width:'min(1120px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
-      <div className="screen-title" style={{display:'flex',justifyContent:'space-between'}}>
+      <div className="screen-title" style={{display:'flex',justifyContent:'space-between',right:0,pointerEvents:'auto'}}>
         PR5 · DIPOLE PHYSICS LAB
         <button className="chip chip-small" type="button" onClick={onClose}>关闭</button>
       </div>
