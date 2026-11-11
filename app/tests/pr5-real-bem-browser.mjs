@@ -9,10 +9,13 @@ import {resolve} from 'node:path';
 import {createServer} from 'vite';
 import {chromium} from 'playwright';
 
-const modelPath=resolve('../.local-assets/pr5/fsaverage-bem.json');
+const modelPath=resolve(process.env.PR5_MODEL_FILE || '../.local-assets/pr5/fsaverage-bem.json');
+const expectedSources=Number(process.env.PR5_EXPECTED_SOURCES||16);
+const expectedElectrodes=Number(process.env.PR5_EXPECTED_ELECTRODES||19);
 const model=JSON.parse(readFileSync(modelPath,'utf8'));
 assert.equal(model.model_id,'fsaverage-mne-three-layer-bem-v1');
-assert.equal(model.source_positions.length,16);
+assert.equal(model.source_positions.length,expectedSources);
+assert.equal(model.electrodes.length,expectedElectrodes);
 assert.ok(model.meshes.cortex.lh.vertices_head_mm.length<10000,
   'real anatomical display vertices must be reduced');
 
@@ -39,7 +42,7 @@ try{
   await dialog.getByLabel('导入本地 BEM 模型').setInputFiles(modelPath);
   const menu=dialog.getByLabel('皮层源位置');
   await menu.waitFor();
-  assert.equal(await menu.locator('option').count(),16);
+  assert.equal(await menu.locator('option').count(),expectedSources);
   await dialog.getByText('模板 fsaverage', {exact:false}).waitFor();
   assert.ok((await dialog.getByText('MNI305 (mm)',{exact:false}).textContent())?.includes(','),
     'real MRI-derived MNI305 coordinate displayed');
@@ -55,7 +58,7 @@ try{
     return Number(m[1]);
   };
   const base=await voltage();
-  await menu.selectOption('15');
+  await menu.selectOption(String(expectedSources-1));
   const moved=await voltage();
   assert.ok(Math.abs(base-moved)>.0001,
     'picking another genuine MNE cortex source changes real BEM EEG voltage');

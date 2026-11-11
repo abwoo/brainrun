@@ -108,6 +108,22 @@ TVB 示例数据（Demo Connectome）的结构连接矩阵耦合，延迟由纤�
 
 当前新增的 HEAD EEG 使用 MNE 的四层同心球近似，不是个体化头部 BEM 或真实人类图谱。10–20 基础 19 点、扩展 10–10 94 点、10–05 343 点由 MNE 模板电极方向径向投影到同一球面，**不能将投影点直接称为实际个体头皮位置**。源空间为球心附近的有限三维立方网格，源移动时采用经过 MNE 数值比对的三线性插值；**不代表已将 TVB 76 区 E/I 神经活动映射成具有单位的皮层电流源**。模型来源、限定参数、可复现实验、未完成的 MRI/图谱/BEM/许可门槛详见 [`docs/pr5-acceptance.md`](docs/pr5-acceptance.md)。
 
+
+### PR #5：真实 MRI/BEM 的本地科学实验（未作为公开资产发布）
+
+新增 **HEAD EEG → 进阶：真实 MRI/BEM**。用户可以加载**自行获取并生成**的
+FreeSurfer fsaverage 模板数据，在真实皮层/颅骨/头皮三维网格上选取皮层源，
+使用 MNE 计算的三层 BEM lead-field 产生 EEG 电极电位。支持真实模板的
+`aparc` 分区，以及严格标注的 **MNI305** 坐标（不等于 MNI152/Talairach）。
+皮层源目前吸附到已经求解的离散位置；不允许在未经验证的位置伪造插值。
+已通过 CI 的 MRI/BEM 科学、浏览器和数值验收。
+
+**请注意**：fsaverage 源自 FreeSurfer，衍生几何与 EEG forward 数据的公开传播
+仍须审查许可、署名及分发条件。公开 GitHub Pages **不会自动发布这些资产**。
+本地获取、生成、使用与风险说明见
+[真实 fsaverage BEM 实验规范](docs/pr5-fsaverage-bem.md)；
+正式合并条件见 [PR #5 验收门槛](docs/pr5-acceptance.md)。
+
 ## 验收
 
 - 科学验证与对照：`docs/validation.md`

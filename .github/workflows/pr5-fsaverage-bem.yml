@@ -9,6 +9,7 @@ on:
       - app/pr5-real-bem.html
       - app/src/pr5RealBEMHarness.tsx
       - tests/pr5/test_fsaverage_bem_live.py
+      - tests/pr5/fsaverage-bem-dense.test.mjs
       - .github/workflows/pr5-fsaverage-bem.yml
   workflow_dispatch:
 
@@ -51,6 +52,20 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test REAL fsaverage anatomy and MNE BEM field in Chromium
         working-directory: app
+        run: node tests/pr5-real-bem-browser.mjs
+      - name: Generate a denser 128-source / 343-electrode MRI/BEM validation model
+        run: |
+          python scientific/forward/generate_fsaverage_bem.py \
+            --sources-per-hemisphere 64 --montage 10-05 \
+            --output .local-assets/pr5/fsaverage-bem-dense.json
+      - name: Validate dense source-space and montage EEG runtime (no interpolation)
+        run: node --experimental-strip-types --test tests/pr5/fsaverage-bem-dense.test.mjs
+      - name: Validate dense real MRI/BEM in Chromium without distributing data
+        working-directory: app
+        env:
+          PR5_MODEL_FILE: ../.local-assets/pr5/fsaverage-bem-dense.json
+          PR5_EXPECTED_SOURCES: '128'
+          PR5_EXPECTED_ELECTRODES: '343'
         run: node tests/pr5-real-bem-browser.mjs
       - name: Ensure fsaverage-derived artifacts are excluded from the git repository
         run: |
