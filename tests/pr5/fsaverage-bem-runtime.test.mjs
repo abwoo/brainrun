@@ -18,9 +18,11 @@ const fixture={
   interpolation:'none; only precomputed source vertices are physically validated',
   license_status:'REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET',
   transform_mri_to_head_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+  transform_mri_to_mni305_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+  standard_coordinate_definition:'MNI305 (MNE mni_tal), not MNI152 or true Talairach',
   source_positions:[
-    {hemisphere:'lh',vertex:10,head_mm:[-30,0,0],atlas:'aparc',region:'lh.precentral'},
-    {hemisphere:'rh',vertex:11,head_mm:[30,0,0],atlas:'aparc',region:'rh.precentral'},
+    {hemisphere:'lh',vertex:10,head_mm:[-30,0,0],mni305_mm:[-27,2,3],atlas:'aparc',region:'lh.precentral'},
+    {hemisphere:'rh',vertex:11,head_mm:[30,0,0],mni305_mm:[27,2,3],atlas:'aparc',region:'rh.precentral'},
   ],
   electrodes:[
     {label:'Cz',head_mm:[0,0,100]},
