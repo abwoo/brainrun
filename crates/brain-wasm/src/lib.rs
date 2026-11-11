@@ -157,8 +157,18 @@ impl WasmSim {
     /// Default pulse amplitude used by the UI (model units).  The UI maps
     /// its STIMULUS knob nonlinearly onto 0.5–2.0; this only stores the
     /// value, it does not fire any stimulus by itself.
+    ///
+    /// PR6 R1 (resolved, option (a)): the engine clamp is now 0.5–2.0,
+    /// exactly the UI range — no wider engine range any more.  This
+    /// clamps only the *default* amplitude parameter.  A per-event
+    /// amplitude passed to `add_stimulus` (Worker `stimulus` /
+    /// `hold_start` messages, debug-bridge `pulse(node, amplitude?)`)
+    /// is NOT clamped here, by design: it is the direct event path the
+    /// Python reference amplitude sweep uses (up to 4.0 in
+    /// `reference/python-model/experiments.py`), and it never went
+    /// through this setter.
     pub fn set_stim_amplitude(&mut self, amplitude: f64) {
-        self.sim.params.stim_amplitude = amplitude.clamp(0.0, 4.0);
+        self.sim.params.stim_amplitude = amplitude.clamp(0.5, 2.0);
     }
 
     pub fn stim_amplitude(&self) -> f64 {

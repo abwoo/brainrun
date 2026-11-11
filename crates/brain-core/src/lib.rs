@@ -389,6 +389,16 @@ pub struct Simulator {
     i0: f64,
 }
 
+/// Schema version of the `StateSnapshot` JSON (PR6 R2).  Written by
+/// `take_snapshot`; read back by `parseSnapshotSummary` on the TS side.
+/// Snapshots written before PR6 have no `version` field and deserialise
+/// as 1 via `default_snapshot_version`, so old JSON still restores.
+pub const STATE_SNAPSHOT_VERSION: u32 = 1;
+
+fn default_snapshot_version() -> u32 {
+    STATE_SNAPSHOT_VERSION
+}
+
 /// PR4: a complete, restorable experiment state.  Everything needed to
 /// resume the exact trajectory: params, live weights, bias, step count,
 /// RNG state, OU state, E/I, and the delayed-coupling history
@@ -399,6 +409,10 @@ pub struct Simulator {
 /// WASM / localStorage snapshot path.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StateSnapshot {
+    /// Schema version of this snapshot JSON (PR6 R2).  Missing in
+    /// pre-PR6 JSON, in which case serde defaults it to 1.
+    #[serde(default = "default_snapshot_version")]
+    pub version: u32,
     pub params: Params,
     pub weights: Vec<Vec<f64>>,
     pub bias: Vec<f64>,
@@ -493,6 +507,7 @@ impl Simulator {
     /// trimmed to `max_idelay + 8` rows.
     pub fn take_snapshot(&self) -> StateSnapshot {
         StateSnapshot {
+            version: STATE_SNAPSHOT_VERSION,
             params: self.params,
             weights: self.weights.clone(),
             bias: self.bias.clone(),
@@ -1300,6 +1315,25 @@ mod tests {
         assert_eq!(after.e, cont.e, "OU+noise continuation diverged after restore");
         assert_eq!(after.i, cont.i);
         assert_eq!(after.p, cont.p);
+    }
+
+    #[test]
+    fn pr6_snapshot_version_written_and_old_json_restores_as_v1() {
+        // PR6 R2: take_snapshot writes version = STATE_SNAPSHOT_VERSION,
+        // and pre-PR6 JSON without the field deserialises as 1 and
+        // restores (no silent mis-restore, no rejection of old snapshots).
+        let mut sim = chain_sim(1.0);
+        sim.run(100.0, &[]).unwrap();
+        let snap = sim.take_snapshot();
+        assert_eq!(snap.version, STATE_SNAPSHOT_VERSION);
+        let json = serde_json::to_string(&snap).unwrap();
+        assert!(json.contains("\"version\":1"));
+        let old_json = json.replace("\"version\":1,", "");
+        assert!(!old_json.contains("\"version\""));
+        let old: StateSnapshot = serde_json::from_str(&old_json).unwrap();
+        assert_eq!(old.version, 1);
+        sim.restore_snapshot(&old).unwrap();
+        assert_eq!(sim.step_count(), snap.step_count);
     }
 
     #[test]

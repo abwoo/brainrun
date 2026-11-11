@@ -38,6 +38,18 @@ import {
 import {
   DEFAULT_JANSEN_RIT_PARAMS, JANSEN_RIT_ID, JR_PSP_TO_CURRENT_PA_PER_MV,
 } from '../../app/src/lib/jansenRitColumn.ts';
+import {
+  DEFAULT_SFREQ_HZ, DEFAULT_DURATION_MS, DEFAULT_EVENT_INTERVAL_MS,
+  DEFAULT_DRIVE_DURATION_MS, DEFAULT_WC_DRIVE, DEFAULT_JR_DRIVE_PER_S,
+  DEFAULT_JR_BASELINE_INPUT_PER_S, DEFAULT_SEED, DEFAULT_NOISE,
+  NOISE_SLIDER_MIN_UV, NOISE_SLIDER_MAX_UV,
+} from '../../app/src/lib/eegRecording.ts';
+import {
+  MNE_LAMBDA2_DEFAULT, MNE_NOISE_RMS_UV_DEFAULT,
+} from '../../app/src/lib/sourceLocalization.ts';
+import {
+  SPLINE_ORDER_M, SPLINE_N_MAX, SPLINE_LAMBDA_DEFAULT,
+} from '../../app/src/lib/topography.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (rel) => readFileSync(join(root, rel), 'utf8');
@@ -91,7 +103,7 @@ test('单位常量：电导率、模型 ID、增益换算前后端一致', () =>
   assert.equal(demoSphereSensors(90).length, 12);
 });
 
-test('四滑杆：KNOB_MAP 端点 = UI 数字框范围 ⊆ 引擎 clamp', () => {
+test('四滑杆：KNOB_MAP 端点 = UI 数字框范围 = 引擎 clamp', () => {
   // KNOB_MAP 端点。
   near(KNOB_MAP.stimulusAmplitude(0), 0.5);
   near(KNOB_MAP.stimulusAmplitude(1), 2.0);
@@ -114,15 +126,27 @@ test('四滑杆：KNOB_MAP 端点 = UI 数字框范围 ⊆ 引擎 clamp', () => 
     assert.ok(appTsx.includes(mn), `App.tsx 缺 ${mn}`);
     assert.ok(appTsx.includes(mx), `App.tsx 缺 ${mx}`);
   }
-  // 引擎 clamp：g / c_ei / duration 与 UI 完全相等；stim_amplitude 例外——
-  // 引擎 0–4.0 比 UI 0.5–2.0 宽（契约残留 R1），只断言子集关系，不伪装相等。
+  // 引擎 clamp：四者如今与 UI 完全相等。PR6 R1 已裁决为 (a)：WASM
+  // set_stim_amplitude 从 0–4.0 收紧到 0.5–2.0，与 UI 一致（此前
+  // 引擎比 UI 宽是契约残留 R1）。收紧的依据：全仓 grep 无任何
+  // set_stim_amplitude 用例超过 2.0（UI 最大 2.0、测试最大 2.0）；
+  // 唯一超 2.0 的幅度是 reference/python-model/experiments.py 里
+  // 幅度 sweep 的 4.0，但它走的是 StimulusEvent 直接事件幅度
+  // （add_stimulus 不钳制），根本不经过本 setter，不受影响。
   assert.deepEqual(wasmClamp('set_g'), [0, 0.4]);
   assert.deepEqual(wasmClamp('set_c_ei'), [3, 8]);
   assert.deepEqual(wasmClamp('set_stim_duration_ms'), [20, 500]);
-  assert.deepEqual(wasmClamp('set_stim_amplitude'), [0, 4.0]);
-  assert.ok(0.5 >= 0 && 2.0 <= 4.0, 'UI stim 幅值范围必须是引擎 clamp 的子集');
-  assert.ok(protocolTs.includes('0–4.0'),
-    'protocol.ts 必须如实写明 stim_amplitude 引擎 clamp 与 UI 范围的差异（D1）');
+  assert.deepEqual(wasmClamp('set_stim_amplitude'), [0.5, 2.0]);
+  assert.deepEqual(wasmClamp('set_stim_amplitude'),
+    [KNOB_MAP.stimulusAmplitude(0), KNOB_MAP.stimulusAmplitude(1)],
+    'stim_amplitude 引擎 clamp 必须等于 UI 范围（R1 已解决，不再是子集）');
+  // protocol.ts 的 stim_amplitude 注释必须写明 UI 范围 0.5–2.0，且不再
+  // 含 PR5 旧文案 “引擎侧 clamp 是 0–4.0”（PR6 R1 已收紧到 0.5–2.0，
+  // 总协调已按 A2 汇报的 exact 文案改完注释）。
+  assert.ok(protocolTs.includes('0.5–2.0'),
+    'protocol.ts 必须写明 stim_amplitude UI 范围 0.5–2.0');
+  assert.ok(!protocolTs.includes('0–4.0'),
+    'protocol.ts 不得再含 PR5 旧文案 0–4.0（R1 已收紧）');
 });
 
 test('默认值：前端 DEFAULT_PARAMS = Rust demo 预设', () => {
@@ -230,6 +254,16 @@ test('坐标系：球心 [0,0,40] mm；MNI152/Talairach 禁用', () => {
   }
   const coordsTs = src('app/src/lib/coordinates.ts');
   assert.ok(coordsTs.includes('DISABLED_SPACES'));
+  // PR6 R6：MNI152 / Talairach 已从 CoordinateSpace 联合类型中消除
+  // （只断言类型块本身；注释、DISABLED_SPACES 运行时集合与
+  // parseCoordinateSpace 的拒绝分支里仍会出现这两个字符串，那是
+  // 有意的运行时防线，不是类型残留）。唯一字符串入口是
+  // parseCoordinateSpace，遇禁用空间抛错并说明原因。
+  const unionStart = coordsTs.indexOf('export type CoordinateSpace');
+  const unionBlock = coordsTs.slice(unionStart, coordsTs.indexOf(';', unionStart));
+  assert.ok(!unionBlock.includes('mni152-mm') && !unionBlock.includes('talairach-mm'),
+    'CoordinateSpace 不得再含 mni152-mm / talairach-mm（R6 已解决）');
+  assert.ok(coordsTs.includes('export function parseCoordinateSpace(s: string): CoordinateSpace'));
   // fsaverage：mni305 不是 MNI152，校验强制写明 not MNI152。
   const bemTs = src('app/src/lib/fsaverageBEM.ts');
   assert.ok(bemTs.includes("includes('not MNI152')"));
@@ -356,6 +390,21 @@ test('快照：Rust StateSnapshot 字段、localStorage 键与版本机制一致
     'ou_tau_ms', 'ou_sigma', 'ext_sine_amp', 'ext_sine_freq_hz']) {
     assert.ok(simClientTs.includes(`snap.params.${f}`), `parseSnapshotSummary 缺 ${f}`);
   }
+  // PR6 R2：快照 JSON 本身带版本。Rust StateSnapshot 有 version: u32，
+  // 缺字段时 serde 默认 1（旧 JSON 仍能恢复）；take_snapshot 写 1；
+  // simClient 解析时同步读 snap.version（缺字段默认 1）。
+  assert.ok(snapBlock.includes('version: u32'), 'StateSnapshot 缺 version 字段');
+  assert.ok(snapBlock.includes('default_snapshot_version'),
+    'StateSnapshot.version 必须带 serde 默认值（旧 JSON 兼容）');
+  assert.ok(brainCoreRs.includes('pub const STATE_SNAPSHOT_VERSION: u32 = 1;'));
+  assert.ok(brainCoreRs.includes('version: STATE_SNAPSHOT_VERSION'),
+    'take_snapshot 必须写 version');
+  assert.ok(simClientTs.includes('version?: number'),
+    'parseSnapshotSummary 必须读快照 JSON 的 version');
+  assert.ok(simClientTs.includes('version: snap.version ?? 1'),
+    'parseSnapshotSummary 缺 version 时默认 1');
+  assert.ok(simClientTs.includes('version: number'),
+    'SnapshotSummary 必须带 version 字段');
 });
 
 test('空壳检查：electrode 参考有实现无 UI 入口（缺口，非空壳）；无纯空壳控件', () => {
@@ -437,4 +486,205 @@ test('Jansen–Rit：TS 默认 = Python 对照，耦合链与 WC 路线同形；
   const contract = src('docs/frontend-backend-contract.md');
   assert.ok(contract.includes('JANSEN_RIT_ID'));
   assert.ok(contract.includes('3.25 / 22'));
+});
+
+test('PR-07 EEG：采样率/参考/噪声/导联参数前后端一致（契约 §1.6）', () => {
+  // 采样率只支持 250 Hz（与 ds003061 一致）；时长/事件/驱动默认值。
+  assert.equal(DEFAULT_SFREQ_HZ, 250);
+  assert.equal(DEFAULT_DURATION_MS, 10000);
+  assert.equal(DEFAULT_EVENT_INTERVAL_MS, 1000);
+  assert.equal(DEFAULT_DRIVE_DURATION_MS, 100);
+  assert.equal(DEFAULT_WC_DRIVE, 1.0);
+  assert.equal(DEFAULT_JR_DRIVE_PER_S, 120);
+  assert.equal(DEFAULT_JR_BASELINE_INPUT_PER_S, 90);
+  assert.equal(DEFAULT_SEED, 1);
+  // 噪声：四成分 RMS 默认值与滑杆范围；Python 对照同值（源码对照）。
+  assert.deepEqual(DEFAULT_NOISE, { whiteRmsUv: 2, pinkRmsUv: 1, line50HzRmsUv: 0.5, driftRmsUv: 0.5 });
+  assert.equal(NOISE_SLIDER_MIN_UV, 0);
+  assert.equal(NOISE_SLIDER_MAX_UV, 10);
+  const eegPy = src('scientific/eeg/eeg_reference.py');
+  assert.ok(eegPy.includes('SFREQ_HZ = 250.0'), 'Python 采样率须为 250');
+  assert.ok(eegPy.includes('DEFAULT_WC_DRIVE = 1.0'));
+  assert.ok(eegPy.includes('DEFAULT_JR_DRIVE_PER_S = 120.0'));
+  assert.ok(eegPy.includes('DEFAULT_JR_BASELINE_PER_S = 90.0'));
+  assert.ok(eegPy.includes('"whiteRmsUv": 2.0'));
+  assert.ok(eegPy.includes('"pinkRmsUv": 1.0'));
+  // 正向模型 id 与球形头一致（同一份 fixture）。
+  assert.equal(SPHERE_MODEL_ID, 'mne-four-layer-sphere-ras-v1');
+  const eegTs = src('app/src/lib/eegRecording.ts');
+  assert.ok(eegTs.includes('SPHERE_MODEL_ID'), 'eegRecording 须用球形头模型 id');
+  assert.ok(eegTs.includes('rawDataUvInfinity'), '须存无限远参考原始数据以便无损切换参考');
+  // 契约 §1.6 已登记全部参数名。
+  const contract = src('docs/frontend-backend-contract.md');
+  for (const key of ['whiteRmsUv', 'pinkRmsUv', 'line50HzRmsUv', 'driftRmsUv',
+    'DEFAULT_SFREQ_HZ', 'reReferenceRecording', 'rawDataUvInfinity', '1.6 PR6 PR-07']) {
+    assert.ok(contract.includes(key), `契约 §1.6 缺 ${key}`);
+  }
+  // UI 滑杆范围与后端常量一致（EegWaveTab 用 NOISE_SLIDER_* 常量）。
+  const waveTab = src('app/src/components/EegWaveTab.tsx');
+  assert.ok(waveTab.includes('NOISE_SLIDER_MIN_UV'), '噪声滑杆 min 须读后端常量');
+  assert.ok(waveTab.includes('NOISE_SLIDER_MAX_UV'), '噪声滑杆 max 须读后端常量');
+});
+
+test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六 tab 挂载一致', () => {
+  // EEG tab：三种参考选项 + 电极选择器（R4 的 UI 入口）。
+  const waveTab = src('app/src/components/EegWaveTab.tsx');
+  assert.ok(waveTab.includes('<option value="average">'), 'EEG tab 缺 average 选项');
+  assert.ok(waveTab.includes('<option value="infinity">'), 'EEG tab 缺 infinity 选项');
+  assert.ok(waveTab.includes('<option value="electrode">'), 'EEG tab 缺 electrode 选项（R4 入口）');
+  assert.ok(waveTab.includes('aria-label="参考电极"'), 'EEG tab 缺参考电极选择器');
+  assert.ok(waveTab.includes('reReferenceRecording') || waveTab.includes('onReferenceChange'),
+    'EEG tab 参考切换须经壳的 reReferenceRecording');
+  // App：顶栏有 “EEG 分析” chip，并挂载 EegAnalysisLab。
+  assert.ok(appTsx.includes('EEG 分析'), 'App 缺 “EEG 分析” 入口 chip');
+  assert.ok(appTsx.includes('<EegAnalysisLab'), 'App 未挂载 EegAnalysisLab');
+  assert.ok(appTsx.includes("import EegAnalysisLab from './components/EegAnalysisLab'"));
+  // 壳：import 全部六个 tab（WavesTab / ErpTab / TfrTab / TopoTab / InverseTab
+  // 由 B2/B3 并行写；此处只断言壳按设计稿 §1.3 挂载，不碰其实现）。
+  const lab = src('app/src/components/EegAnalysisLab.tsx');
+  for (const tab of ['EegWaveTab', 'WavesTab', 'ErpTab', 'TfrTab', 'TopoTab', 'InverseTab']) {
+    assert.ok(lab.includes(`import ${tab} from './${tab}'`), `壳未 import ${tab}`);
+    assert.ok(lab.includes(`<${tab}`), `壳未挂载 <${tab}>`);
+  }
+  // 壳持有共享状态：recording / events / epochs / selectedChannel / reference / montage。
+  for (const state of ['useState<EegRecording | null>(null)', 'useState<EegEvent[]>([])',
+    'useState<EpochSet | null>(null)', "useState('Pz')", "useState<EegReference>({ mode: 'average' })",
+    "useState<MontageKey>('10-20')"]) {
+    assert.ok(lab.includes(state), `壳缺共享状态 ${state}`);
+  }
+  // 契约 R4 已标记解决（§7），U1 已更新为“EEG 分析实验已暴露”。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('R4 | ~~`electrode` 参考方式无 UI 入口~~ **已解决'),
+    '契约 §7 R4 须标记已解决');
+  assert.ok(contract.includes('EEG 分析实验已暴露'), '契约 §5.3 U1 须更新为 EEG 实验已暴露');
+  // 三个 PR5 实验仍只有两种参考（U1 剩余缺口如实保留；旧断言不改）。
+  for (const labFile of ['app/src/components/DipoleLab.tsx',
+    'app/src/components/HeadSphereLab.tsx', 'app/src/components/LocalBEMLab.tsx']) {
+    assert.ok(!src(labFile).includes('<option value="electrode">'), `${labFile} 不应有 electrode 选项`);
+  }
+});
+
+test('PR6 时频/地形/逆解（B3）：TS 默认 = Python 对照 = UI 初始值；契约 §1.7 已登记', () => {
+  // 默认值三处一致：MNE λ² = 1/9、σ = 1.0 µV；样条 m = 4、nMax = 7、λ = 1e-5。
+  const pyNum = (py, name) => {
+    const m = py.match(new RegExp(`^${name}\\s*=\\s*([\\d.eE+\\-/ ]+)`, 'm'));
+    assert.ok(m, `Python 缺 ${name}`);
+    return Function(`return (${m[1].trim()})`)();
+  };
+  const invPy = src('scientific/eeg/inverse_reference.py');
+  near(MNE_LAMBDA2_DEFAULT, 1 / 9);
+  near(MNE_LAMBDA2_DEFAULT, pyNum(invPy, 'MNE_LAMBDA2_DEFAULT'));
+  near(MNE_NOISE_RMS_UV_DEFAULT, 1.0);
+  near(MNE_NOISE_RMS_UV_DEFAULT, pyNum(invPy, 'MNE_NOISE_RMS_UV_DEFAULT'));
+  assert.equal(SPLINE_ORDER_M, 4);
+  assert.equal(SPLINE_ORDER_M, pyNum(invPy, 'SPLINE_ORDER_M'));
+  assert.equal(SPLINE_N_MAX, 7);
+  assert.equal(SPLINE_N_MAX, pyNum(invPy, 'SPLINE_N_MAX'));
+  near(SPLINE_LAMBDA_DEFAULT, 1e-5);
+  near(SPLINE_LAMBDA_DEFAULT, pyNum(invPy, 'SPLINE_LAMBDA_DEFAULT'));
+  // UI 初始值与 TS 默认同值（InverseTab 的 useState 初始值读 TS 常量）。
+  const invTab = src('app/src/components/InverseTab.tsx');
+  assert.ok(invTab.includes('useState(MNE_LAMBDA2_DEFAULT)'), 'InverseTab λ² 初始值应读 TS 默认');
+  assert.ok(invTab.includes('useState(MNE_NOISE_RMS_UV_DEFAULT)'), 'InverseTab σ 初始值应读 TS 默认');
+  // 契约 §1.7 已登记本节参数表（不是只写在代码注释里）。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('### 1.7 PR6 时频 / 地形 / 源定位（B3：PR-10/11/12）'));
+  assert.ok(contract.includes('MNE_LAMBDA2_DEFAULT'));
+  assert.ok(contract.includes('SPLINE_LAMBDA_DEFAULT'));
+  // 2D/3D 来源差异写进 UI 文案：2D 写“插值”，3D 写“无插值”。
+  const topoTab = src('app/src/components/TopoTab.tsx');
+  assert.ok(topoTab.includes('插值'), 'TopoTab 应写清 2D 图是插值');
+  assert.ok(topoTab.includes('无插值'), 'TopoTab 应写清 3D 图无插值');
+  // 逆解函数签名里没有真值参数（盲测卫生，见 tests/pr6/tfr-topo-inverse.test.mjs）。
+  const invTs = src('app/src/lib/sourceLocalization.ts');
+  assert.ok(invTs.includes('export function dipoleFit(leadField: LeadField, dataUv: number[])'));
+  assert.ok(invTs.includes('export function mneInverse('));
+  assert.ok(!/export function (dipoleFit|mneInverse)\([^)]*true/i.test(invTs),
+    'dipoleFit/mneInverse 签名里不应有真值参数');
+});
+
+test('PR6 WAVES/ERP（B2）：晚期机制默认 = Python 对照 = fixture；Pz 增益不重缩放；契约 §1.8 已登记', () => {
+  const lateTs = src('app/src/lib/lateResponse.ts');
+  const latePy = src('scientific/eeg/late_response_reference.py');
+  const fixture = JSON.parse(src('tests/pr6/fixtures/late-response-reference.json'));
+  const ref = JSON.parse(src('scientific/forward/public_eeg_reference_values.json'));
+  // 1. 默认三处一致：TS 默认 = Python 对照 = fixture mechanism 段。
+  const tsField = (name) => {
+    const m = lateTs.match(new RegExp(`\\b${name}:\\s*([\\d.]+)`));
+    assert.ok(m, `TS 缺字段 ${name}`);
+    return Number(m[1]);
+  };
+  const tsConst = (name) => {
+    const m = lateTs.match(new RegExp(`\\b${name}\\s*=\\s*(-?[\\d.]+)`));
+    assert.ok(m, `TS 缺常量 ${name}`);
+    return Number(m[1]);
+  };
+  const pyConst = (name) => {
+    const m = latePy.match(new RegExp(`^${name}\\s*=\\s*([\\d.]+)`, 'm'));
+    assert.ok(m, `Python 缺常量 ${name}`);
+    return Number(m[1]);
+  };
+  assert.equal(tsField('tauSlowMs'), 200);
+  assert.equal(tsField('tauSlowMs'), pyConst('TAU_SLOW_MS'));
+  assert.equal(tsField('tauSlowMs'), fixture.mechanism.tau_slow_ms);
+  assert.equal(tsField('delayMs'), 100);
+  assert.equal(tsField('delayMs'), pyConst('DELAY_MS'));
+  assert.equal(tsField('delayMs'), fixture.mechanism.delay_ms);
+  assert.equal(tsField('slowGain'), 2.5);
+  assert.equal(tsField('slowGain'), pyConst('SLOW_GAIN'));
+  assert.equal(tsField('slowGain'), fixture.mechanism.slow_gain);
+  assert.equal(tsField('slowMaxPerS'), 5000);
+  assert.equal(tsField('slowMaxPerS'), pyConst('SLOW_MAX_PER_S'));
+  assert.equal(tsField('slowMaxPerS'), fixture.mechanism.slow_max_per_s);
+  // 2. Pz 增益固定 0.16，且 lateResponse.ts 全文不含 rescale（幅度不做重缩放）。
+  assert.equal(tsConst('PZ_GAIN_UV_PER_NAM'), 0.16);
+  assert.equal(tsConst('PZ_GAIN_UV_PER_NAM'), pyConst('PZ_GAIN_UV_PER_NAM'));
+  assert.ok(!/rescale/i.test(lateTs), 'lateResponse.ts 不应含 rescale');
+  // 3. 驱动/刺激时长/剔除阈值与 ds003061 方法口径一致（epoch −200–800 ms、
+  // 基线 −200–0 ms、剔除 150 µV）。
+  assert.equal(tsConst('STANDARD_DRIVE_PER_S'), 120);
+  assert.equal(tsConst('STANDARD_DRIVE_PER_S'), pyConst('STANDARD_DRIVE_PER_S'));
+  assert.equal(tsConst('ODDBALL_DRIVE_PER_S'), 300);
+  assert.equal(tsConst('ODDBALL_DRIVE_PER_S'), pyConst('ODDBALL_DRIVE_PER_S'));
+  assert.equal(tsConst('STIM_DURATION_MS'), 40);
+  assert.equal(tsConst('STIM_DURATION_MS'), pyConst('STIM_DURATION_MS'));
+  assert.equal(tsConst('ERP_REJECT_PEAK_TO_PEAK_UV'), 150);
+  assert.equal(tsConst('ERP_REJECT_PEAK_TO_PEAK_UV'), ref.method.reject_peak_to_peak_uv);
+  assert.equal(tsConst('ERP_TMIN_MS'), ref.method.epoch_s[0] * 1000);
+  assert.equal(tsConst('ERP_TMAX_MS'), ref.method.epoch_s[1] * 1000);
+  assert.ok(lateTs.includes('ERP_BASELINE_MS: readonly [number, number] = [-200, 0];'),
+    'ERP 基线窗应为 [-200, 0] ms');
+  assert.equal(ref.method.baseline_s[0] * 1000, -200);
+  assert.equal(ref.method.baseline_s[1] * 1000, 0);
+  // 4. 机制 ID 字面量一致；动态一半（runOddballExperiment 返回的
+  // recording.sourceModelId 等于它）由 waves-erp.test.mjs 断言并跑过。
+  assert.ok(lateTs.includes("export const LATE_RESPONSE_ID = 'local-jansen-rit-slow-late-v1';"));
+  const wavesTest = src('tests/pr6/waves-erp.test.mjs');
+  assert.ok(wavesTest.includes('assert.equal(recording.sourceModelId, LATE_RESPONSE_ID)'),
+    'waves-erp.test.mjs 应动态断言 sourceModelId');
+  // 5. 两 tab 存在且 props 与设计稿 §1.3 一致；两文件均不 import 实验运行器
+  // （WavesTab 不跑 runAlphaLimitCycle，ErpTab 不跑 runOddballExperiment）。
+  const wavesTab = src('app/src/components/WavesTab.tsx');
+  const erpTab = src('app/src/components/ErpTab.tsx');
+  const lab = src('app/src/components/EegAnalysisLab.tsx');
+  assert.ok(wavesTab.includes('export default function WavesTab({'));
+  assert.ok(wavesTab.includes('recording: EegRecording | null;'));
+  assert.ok(wavesTab.includes('channel: string;'));
+  assert.ok(lab.includes('<WavesTab recording={recording} channel={selectedChannel} />'),
+    '壳挂载 WavesTab 的 props 应与设计稿一致');
+  assert.ok(erpTab.includes('export default function ErpTab({'));
+  assert.ok(erpTab.includes('events: EegEvent[];'));
+  assert.ok(erpTab.includes('epochs: EpochSet | null;'));
+  assert.ok(erpTab.includes('onEpochsChange: (epochs: EpochSet) => void;'));
+  assert.ok(lab.includes('<ErpTab'), '壳应挂载 ErpTab');
+  for (const f of [wavesTab, erpTab]) {
+    assert.ok(!f.includes('runOddballExperiment'), 'tab 不应跑 oddball 实验');
+    assert.ok(!f.includes('runAlphaLimitCycle'), 'tab 不应跑极限环实验');
+  }
+  // 契约 §1.8 已登记本节参数表（不是只写在代码注释里）。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('### 1.8 PR6 WAVES / ERP / 晚期机制参数（B2，2026-11-12）'));
+  assert.ok(contract.includes('DEFAULT_LATE_RESPONSE_PARAMS'));
+  assert.ok(contract.includes('PZ_GAIN_UV_PER_NAM'));
+  assert.ok(contract.includes("LATE_RESPONSE_ID = 'local-jansen-rit-slow-late-v1'"));
 });

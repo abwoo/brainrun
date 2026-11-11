@@ -1,0 +1,167 @@
+# PR6 debug rounds
+
+> 每轮只保留该轮必需的方法学测试 + 构建通过 + 新功能冒烟（2026-11-11 22:57
+> 测试节奏新规）。同一测试因非产品问题（系统/环境原因）失败超过 3 次即
+> 停掉它、在此记录原因后继续，绝不陷入循环。产品真问题必须修，不许改期望、
+> 删场景、放宽门槛来让测试通过。
+
+## 方法学测试命令
+
+```bash
+# TS 单元测试（Node 24）
+node --experimental-strip-types --test tests/pr6/*.test.mjs
+# Python 对照（MNE 1.11.0；本地用 ~/workspace/eeg-venv/bin/python）
+python -m unittest discover -s tests/pr6 -p 'test_*.py' -v
+# Rust 引擎
+cargo test --manifest-path crates/brain-core/Cargo.toml
+# 前端
+cd app && npx tsc -b && npm run build && npm run lint
+# 浏览器冒烟（需先起预览服务器 + 生成球形 fixture，见各轮记录）
+node app/tests/pr6-browser-smoke.mjs
+```
+
+## 轮次记录
+
+### 第 1 轮 · A2 契约残留 + CI + 脚手架（2026-11-12）
+
+工作副本 `~/workspace/brainrun-pr6-a2`（分支 `pr6-eeg-analysis`，base main `f0d5087`）。
+只动 A2 归属文件；不推分支、不碰 GitHub。
+
+- R1（方案 (a) 收紧）：全仓 grep 确认无任何 `set_stim_amplitude`
+  用例超过 2.0（UI 最大 2.0、测试最大 2.0）；唯一超 2.0 的幅度是
+  `reference/python-model/experiments.py` 幅度 sweep 的 4.0，走
+  StimulusEvent 直接事件幅度（`add_stimulus` 不钳制），不经过本
+  setter，不受影响。`crates/brain-wasm/src/lib.rs`
+  `set_stim_amplitude` clamp 由 0–4.0 收紧到 0.5–2.0，与 UI 相等；
+  契约 §1.2 + §6 D1 + §7 R1 已同步；漂移测试断言由子集改为相等。
+  待总协调补一处（不在 A2 归属内）：`app/src/worker/protocol.ts`
+  的 `stim_amplitude` 注释仍写“引擎侧 clamp 是 0–4.0”，须改为
+  0.5–2.0（exact 文案见 A2 汇报）；改完后漂移测试应追加断言
+  protocol.ts 不再含 '0–4.0'。
+- R2（快照 JSON 加版本）：`StateSnapshot` 加 `version: u32`
+ （`STATE_SNAPSHOT_VERSION = 1`；`#[serde(default =
+  "default_snapshot_version")]`，缺字段的旧 JSON 视为 1 恢复）；
+  `take_snapshot` 写 1；`simClient.parseSnapshotSummary` 同步读
+  `snap.version ?? 1` 进 `SnapshotSummary.version`；契约 §4.2/§4.3/§7
+  已同步；新增 Rust 单元测试
+  `pr6_snapshot_version_written_and_old_json_restores_as_v1`。
+- R6（MNI152/Talairach 类型消除）：`'mni152-mm' | 'talairach-mm'`
+  已从 `CoordinateSpace` 联合类型中去掉；新增
+  `parseCoordinateSpace(s: string): CoordinateSpace`（有效标签直通，
+  禁用空间抛 `RangeError` 并说明原因，未知字符串亦抛错）；
+  `validateTransform` choke point 与 `DISABLED_SPACES` 运行时集合
+  保留（后者改型为字符串集合，防未类型化字符串），行为级断言不变；
+  契约 §2/§7 已同步；`tests/pr5/coordinates.test.mjs` 新增 1 个测试。
+- CI：新建 `.github/workflows/pr6-eeg.yml`（仿 pr5-physics.yml，只跑
+  PR6 方法学测试；glob 拾取 `tests/pr6/*.test.mjs`；Playwright 只
+  `npx playwright install chromium`，绝不用 `--with-deps`；
+  `app/tests/pr6-browser-smoke.mjs` 不存在时跳过并明确输出原因）。
+- 推送脚本：新建 `scripts/push-to-pr6-branch.py`（BRANCH 改为
+  `pr6-eeg-analysis`，其余安全规则照搬；PR 链接改为 GitHub #7）。
+  干跑验证通过：218 文件、23297 KiB、目标
+  `abwoo/brainrun@pr6-eeg-analysis`，未发送任何东西。
+
+验证结果（本轮）：
+
+```bash
+node --experimental-strip-types --test tests/pr5/contract.test.mjs tests/pr5/coordinates.test.mjs
+# 19/19 通过（基线 18 + 新增 R6 测试 1）
+cargo test --manifest-path crates/brain-core/Cargo.toml
+# 21/21 通过（基线 20 + 新增 R2 测试 1；约 87 s，含 60 s 自发基线测试）
+cd app && npx tsc -b && npm run build && npm run lint
+# tsc -b 通过（exit 0）；npm run build 通过（exit 0；仅有预存的 chunk >500 kB
+# 警告）；npm run lint 通过（exit 0；9 warnings、0 errors，全部在
+# ParamControl.tsx / ActivityChart.tsx / App.tsx 的 React refs 上，与 A2
+# 改动无关，属既有警告）。注：本地 clone 原先无 node_modules，须先 npm ci。
+python3 scripts/push-to-pr6-branch.py
+# 干跑通过：218 文件、23297 KiB，目标 pr6-eeg-analysis，未发送
+```
+
+## 总协调集成记录（2026-11-12，A2 合并进主 clone）
+
+- A2 的 9 改 + 2 新建已原样拷入主 clone（`git status` 核对：7 改 + .github/workflows/pr6-eeg.yml、scripts/push-to-pr6-branch.py、docs/pr6-acceptance.md、tests/pr6/ 为新增；docs/pr6-design.md 与 A2 副本一致，未动）。
+- protocol.ts 注释按 A2 汇报的 exact 文案补改（总协调做，A2 未越界）；漂移测试追加断言 protocol.ts 不再含 '0–4.0'。集成时该断言先失败一次：新注释里 “已从 0–4.0 收紧” 仍含该字面串——把注释改写为 “已从旧的更宽范围收紧” 后通过（断言本意是旧的错误说法不得残留，历史提法也不留字面串）。
+- 主 clone 复核全绿：contract + coordinates 19/19；cargo 21/21（含新 R2 测试）；tsc exit 0；build 通过；lint 9 warnings、0 errors（既有）。
+- A1（信号处理核心）仍在跑；wave-2（B1/B2/B3）等 A1 回报、接口落定后再派。
+
+## 总协调集成记录（2026-11-12，A1 合并进主 clone）
+
+- A1 的 6 个新建文件已原样拷入主 clone：app/src/lib/signalProcessing.ts（993 行）、
+  scientific/eeg/signal_reference.py（670 行）、tests/pr6/signal-processing.test.mjs、
+  tests/pr6/test_signal_processing.py、tests/pr6/fixtures/signal-reference.json、
+  tests/pr6/fixtures/dpss-tapers.json。未拷 tests/pr6/debug-rounds.md 与
+  docs/pr6-acceptance.md 的 A1 副本（是集成前的旧骨架）。
+- 总协调裁决（A1 汇报的 EEG_BANDS 两处并存问题）：`eegData.ts` 由总协调按设计稿
+  §1.1 新建（全部共享类型 + EEG_BANDS 唯一定义），`signalProcessing.ts` 改为
+  从它 import 并 re-export；B1 不再重建该文件，只在其上扩展。另修了两个集成
+  问题：(1) A1 的 `'./eegData'` 无扩展名 import 在 Node strip-types 下解析失败
+  （本项目约定一律写 `.ts` 扩展名），已全改成 `.ts`；(2) 只 re-export 不引入
+  本地绑定导致 `bandPowers` 内 `EEG_BANDS is not defined`，补了 value import。
+- 主 clone 复核全绿：TS 39/39（signal-processing 20 + contract/coordinates 19）；
+  Python 16/16；tsc exit 0；build 通过；lint 9 warnings、0 errors（既有）。
+- A1 残留：multitaper 分支 ERSP 未做 TS↔Python 逐点对照——已交 B3 补一个小规模
+  fixture 对照；`docs/pr6-acceptance.md` 待 wave-2 各填实测结果。
+
+## 总协调集成记录（2026-11-12，B1 合并进主 clone）
+
+- B1 的 8 新建 + 6 修改已拷入主 clone（eegRecording.ts、eeg_reference.py、
+  eeg-recording 双测试、fixture、EegAnalysisLab.tsx、EegWaveTab.tsx、
+  pr6-browser-smoke.mjs；App.tsx/App.css/eegData.ts/contract/acceptance/
+  contract.test.mjs 的修改经 diff 核对均为 B1 所述的加法内容）。
+  eegData.ts 只加了可选字段 rawDataUvInfinity（无损切换参考用），现有
+  字段/类型/EEG_BANDS 一字未动。
+- 主 clone 复核：TS 54/54（eeg-recording 13 + signal-processing 20 +
+  contract 16 + coordinates 5）；Python 28/28（16 + 12）；tsc 只报 5 处
+  缺模块（WavesTab/ErpTab/TfrTab/TopoTab/InverseTab），是 B2/B3 未落地的
+  预期内缺口，不是产品问题；build 与浏览器冒烟等 B2/B3 落地后再跑。
+- B1 汇报注记 #4 的核对：A2 说的 “19/19” 是 contract(14) + coordinates(5)
+  两文件合计，不是 contract 单文件；B1 加 2 项断言后 contract 单文件为
+  16 项，数字对得上，无不一致。
+- B2（PR-08/09）、B3（PR-10/11/12）仍在跑；它们的 contract/acceptance
+  修改基于集成前版本，落地时由总协调手工合并各自段落。
+
+## 总协调集成记录（2026-11-12，B3 合并进主 clone）
+
+- B3 的 11 新建已拷入主 clone（topography.ts、sourceLocalization.ts、
+  inverse_reference.py、tfr-topo-inverse 双测试、三个 tab、pr6-topo-inverse.md、
+  两个 fixture）。B3 的三个共享文件（contract、acceptance、contract.test.mjs）
+  基于集成前版本，**手工合并**：contract 的 B3 §1.6 改号为 §1.7 插在 B1 §1.6
+  之后（B1 的 §1.6 与 R4 已解决状态保留，B3 文件里的旧版 U1/R4 两行未取）；
+  acceptance 的 PR-10/11/12 三行取 B3 的已通过版本、回归行追加 B3 验证记录、
+  残留项追加 MNE 深度偏置/幅度压缩/网格粗/对角噪声协方差四条（R4 已解决行保留）；
+  contract.test.mjs 追加 B3 的 import 与 1 项测试（§1.6 字样同步改号为 §1.7）。
+- 集成时遇到一个 fixture 缺失：主 clone 里没有 sphere-model.json（生成物、
+  不入库），tfr-topo-inverse TS 测试加载即抛错、Python 5 项跳过；已在主 clone
+  用 eeg-venv 跑 generate_sphere_model.py 生成（345 导、64 网格点），重跑后全绿。
+- 主 clone 复核：TS 71/71（pr6 49 + contract 17 + coordinates 5）；Python 38/38
+  （5 项跳过恢复后全跑）；tsc 只报 2 处缺模块（WavesTab/ErpTab），是 B2 未落地的
+  预期内缺口；build 与浏览器冒烟等 B2 落地后再跑。
+- B3 诚实发现已记入验收与文档：无深度加权 MNE 深部源误差 32–96 mm（表现表
+  18 行），未包装成成功；修法（深度加权/dSPM/eLORETA）单独成项。
+
+## 总协调集成记录（2026-11-12，B2 合并进主 clone）
+
+- B2 的 8 新建已拷入主 clone（lateResponse.ts、late_response_reference.py、
+  waves-erp 双测试、late-response-reference.json fixture、WavesTab.tsx、
+  ErpTab.tsx、pr6-erp-mechanism.md）。B2 的两个共享文件（contract、
+  acceptance）基于集成前版本，**手工合并**：contract 的 B2 §1.6 改号为 §1.8
+  插在 B3 §1.7 之后（B1 的 §1.6、B3 的 §1.7 均保留；B2 的 R4 旧行未取，
+  主 clone 里 R4 已由 B1 解决）；acceptance 的 PR-08/09 两行与缺口表四行取
+  B2 的已通过版本、残留项追加 B2 七条（其中漂移测试与冒烟两条的状态已由
+  集成动作本身更新：§1.8 断言已追加、冒烟已由总协调跑过，见回归行）；
+  contract.test.mjs 追加 B2 的 5 条断言（1 项测试）。
+- 集成时修掉一个测试正则 bug（不是产品问题）：新断言里 `ERP_TMIN_MS = -200`
+  是负数，原正则 `[\d.]+` 匹配不到，改为 `-?[\d.]+` 后通过；未动任何期望值。
+- B2 的两个 tab 与 B1 的壳 props 逐字对上（WavesTab `{ recording, channel }`、
+  ErpTab `{ recording, events, epochs, onEpochsChange, channel }`），tsc 的
+  2 处缺模块报错清零。冒烟脚本由总协调补了第 5 步（频谱/ERP tab 真实渲染
+  检查），不碰 B1 已有的断言；跑冒烟前主 clone 的 app/node_modules 里没有
+  playwright（不在 package.json 依赖里），按 CI workflow 同款命令
+  `npm install --no-save --package-lock=false playwright@1.56.1` 本地装上，
+  package.json/package-lock 未动；Chromium 二进制用缓存，未走 apt。
+- 主 clone 复核（全绿）：TS pr6 59/59、contract 18/18、coordinates 5/5；
+  Python 45/45；cargo 21/21（brain-core）；tsc 通过；build 通过；lint
+  0 errors、9 warnings（既有）；浏览器冒烟 PASS（含新 tab 检查，0 页面报错）。
+- B2 诚实发现已记入验收与文档：晚期机制形态修好（300–500 ms 均值
+  0.00006→0.070 µV）、幅度基本没动（峰 0.174 vs 真实 8.89 µV，51 倍），
+  天花板是 JR sigmoid 饱和（约 0.21 µV），无重缩放；缺口如实保留。

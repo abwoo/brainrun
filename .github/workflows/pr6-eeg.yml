@@ -1,0 +1,90 @@
+name: PR6 EEG Analysis Checks
+
+# PR6 方法学测试（计划 PR-07–PR-12）+ 构建 + 冒烟。
+# 仿照 pr5-physics.yml，但只跑 PR6 的方法学测试；完整回归、浏览器交互
+# 全套、前端布局全面扫查、性能、五维验收、十个演示全部推迟到 PR8 之后
+# （2026-11-11 22:57 测试节奏新规）。测试用 glob 拾取 tests/pr6 下的
+# 全部测试文件，wave-2 新增的测试文件自动被跑到，无需改本文件。
+# Playwright 安装绝不用 --with-deps（PR5 已证实 runner apt DNS 是坏的，
+# azure.archive.ubuntu.com 解析失败）；只装浏览器二进制。
+# 注意：app/tests/pr6-browser-smoke.mjs 由 wave-2 创建；本文件引用它时
+# 带存在性保护——文件不存在则跳过该步并明确输出原因，不让 CI 变红。
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eeg-analysis:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+      - name: Setup MNE reference Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific validation dependencies
+        run: python -m pip install mne==1.11.0
+      - name: Generate MNE multilayer spherical head forward model
+        run: python scientific/forward/generate_sphere_model.py
+      - name: PR6 Python methodology tests
+        run: python -m unittest discover -s tests/pr6 -p 'test_*.py' -v
+      - name: PR6 TypeScript methodology tests
+        # Glob: wave-2 新增的 tests/pr6/*.test.mjs 会被自动拾取。
+        run: node --experimental-strip-types --test tests/pr6/*.test.mjs
+      - name: Regression test original Wilson-Cowan Rust engine
+        run: cargo test --manifest-path crates/brain-core/Cargo.toml
+      - name: Type-check frontend
+        working-directory: app
+        run: npx tsc -b
+      - name: Build production frontend
+        working-directory: app
+        run: npm run build
+      - name: Lint frontend
+        working-directory: app
+        run: npm run lint
+      - name: Install browser test runner
+        working-directory: app
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install Playwright Chromium
+        working-directory: app
+        # PR5 教训：runner 解析不了 azure.archive.ubuntu.com，--with-deps
+        # 里的每次 apt-get 都会失败；只装浏览器二进制（Playwright CDN
+        # 可达），runner 自带的 Chrome 依赖已满足 headless 运行需要。
+        # CDN 偶发失败时重试 3 次。
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright Chromium install, attempt $attempt/3"
+            if npx playwright install chromium; then
+              echo "Playwright Chromium install succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Playwright Chromium install failed after 3 attempts" >&2
+          exit 1
+      - name: Browser smoke test of EEG analysis lab
+        working-directory: app
+        # wave-2 才建 app/tests/pr6-browser-smoke.mjs；文件不存在时跳过
+        # 本步（明确输出原因），不让 CI 因此变红。
+        run: |
+          if [ -f tests/pr6-browser-smoke.mjs ]; then
+            node tests/pr6-browser-smoke.mjs
+          else
+            echo "SKIP: app/tests/pr6-browser-smoke.mjs does not exist yet (created by wave-2); skipping browser smoke test."
+          fi

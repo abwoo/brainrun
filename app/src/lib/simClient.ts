@@ -130,6 +130,10 @@ export interface StoredSnapshot {
  *  weights / bias), used to re-sync the UI after a restore. */
 export interface SnapshotSummary {
   t_ms: number;
+  /** PR6 R2: StateSnapshot JSON schema version. Missing in pre-PR6
+   *  JSON, in which case the parser defaults it to 1 (same rule as
+   *  the Rust serde default). */
+  version: number;
   params: { g: number; c_ei: number; stim_amplitude: number; stim_duration_ms: number };
   mode: BackgroundMode;
   modeParams: ModeParams;
@@ -192,6 +196,8 @@ export type SnapshotListener = (snap: Snapshot) => void;
 function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
   try {
     const snap = JSON.parse(stored.json) as {
+      /** PR6 R2: StateSnapshot JSON schema version; absent in pre-PR6 JSON. */
+      version?: number;
       params?: {
         g?: number;
         c_ei?: number;
@@ -218,6 +224,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
           : 'quiet';
     return {
       t_ms: stored.t_ms,
+      version: snap.version ?? 1,
       params: {
         g: snap.params.g ?? DEFAULT_PARAMS.g,
         c_ei: snap.params.c_ei ?? DEFAULT_PARAMS.c_ei,
