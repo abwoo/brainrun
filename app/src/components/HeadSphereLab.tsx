@@ -13,7 +13,7 @@ import type { Vec3Mm } from '../lib/volumeConduction';
  * NOT to the TVB demo cortex. This is deliberately independent from
  * BrainScene: none of its cortical vertices are claimed to be MNI.
  */
-export default function HeadSphereLab({onClose}:{onClose:()=>void}) {
+export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onOpenReal?:()=>void}) {
   const [data,setData]=useState<SphereFixture|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [position,setPosition]=useState<Vec3Mm>([0,0,16]);
@@ -158,6 +158,10 @@ export default function HeadSphereLab({onClose}:{onClose:()=>void}) {
         <button type="button" className="chip chip-small" onClick={onClose}>关闭</button>
       </div>
       <div className="modal-body">
+        {onOpenReal&&<button type="button" className="chip chip-small"
+          onClick={onOpenReal} aria-label="打开本地真实 MRI BEM">
+          进阶：真实 MRI/BEM（加载自行获取的模板）
+        </button>}
         <p className="panel-text" style={{color:'#ffb340'}}>经 MNE 计算的四层球形导体：脑组织、脑脊液、颅骨和头皮。是模型级 EEG 正向仿真，不是个体 MRI/BEM，亦未与 TVB 76区皮层配准。</p>
         {error&&<p role="alert" className="panel-text">{error}</p>}
         {!data&&!error&&<p className="panel-text">正在加载 MNE 正向模型…</p>}
