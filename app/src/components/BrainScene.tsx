@@ -27,11 +27,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { BrainData } from '../lib/brainData';
 import { topConnections } from '../lib/brainData';
-import type { SimClient } from '../lib/simClient';
+import type { ResponseGroups, SimClient } from '../lib/simClient';
+import { DELTA_FULL } from '../lib/simClient';
 
 const BASE_COLOR = new THREE.Color('#2a4a66'); // Phase 4：提亮后的皮层底色（仍为暗蓝灰系）
 const AMBER_COLOR = new THREE.Color('#ffb340'); // 活动：CHIMERA 琥珀
 const HOT_COLOR = new THREE.Color('#fff8ec'); // 热色阶高端：高活动核心（仍只由 E 决定）
+// PR2：ΔE 发散色阶的负向端（活动降低为蓝，与升高的琥珀区分）。
+const NEG_COLOR = new THREE.Color('#2f7fd0');
 const HOVER_COLOR = new THREE.Color('#4fb6f2'); // CHIMERA 结构蓝
 const SELECTED_COLOR = new THREE.Color('#a8d8fa'); // 选中：更亮的同系蓝
 const CLICK_MOVE_THRESHOLD_PX = 6;
@@ -82,6 +85,14 @@ interface BrainSceneProps {
   onHoldEnd: (node: number) => void;
   /** 按住被证实为误判时的撤回（停输入、删标记），见 HOLD_DELAY_MS 说明。 */
   onHoldRetract: (node: number) => void;
+  /** PR2：着色视图。'absolute' 按 E 着色；'delta' 按 ΔE = E − 刺激前基线着色。 */
+  colorMode: 'absolute' | 'delta';
+  /** PR2：最近一次刺激的基线 E（null = 从未刺激，ΔE 视图显示接近零）。 */
+  baselineE: Float64Array | null;
+  /** PR2：回放中当前时刻的录制快照 E（null = 直播快照）。只读录制数据，不重算。 */
+  replayE: Float64Array | null;
+  /** PR2：三类响应标记的脑区 id（null = 无响应数据，不画标记）。 */
+  responseGroups: ResponseGroups | null;
 }
 
 export default function BrainScene({
@@ -96,6 +107,10 @@ export default function BrainScene({
   onHoldStart,
   onHoldEnd,
   onHoldRetract,
+  colorMode,
+  baselineE,
+  replayE,
+  responseGroups,
 }: BrainSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -113,6 +128,10 @@ export default function BrainScene({
     colorAttr: THREE.BufferAttribute;
     connGroup: THREE.Group;
     markerGroup: THREE.Group;
+    /** PR2：持久响应标记组（输入环 / 局部实心标记 / 网络小点）。
+     *  与 450 ms 即消失的确认环不同：本组标记随响应数据存在，
+     *  RESET 或下一次刺激时由 effect 重建/清除。 */
+    respGroup: THREE.Group;
     selMarker: THREE.Mesh;
     centerOffset: THREE.Vector3;
     raycaster: THREE.Raycaster;
@@ -134,6 +153,14 @@ export default function BrainScene({
 
   /** 最新快照的 E（快照到达即更新；渲染循环向它插值）。 */
   const latestERef = useRef<Float64Array | null>(null);
+  /** PR2：视图与基线、回放快照的 ref（渲染循环与 recomputeTargets 只读 ref，
+   *  与 latestE 同一做法，避免每帧触发 React 渲染）。 */
+  const colorModeRef = useRef<'absolute' | 'delta'>(colorMode);
+  colorModeRef.current = colorMode;
+  const baselineERef = useRef<Float64Array | null>(baselineE);
+  baselineERef.current = baselineE;
+  const replayERef = useRef<Float64Array | null>(replayE);
+  replayERef.current = replayE;
   /** 目标顶点色（由快照 + 悬停/选中算出）。 */
   const targetColorsRef = useRef<Float32Array | null>(null);
   /** 颜色仍在向目标插值时为 true；静止后渲染循环跳过整轮插值，
@@ -158,19 +185,44 @@ export default function BrainScene({
     const s = sceneRef.current;
     const targets = targetColorsRef.current;
     if (!s || !targets) return;
-    const e = latestERef.current;
+    // 回放时读录下来的快照 E；否则读直播快照。都不重算。
+    const e = replayERef.current ?? latestERef.current;
+    const base = baselineERef.current;
+    const deltaMode = colorModeRef.current === 'delta';
     const h = hoverRef.current;
     const sel = selectedRef.current;
     const c = tmpColor.current;
     for (let i = 0; i < data.regionMap.length; i++) {
       const r = data.regionMap[i];
       if (e) {
-        // 热色阶（CHIMERA heat）：底色 → 琥珀 → 亮琥珀，只由快照 E 决定。
-        const intensity = Math.min(1, Math.max(0, (e[r] - E_BASELINE) / (E_PEAK - E_BASELINE)));
-        if (intensity <= 0.55) {
-          c.copy(BASE_COLOR).lerp(AMBER_COLOR, Math.pow(intensity / 0.55, 0.8));
+        if (deltaMode) {
+          // PR2：ΔE 发散色阶。ΔE = E − 刺激前基线；升高琥珀、降低蓝色，
+          // 0 为底色。平方根压缩、±DELTA_FULL（0.1）满格：远端 0.01–0.05
+          // 的变化仍可见（0.01 约占 32% 色深），被刺激脑区约 0.48 满格。
+          // 无基线（从未刺激）时全为底色，即“接近零”，不编造。
+          if (base) {
+            const d = e[r] - base[r];
+            const sgn = Math.sign(d) * Math.sqrt(Math.min(Math.abs(d) / DELTA_FULL, 1));
+            if (sgn >= 0) {
+              if (sgn <= 0.55) {
+                c.copy(BASE_COLOR).lerp(AMBER_COLOR, Math.pow(sgn / 0.55, 0.8));
+              } else {
+                c.copy(AMBER_COLOR).lerp(HOT_COLOR, Math.pow((sgn - 0.55) / 0.45, 0.7));
+              }
+            } else {
+              c.copy(BASE_COLOR).lerp(NEG_COLOR, Math.pow(-sgn, 0.8));
+            }
+          } else {
+            c.copy(BASE_COLOR);
+          }
         } else {
-          c.copy(AMBER_COLOR).lerp(HOT_COLOR, Math.pow((intensity - 0.55) / 0.45, 0.7));
+          // 热色阶（CHIMERA heat）：底色 → 琥珀 → 亮琥珀，只由快照 E 决定。
+          const intensity = Math.min(1, Math.max(0, (e[r] - E_BASELINE) / (E_PEAK - E_BASELINE)));
+          if (intensity <= 0.55) {
+            c.copy(BASE_COLOR).lerp(AMBER_COLOR, Math.pow(intensity / 0.55, 0.8));
+          } else {
+            c.copy(AMBER_COLOR).lerp(HOT_COLOR, Math.pow((intensity - 0.55) / 0.45, 0.7));
+          }
         }
       } else {
         c.copy(BASE_COLOR);
@@ -239,6 +291,66 @@ export default function BrainScene({
     recomputeTargets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoverId, selectedId, data]);
+
+  // PR2：视图 / 基线 / 回放快照变化时重算目标色（回放 E 由 prop 传入，
+  // 快照订阅仍在跑：回放中 recomputeTargets 会优先读 replayE）。
+  useEffect(() => {
+    recomputeTargets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorMode, baselineE, replayE]);
+
+  // PR2：持久响应标记——输入环（琥珀空心环）/ 局部响应（琥珀实心球）/
+  // 网络响应（蓝色小球）。三者颜色与形状都不同；只在有响应数据时
+  // 出现，RESET 或下一次刺激时重建。标记位置只取脑区中心坐标，
+  // 不参与任何神经计算。
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s) return;
+    const { respGroup, centerOffset } = s;
+    while (respGroup.children.length > 0) {
+      const child = respGroup.children.pop()!;
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+    if (!responseGroups) return;
+    const centre = (id: number): THREE.Vector3 => {
+      const c = data.regions[id].centre;
+      return new THREE.Vector3(c[0], c[1], c[2]).sub(centerOffset);
+    };
+    if (responseGroups.input !== null) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(4.2, 5.4, 40),
+        new THREE.MeshBasicMaterial({
+          color: 0xffb340,
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+        }),
+      );
+      ring.position.copy(centre(responseGroups.input));
+      ring.userData.isInputRing = true;
+      ring.userData.respKind = 'input';
+      respGroup.add(ring);
+    }
+    const localGeo = new THREE.SphereGeometry(2.6, 12, 12);
+    const localMat = new THREE.MeshBasicMaterial({ color: 0xffc861 });
+    for (const id of responseGroups.local) {
+      const dot = new THREE.Mesh(localGeo, localMat);
+      dot.position.copy(centre(id));
+      dot.userData.respKind = 'local';
+      respGroup.add(dot);
+    }
+    const netGeo = new THREE.SphereGeometry(1.6, 12, 12);
+    const netMat = new THREE.MeshBasicMaterial({ color: 0x4fb6f2 });
+    for (const id of responseGroups.network) {
+      const dot = new THREE.Mesh(netGeo, netMat);
+      dot.position.copy(centre(id));
+      dot.userData.respKind = 'network';
+      respGroup.add(dot);
+    }
+  }, [responseGroups, data]);
 
   selectedRef.current = selectedId;
 
@@ -411,6 +523,10 @@ export default function BrainScene({
     const markerGroup = new THREE.Group();
     scene.add(markerGroup);
 
+    // PR2：持久响应标记组（见上方的 rebuild effect）。
+    const respGroup = new THREE.Group();
+    scene.add(respGroup);
+
     const selMarker = new THREE.Mesh(
       new THREE.SphereGeometry(2.2, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0xa8d8fa }),
@@ -430,6 +546,7 @@ export default function BrainScene({
       colorAttr,
       connGroup,
       markerGroup,
+      respGroup,
       selMarker,
       centerOffset,
       raycaster,
@@ -733,6 +850,13 @@ export default function BrainScene({
           m.lookAt(camera.position);
         }
       }
+      // PR2：持久响应标记里的输入环始终朝向相机（不扩散、不淡出、
+      // 不参与 450 ms 回收；随响应数据存在，RESET 时由 effect 清除）。
+      for (const child of s.respGroup.children) {
+        if ((child as THREE.Mesh).userData.isInputRing) {
+          (child as THREE.Mesh).lookAt(camera.position);
+        }
+      }
       // （controls.update() 已在上面的飞行分支里按需调用：
       // 飞行时跳过、平时调用；这里不再重复调用，避免残留动量叠加。）
       renderer.render(scene, camera);
@@ -751,6 +875,72 @@ export default function BrainScene({
       getDefaultCameraPosition: () => [DEFAULT_CAMERA_POS.x, DEFAULT_CAMERA_POS.y, DEFAULT_CAMERA_POS.z],
       /** 最近一次飞行的缓动进度采样（0→1）；空数组 = 尚未飞过。 */
       getFlySamples: () => [...flySamplesRef.current],
+      /** PR2：持久响应标记的数量（按三类分），供测试确认三类标记同时存在。 */
+      getResponseMarkers: () => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        const counts = { input: 0, local: 0, network: 0 };
+        for (const child of sc.respGroup.children) {
+          const kind = (child as THREE.Mesh).userData.respKind as string | undefined;
+          if (kind === 'input' || kind === 'local' || kind === 'network') counts[kind]++;
+        }
+        return counts;
+      },
+      /** PR2：三类标记各自的真实几何与颜色（从场景里的网格直接读），
+       *  供测试确认三类标记在形状与颜色上互不相同。 */
+      getResponseMarkerDetails: () => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        const details: Record<string, { count: number; geometry: string | null; radius: number | null; color: string | null }> = {};
+        for (const child of sc.respGroup.children) {
+          const mesh = child as THREE.Mesh;
+          const kind = mesh.userData.respKind as string | undefined;
+          if (kind !== 'input' && kind !== 'local' && kind !== 'network') continue;
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          const geo = mesh.geometry as THREE.RingGeometry | THREE.SphereGeometry;
+          const entry = details[kind] ?? { count: 0, geometry: null, radius: null, color: null };
+          entry.count += 1;
+          entry.geometry = geo.type;
+          entry.radius = (geo.parameters as { radius?: number }).radius ?? null;
+          entry.color = mat.color ? `#${mat.color.getHexString()}` : null;
+          details[kind] = entry;
+        }
+        return details;
+      },
+      /** PR2：当前着色输入的只读快照（视图、回放 E、基线、lAMYG #40 的 ΔE），
+       *  供测试确认 ΔE 着色读的是哪份数据。 */
+      getColorDebug: () => {
+        const e = replayERef.current ?? latestERef.current;
+        const base = baselineERef.current;
+        return {
+          colorMode: colorModeRef.current,
+          hasReplayE: replayERef.current !== null,
+          hasBaseline: base !== null,
+          e40: e ? e[40] : null,
+          base40: base ? base[40] : null,
+          delta40: e && base ? e[40] - base[40] : null,
+        };
+      },
+      /** PR2：某脑区顶点当前实际显示色的平均值（插值后的画面颜色，
+       *  不是目标色），供测试直接确认着色结果。 */
+      getRegionDisplayColor: (node: number) => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        const { colors } = sc;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let i = 0; i < data.regionMap.length; i++) {
+          if (data.regionMap[i] === node) {
+            r += colors[i * 3];
+            g += colors[i * 3 + 1];
+            b += colors[i * 3 + 2];
+            n++;
+          }
+        }
+        return n > 0 ? [r / n, g / n, b / n] : null;
+      },
     };
 
     tick();

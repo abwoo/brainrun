@@ -5,8 +5,8 @@ before stimulus (baseline) and while held (elevated) -- both must agree within
 0.005 while the clock is paused (frozen E, so the comparison is exact).
 Also: no stimulus -> no activity at all.
 
-Usability (fresh eyes): click 5 different regions, change each of the 4 knobs
-once via the UI wheel, pause/resume via PLAY, Reset, then repeat a click at
+Usability (fresh eyes): click 5 different regions, change each of the 4 param
+sliders once via the UI wheel, pause/resume via PLAY, Reset, then repeat a click at
 978 px. Zero console errors throughout. Anything odd is recorded in
 `observations` (printed and saved), even if it does not fail a check.
 
@@ -57,7 +57,7 @@ def panel_sel(page):
 
 
 def knob_value(page, idx):
-    return page.locator(".knob-value").nth(idx).inner_text()
+    return page.locator(".param-value").nth(idx).inner_text()
 
 
 def main():
@@ -144,11 +144,12 @@ def main():
         if len(seen) < 5:
             observe(f"only {len(seen)}/5 fresh-eyes clicks selected a region")
 
-        # ---- Usability: 4 knobs, one wheel change each ----------------------
+        # ---- Usability: 4 param sliders, one wheel change each --------------
+        # PR2（用户要求）：旋转旋钮已换成横向滑杆控件；滚轮改值保留。
         knob_names = ["STIMULUS", "DURATION", "EXC / INH", "CONNECTIVITY"]
         param_keys = ["stim_amplitude", "stim_duration_ms", "c_ei", "g"]
         for idx in range(4):
-            dial = page.locator(".knob-dial").nth(idx)
+            dial = page.locator(".param-slider").nth(idx)
             dial_box = dial.bounding_box()
             v0 = knob_value(page, idx)
             p0 = page.evaluate("window.__brainSim.getParams()")[param_keys[idx]]
@@ -158,7 +159,7 @@ def main():
             page.wait_for_timeout(400)
             v1 = knob_value(page, idx)
             p1 = page.evaluate("window.__brainSim.getParams()")[param_keys[idx]]
-            check(f"usability knob {knob_names[idx]} wheel changes value+engine",
+            check(f"usability slider {knob_names[idx]} wheel changes value+engine",
                   v1 != v0 and p1 != p0,
                   f"{knob_names[idx]}: {v0} -> {v1}, engine {param_keys[idx]}: {p0} -> {p1}")
             page.mouse.wheel(0, -120)  # restore approx.

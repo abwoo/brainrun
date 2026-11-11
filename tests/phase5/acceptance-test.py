@@ -43,7 +43,8 @@ def sim_time(page):
 
 
 def knob_value(page, idx):
-    return page.locator(".knob-value").nth(idx).inner_text()
+    # PR2: knobs replaced by param sliders; readout class renamed with them.
+    return page.locator(".param-value").nth(idx).inner_text()
 
 
 def shot_stats(path):
@@ -323,7 +324,9 @@ def main():
         check("S3 coupling changes network response",
               r_high_g["count"] > r_low_g["count"],
               f"responders G=0.1: {r_low_g['count']}/75 vs G=0.35: {r_high_g['count']}/75")
-        # B4: knobs drive real params (UI path) -- all four knobs
+        # B4: param sliders drive real params (UI path) -- all four params.
+        # PR2（用户要求）：旋转旋钮已换成横向滑杆控件；滚轮改值与双击恢复
+        # 默认的行为保留，等价检查改到滑杆上。
         knob_fields = [
             (0, "stim_amplitude", 2.0),
             (1, "stim_duration_ms", 100),
@@ -334,19 +337,19 @@ def main():
         page.evaluate("window.__brainSim.setParams({g:0.35, c_ei:4.0, stim_amplitude:2.0, stim_duration_ms:100})")
         page.wait_for_timeout(300)
         for idx, field, default in knob_fields:
-            dial = page.locator(".knob-dial").nth(idx)
+            dial = page.locator(".param-slider").nth(idx)
             dbox = dial.bounding_box()
             page.mouse.move(dbox["x"] + dbox["width"] / 2, dbox["y"] + dbox["height"] / 2)
             before_v = page.evaluate(f"window.__brainSim.getParams().{field}")
             page.mouse.wheel(0, 120)
             page.wait_for_timeout(300)
             after_v = page.evaluate(f"window.__brainSim.getParams().{field}")
-            check(f"B4 knob {idx} changes real param {field}", after_v != before_v,
+            check(f"B4 slider {idx} changes real param {field}", after_v != before_v,
                   f"{field}: {before_v} -> {after_v}")
             dial.dblclick()
             page.wait_for_timeout(300)
             restored = page.evaluate(f"window.__brainSim.getParams().{field}")
-            check(f"B4 knob {idx} double-click restores default", abs(restored - default) < 1e-9,
+            check(f"B4 slider {idx} double-click restores default", abs(restored - default) < 1e-9,
                   f"{field} restored to {restored} (default {default})")
         page.locator("button:has-text('RESET')").click()
         page.wait_for_timeout(600)

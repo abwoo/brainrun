@@ -1,0 +1,289 @@
+{
+  "peak40": 0.4734327287697729,
+  "responder_count": 9,
+  "distal_node": 59,
+  "distal_max_peak": 0.02049869001143277,
+  "window_snapshots": 71,
+  "checks": [
+    {
+      "check": "A0 camera reset to default view",
+      "ok": true,
+      "detail": "camera=[75, 95.0, 245.0] dist=0.00 mm"
+    },
+    {
+      "check": "A1 pre-stimulus baseline null",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "A2 pre-stimulus summary null",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "A3 pre-stimulus max|dE| null",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "A4 pre-stimulus groups empty",
+      "ok": true,
+      "detail": "groups={'input': None, 'local': [], 'network': [], 'threshold': 0.01, 'responders': []}"
+    },
+    {
+      "check": "A5 pre-stimulus panel says not yet stimulated",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "A6 dE view pre-stimulus: sampled regions at base colour",
+      "ok": true,
+      "detail": "colors={40: [0.032, 0.072, 0.132], 47: [0.026, 0.07, 0.133], 59: [0.059, 0.083, 0.13]} converged={40: True, 47: True, 59: True}"
+    },
+    {
+      "check": "A7 dE view pre-stimulus: colour debug has no baseline/delta",
+      "ok": true,
+      "detail": "debug={'colorMode': 'delta', 'hasReplayE': False, 'hasBaseline': False, 'e40': 0.011780297409637671, 'base40': None, 'delta40': None}"
+    },
+    {
+      "check": "B1 window filled: node 40, baseline-500ms..+2000ms",
+      "ok": true,
+      "detail": "snapshots=71 t0=692 t1=3192 base=1192"
+    },
+    {
+      "check": "B2 summary: node 40, threshold 0.01, count>=2, sorted by |peak|",
+      "ok": true,
+      "detail": "count=9 threshold=0.01"
+    },
+    {
+      "check": "B3 stimulated node dE >> distal nodes (same run)",
+      "ok": true,
+      "detail": "peak dE[40]=0.4734327287697729 max distal |dE|=0.0205 ratio=23.1x"
+    },
+    {
+      "check": "B4 max|dE| agrees with summary peak for EVERY responder",
+      "ok": true,
+      "detail": "responders checked=9"
+    },
+    {
+      "check": "B5 threshold semantics: higher threshold -> fewer/equal, all pass it",
+      "ok": true,
+      "detail": "count@0.05=1 @0.01=9 @0.005=18"
+    },
+    {
+      "check": "B6 groups: input=40, local=[40] iff it responds, network=rest in order",
+      "ok": true,
+      "detail": "groups={'input': 40, 'local': [40], 'network': [59, 48, 44, 41, 49, 58, 72, 62]}"
+    },
+    {
+      "check": "B7 DOM panel: count + every row peak == bridge numbers",
+      "ok": true,
+      "detail": "dom=9 bridge=9 rows=9 "
+    },
+    {
+      "check": "B8 DOM group lists match bridge groups",
+      "ok": true,
+      "detail": "dom local=[40] network=[59, 48, 44, 41, 49, 58, 72, 62]"
+    },
+    {
+      "check": "B9 window peak E[40] == live peak tracker",
+      "ok": true,
+      "detail": "window=0.48521302617941053 tracker=0.48521302617941053"
+    },
+    {
+      "check": "C1 replay pauses",
+      "ok": true,
+      "detail": "state={'active': True, 'playing': False, 'speed': 1, 'tMs': 3192, 'baselineT_ms': 1192, 'windowT0_ms': 692, 'windowT1_ms': 3192}"
+    },
+    {
+      "check": "C2 replay seek lands on the node-40 peak instant",
+      "ok": true,
+      "detail": "tMs=1316 peak_t=1312"
+    },
+    {
+      "check": "C3 replay dE[40] at peak instant == window-derived dE (exact)",
+      "ok": true,
+      "detail": "debug dE40=0.4734327287697729 expected=0.4734327287697729"
+    },
+    {
+      "check": "C4 stimulated node display colour == formula(real dE), dE view",
+      "ok": true,
+      "detail": "actual=[1, 0.915, 0.801] expected=[1.0, 0.939, 0.839] converged=True"
+    },
+    {
+      "check": "C4b stimulated node absolute-view colour == formula(real E)",
+      "ok": true,
+      "detail": "actual=[0.953, 0.874, 0.769] expected=[1.0, 0.915, 0.801] converged=True"
+    },
+    {
+      "check": "C5 stimulated node saturates in dE view at its peak",
+      "ok": true,
+      "detail": "R=1.000"
+    },
+    {
+      "check": "C6 quiet node stays near base in dE view (no fabrication)",
+      "ok": true,
+      "detail": "node=37 max|dE|=0.0000 actual=[0.023, 0.068, 0.133] expected=[0.023, 0.068, 0.133] converged=True"
+    },
+    {
+      "check": "C7 pixel check: dE view shows far more amber than absolute at peak",
+      "ok": true,
+      "detail": "amber px absolute=371 delta=25286 (ratio 68.16x)"
+    },
+    {
+      "check": "C8 distal node dE-view colour == formula(real dE) at its peak",
+      "ok": true,
+      "detail": "node=59 dE=0.0205 actual=[0.859, 0.396, 0.063] expected=[0.859, 0.396, 0.063] converged=True"
+    },
+    {
+      "check": "C9 distal node: dE view much brighter than absolute view (same instant)",
+      "ok": true,
+      "detail": "node=59 R dE=0.859 R abs=0.218"
+    },
+    {
+      "check": "C10 distal node absolute-view colour == formula(real E)",
+      "ok": true,
+      "detail": "actual=[0.218, 0.145, 0.117] expected=[0.185, 0.132, 0.119] converged=True"
+    },
+    {
+      "check": "D1 replay peak E[40] == window peak == live peak tracker",
+      "ok": true,
+      "detail": "replay=0.48521302617941053 window=0.48521302617941053 tracker=0.48521302617941053"
+    },
+    {
+      "check": "D2 paused replay clock frozen",
+      "ok": true,
+      "detail": "tMs 1316 -> 1316"
+    },
+    {
+      "check": "D3 replay 0.25x advances at ~quarter speed",
+      "ok": true,
+      "detail": "advanced 500 ms over 2004 ms wall (ratio 0.25)"
+    },
+    {
+      "check": "D4 replay still active at 0.25x",
+      "ok": true,
+      "detail": "state={'active': True, 'playing': True, 'speed': 0.25, 'tMs': 1267, 'baselineT_ms': 1192, 'windowT0_ms': 692, 'windowT1_ms': 3192}"
+    },
+    {
+      "check": "D5 back-to-live clears replay",
+      "ok": true,
+      "detail": "state={'active': False, 'playing': False, 'speed': 0.25, 'tMs': 1892, 'baselineT_ms': 1192, 'windowT0_ms': 692, 'windowT1_ms': 3192}"
+    },
+    {
+      "check": "E1 groups: input + local + network all non-empty",
+      "ok": true,
+      "detail": "input=40 local=[40] network=8"
+    },
+    {
+      "check": "E2 marker counts match bridge groups",
+      "ok": true,
+      "detail": "markers={'input': 1, 'local': 1, 'network': 8}"
+    },
+    {
+      "check": "E3 markers differ in geometry AND colour/size",
+      "ok": true,
+      "detail": "details={'input': {'count': 1, 'geometry': 'RingGeometry', 'radius': None, 'color': '#ffb340'}, 'local': {'count': 1, 'geometry': 'SphereGeometry', 'radius': 2.6, 'color': '#ffc861'}, 'network': {'count': 8, 'geometry': 'SphereGeometry', 'radius': 1.6, 'color': '#4fb6f2'}}"
+    },
+    {
+      "check": "E4 DOM marker legend names all three classes",
+      "ok": true,
+      "detail": "legend='琥珀色环 — 输入位置（刺激点）\\n琥珀实心 — 局部响应（被刺激的脑区）\\n蓝色小点 — 网络响应（其他响应脑区）'"
+    },
+    {
+      "check": "F0 replay of window 1 active before second stimulus",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "F1 new stimulus drops replay back to live",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "F2 new window: node 47, fresh baseline/window",
+      "ok": true,
+      "detail": "node=47 base 1192 -> 103228 snapshots=86"
+    },
+    {
+      "check": "F3 new summary/groups follow the new stimulus",
+      "ok": true,
+      "detail": "count=8 input=47"
+    },
+    {
+      "check": "F4 DOM panel count follows the new window",
+      "ok": true,
+      "detail": "dom=8 bridge=8"
+    },
+    {
+      "check": "G1 RESET clears baseline/summary/window",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "G2 RESET clears 3D response markers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "G3 RESET panel back to not-yet-stimulated",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "G4 RESET: dE view back to base colour, no baseline",
+      "ok": true,
+      "detail": "color=[0.029, 0.073, 0.137] converged=True"
+    },
+    {
+      "check": "I0 four param controls, each with slider + number + steppers",
+      "ok": true,
+      "detail": "params=4"
+    },
+    {
+      "check": "I0b params at defaults after RESET",
+      "ok": true,
+      "detail": "params={'g': 0.35, 'c_ei': 4, 'stim_amplitude': 2, 'stim_duration_ms': 100}"
+    },
+    {
+      "check": "I1 slider drag changes value + engine follows 0.5*4^k",
+      "ok": true,
+      "detail": "k 1.0 -> 0.799, amp 2 -> 1.5136167929695792 (map 1.5136)"
+    },
+    {
+      "check": "I2 number entry sets mapped value + slider + engine",
+      "ok": true,
+      "detail": "display=1.00 k=0.500 amp=1"
+    },
+    {
+      "check": "I3 steppers move k by 0.02 per click, engine follows",
+      "ok": true,
+      "detail": "k 0.50 -> 0.520 -> 0.480 amp=0.9727"
+    },
+    {
+      "check": "I4 slider double-click restores default",
+      "ok": true,
+      "detail": "display=2.00 amp=2"
+    },
+    {
+      "check": "I5 out-of-range number entry clamps to 0.5 / 2.0",
+      "ok": true,
+      "detail": "9.99 -> 2.00, 0.01 -> 0.50"
+    },
+    {
+      "check": "I6 slider wheel decreases then increases G",
+      "ok": true,
+      "detail": "G 0.35 -> 0.34199999999999997 -> 0.35"
+    },
+    {
+      "check": "I7 978px: no overflow, stepper works",
+      "ok": true,
+      "detail": "overflow=False DURATION 100 MS -> 110 MS"
+    },
+    {
+      "check": "H1 zero console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    }
+  ]
+}

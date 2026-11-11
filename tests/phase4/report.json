@@ -7,7 +7,7 @@
   {
     "check": "simulation clock advances",
     "ok": true,
-    "detail": "TIME 2.6 -> 3.9 s"
+    "detail": "TIME 2.7 -> 4.0 s"
   },
   {
     "check": "click selects a region",
@@ -20,22 +20,22 @@
     "detail": "max E[47] (peak tracker) = 0.494"
   },
   {
-    "check": "knob wheel decreases value",
+    "check": "slider wheel decreases value",
     "ok": true,
     "detail": "STIMULUS 2.00 -> 1.95"
   },
   {
-    "check": "knob wheel increases value",
+    "check": "slider wheel increases value",
     "ok": true,
     "detail": "STIMULUS 1.95 -> 2.00"
   },
   {
-    "check": "knob drag increases value",
+    "check": "slider drag increases value",
     "ok": true,
     "detail": "STIMULUS 1.74 -> 2.00"
   },
   {
-    "check": "knob double-click restores default",
+    "check": "slider double-click restores default",
     "ok": true,
     "detail": "STIMULUS after dblclick = 2.00 (default 2.00)"
   },
@@ -57,12 +57,12 @@
   {
     "check": "TIME display matches snapshot clock",
     "ok": true,
-    "detail": "snapshot 66.5 s vs display 66.5 s"
+    "detail": "snapshot 66.7 s vs display 66.8 s"
   },
   {
     "check": "fly-to is gradual, not a snap",
     "ok": true,
-    "detail": "moved 408.5 from default; fly progress samples = [0.81, 0.86, 1]"
+    "detail": "moved 411.8 from default; fly progress samples = [0.16, 1]"
   },
   {
     "check": "fly-to lands on default view",
@@ -92,7 +92,7 @@
   {
     "check": "pause freezes simulation time",
     "ok": true,
-    "detail": "TIME 6.3 -> 6.3 s"
+    "detail": "TIME 7.9 -> 7.9 s"
   },
   {
     "check": "reset restores t=0",

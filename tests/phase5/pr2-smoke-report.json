@@ -1,0 +1,162 @@
+{
+  "summary_peak40": 0.4824157931235179,
+  "responder_count": 9,
+  "distal_peaks": [
+    0.0222,
+    0.0196,
+    0.0188,
+    0.0178,
+    0.0177,
+    0.0168,
+    0.0145,
+    0.0136
+  ],
+  "window_snapshots": 79,
+  "checks": [
+    {
+      "check": "pre-stimulus baseline null",
+      "ok": true,
+      "detail": "baseline=None"
+    },
+    {
+      "check": "pre-stimulus summary null",
+      "ok": true,
+      "detail": "summary=None"
+    },
+    {
+      "check": "pre-stimulus panel says not yet stimulated",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "window filled",
+      "ok": true,
+      "detail": "snapshots=79 t0=691 t1=3191 base=1191 (~30 Hz effective under SwiftShader; worker nominal 60 Hz)"
+    },
+    {
+      "check": "lAMYG responds ~0.48",
+      "ok": true,
+      "detail": "peak dE[40]=0.4824157931235179"
+    },
+    {
+      "check": "summary count >= 2 (local + network)",
+      "ok": true,
+      "detail": "count=9"
+    },
+    {
+      "check": "groups: input=40, local=[40], network non-empty",
+      "ok": true,
+      "detail": "groups={'input': 40, 'local': [40], 'network': [59, 48, 41, 44, 58, 49, 72, 62]}"
+    },
+    {
+      "check": "DOM response count matches bridge",
+      "ok": true,
+      "detail": "dom=9 bridge=9"
+    },
+    {
+      "check": "DOM response rows present",
+      "ok": true,
+      "detail": "rows=9"
+    },
+    {
+      "check": "DOM row for #40 shows peak",
+      "ok": true,
+      "detail": "lAMYG #40\n峰值 ΔE +0.482"
+    },
+    {
+      "check": "DOM local/network group titles present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "max|dE|[40] agrees with summary peak",
+      "ok": true,
+      "detail": "max|dE|[40]=0.4824157931235179 peak=0.4824157931235179"
+    },
+    {
+      "check": "distal peaks in 0.01-0.05 range",
+      "ok": true,
+      "detail": "distal peaks=[0.0222, 0.0196, 0.0188, 0.0178, 0.0177]"
+    },
+    {
+      "check": "window peak E[40] matches peak tracker",
+      "ok": true,
+      "detail": "window=0.49419609053315555 tracker=0.49419609053315555"
+    },
+    {
+      "check": "3D markers: input + local + network all present",
+      "ok": true,
+      "detail": "markers={'input': 1, 'local': 1, 'network': 8}"
+    },
+    {
+      "check": "replay pauses",
+      "ok": true,
+      "detail": "state={'active': True, 'playing': False, 'speed': 1, 'tMs': 1891, 'baselineT_ms': 1191, 'windowT0_ms': 691, 'windowT1_ms': 3191}"
+    },
+    {
+      "check": "replay seek lands on peak instant",
+      "ok": true,
+      "detail": "tMs=1299 peak_t=1291"
+    },
+    {
+      "check": "dE view shows more distal amber than absolute view at peak replay",
+      "ok": true,
+      "detail": "amber px absolute=370 delta=23832 (ratio 64.41x)"
+    },
+    {
+      "check": "dE legend states mapping + full-scale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "replay state readable via bridge",
+      "ok": true,
+      "detail": "state={'active': True, 'playing': False, 'speed': 1, 'tMs': 1299, 'baselineT_ms': 1191, 'windowT0_ms': 691, 'windowT1_ms': 3191}"
+    },
+    {
+      "check": "replay 0.25x advances at ~quarter speed",
+      "ok": true,
+      "detail": "advanced 500 ms over 2003 ms wall (ratio 0.25)"
+    },
+    {
+      "check": "replay still active at 0.25x",
+      "ok": true,
+      "detail": "state={'active': True, 'playing': True, 'speed': 0.25, 'tMs': 1266, 'baselineT_ms': 1191, 'windowT0_ms': 691, 'windowT1_ms': 3191}"
+    },
+    {
+      "check": "back-to-live clears replay",
+      "ok": true,
+      "detail": "state={'active': False, 'playing': False, 'speed': 0.25, 'tMs': 1766, 'baselineT_ms': 1191, 'windowT0_ms': 691, 'windowT1_ms': 3191}"
+    },
+    {
+      "check": "pinned window survives history rollover",
+      "ok": true,
+      "detail": "snapshots=79 (was 79 shortly after the pulse)"
+    },
+    {
+      "check": "real canvas click produces a response",
+      "ok": true,
+      "detail": "count=1"
+    },
+    {
+      "check": "RESET clears baseline",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "RESET panel back to not-yet-stimulated",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "RESET clears 3D response markers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "zero console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    }
+  ]
+}
