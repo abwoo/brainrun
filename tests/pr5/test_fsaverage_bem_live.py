@@ -46,6 +46,11 @@ class TestRealFsaverageBEM(unittest.TestCase):
         hemi=data["meshes"]["cortex"]
         for h in ("lh","rh"):
             self.assertGreater(len(hemi[h]["vertices_head_mm"]),1000)
+            self.assertLess(len(hemi[h]["vertices_head_mm"]),10000)
+            self.assertGreater(len(hemi[h]["triangles"]),9000)
+            self.assertLessEqual(len(hemi[h]["triangles"]),12000)
+        self.assertEqual(data["display_mesh_target_faces"],12000)
+        self.assertIn("visualization only",data["display_geometry"])
 
     def test_electrode_head_coordinates_are_near_template_scalp(self):
         sensors=np.array([s["head_mm"] for s in self.payload["electrodes"]])
