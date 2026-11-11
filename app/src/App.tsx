@@ -15,12 +15,15 @@ import type { BrainData } from './lib/brainData';
 import { loadBrainData, topConnections } from './lib/brainData';
 import { DEFAULT_PARAMS, DELTA_FULL, KNOB_MAP, RESPONSE_THRESHOLD, SimClient } from './lib/simClient';
 import type {
+  BackgroundMode,
+  ModeParams,
   ReplayState,
   ResponseGroups,
   ResponseSummary,
   ResponseWindow,
+  SnapshotSummary,
 } from './lib/simClient';
-import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
+import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, DEFAULT_BACKGROUND_MODE, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
 import type { Snapshot } from './worker/protocol';
 import './App.css';
 
@@ -210,6 +213,17 @@ export default function App() {
   const [weightEdits, setWeightEdits] = useState<Record<string, number>>({});
   // PR3：持续偏置输入（node → 幅度；只存非零项）。RESET 清掉它。
   const [biasMap, setBiasMap] = useState<Record<number, number>>({});
+  // PR4：背景活动模式（默认 Spontaneous，见 DEFAULT_BACKGROUND_MODE）、
+  // 确定性随机种子、引擎确认的模式参数（OU τ/σ、正弦幅度/频率——
+  // 界面显示引擎实际用的值，不自己写死数字）、快照信息。
+  const [bgMode, setBgMode] = useState<BackgroundMode>(DEFAULT_BACKGROUND_MODE);
+  const [seed, setSeed] = useState(0);
+  const [modeParams, setModeParams] = useState<ModeParams | null>(null);
+  const [snapInfo, setSnapInfo] = useState<{
+    manual: { t_ms: number; savedAtWall: number } | null;
+    auto: { t_ms: number; savedAtWall: number } | null;
+  }>({ manual: null, auto: null });
+  const [snapMsg, setSnapMsg] = useState<string | null>(null);
 
   const simRef = useRef<SimClient | null>(null);
   const lastUiUpdateRef = useRef(0);
@@ -279,6 +293,9 @@ export default function App() {
 
   // PR2：每 250 ms 从 SimClient 读响应数据（基线 / 窗口 / 汇总 / 三类标记）。
   // 数据不变时不更新 state；新刺激到来时若正在回放旧窗口，回到直播。
+  // PR4：同一轮询里读快照信息与模式参数（变化才更新 state）。
+  const snapInfoSigRef = useRef('');
+  const modeParamsSigRef = useRef('');
   useEffect(() => {
     if (!data || !simReady) return;
     const poll = () => {
@@ -302,6 +319,19 @@ export default function App() {
           summary: s,
           groups: g,
         });
+      }
+      const info = sim.getSnapshotInfo();
+      const infoSig = JSON.stringify(info);
+      if (infoSig !== snapInfoSigRef.current) {
+        snapInfoSigRef.current = infoSig;
+        setSnapInfo(info);
+      }
+      const mp = sim.getModeParams();
+      const mpSig = JSON.stringify(mp);
+      if (mpSig !== modeParamsSigRef.current) {
+        modeParamsSigRef.current = mpSig;
+        setModeParams(mp);
+        if (mp) setBgMode(mp.mode);
       }
       const r = replayRef.current;
       if (r.active && w && r.baselineT_ms !== null && w.baselineT_ms !== r.baselineT_ms) {
@@ -462,6 +492,106 @@ export default function App() {
     [selectedId],
   );
 
+  // PR4：切换背景活动模式。只改 bg_mode（振荡档同时带上正弦参数），
+  // 不动局部参数与旋钮值；引擎经 mode_applied 确认后，轮询会把
+  // modeParams / bgMode 同步回来。
+  const handleBackgroundMode = useCallback((mode: BackgroundMode) => {
+    const sim = simRef.current;
+    if (!sim || !simReady) return;
+    setBgMode(mode);
+    sim.setBackgroundMode(mode);
+  }, [simReady]);
+
+  // PR4：换随机种子。从下一刻起按新种子抽取（OU 与白噪声）；要从头
+  // 按新种子重跑，请再点 RESET（reset 按 params.seed 重置 RNG）。
+  const handleSeedChange = useCallback(
+    (v: number) => {
+      const sim = simRef.current;
+      if (!sim || !simReady) return;
+      const s = Math.max(0, Math.floor(v));
+      setSeed(s);
+      sim.setSeed(s);
+    },
+    [simReady],
+  );
+
+  // PR4：把快照恢复后的状态同步回界面（参数旋钮、权重修改、偏置、
+  // 背景模式），并清掉属于恢复前轨迹的响应/回放数据。
+  const syncFromSnapshot = useCallback(
+    (summary: SnapshotSummary) => {
+      const p = summary.params;
+      setKStim(KNOB_MAP.stimulusK(p.stim_amplitude));
+      setKDur(KNOB_MAP.durationK(p.stim_duration_ms));
+      setKExcInh(KNOB_MAP.c_eiK(p.c_ei));
+      setKConn(KNOB_MAP.gK(p.g));
+      setBgMode(summary.mode);
+      setModeParams(summary.modeParams);
+      if (data) {
+        const edits: Record<string, number> = {};
+        summary.weights.forEach((row, i) => {
+          row.forEach((w, j) => {
+            const orig = data.connectivity.weights[i]?.[j];
+            if (orig !== undefined && Math.abs(w - orig) > 1e-9) {
+              edits[`${i},${j}`] = w;
+            }
+          });
+        });
+        setWeightEdits(edits);
+      }
+      const biases: Record<number, number> = {};
+      summary.bias.forEach((v, node) => {
+        if (v !== 0) biases[node] = v;
+      });
+      setBiasMap(biases);
+      setReplay({
+        active: false,
+        playing: false,
+        speed: 1,
+        tMs: 0,
+        baselineT_ms: null,
+        windowT0_ms: null,
+        windowT1_ms: null,
+      });
+      respSigRef.current = '';
+      setResp({ baseline: null, baselineE: null, window: null, summary: null, groups: null });
+      setHoldMs(null);
+      setSnap(null);
+    },
+    [data],
+  );
+
+  const handleSaveSnapshot = useCallback(() => {
+    const sim = simRef.current;
+    if (!sim || !simReady) return;
+    setSnapMsg('正在保存快照…');
+    sim
+      .saveSnapshot()
+      .then((info) => {
+        setSnapMsg(`快照已保存（仿真时间 ${(info.t_ms / 1000).toFixed(1)} s，存在浏览器 localStorage 里）`);
+      })
+      .catch(() => setSnapMsg('快照保存失败'));
+  }, [simReady]);
+
+  const handleRestoreSnapshot = useCallback(
+    (id: 'manual' | 'auto') => {
+      const sim = simRef.current;
+      if (!sim || !simReady) return;
+      setSnapMsg('正在恢复快照…');
+      sim
+        .restoreSnapshot(id)
+        .then((summary) => {
+          syncFromSnapshot(summary);
+          setSnapMsg(
+            id === 'auto'
+              ? `已恢复到按住前状态（仿真时间 ${(summary.t_ms / 1000).toFixed(1)} s）`
+              : `快照已恢复（仿真时间 ${(summary.t_ms / 1000).toFixed(1)} s）`,
+          );
+        })
+        .catch(() => setSnapMsg('没有可恢复的快照'));
+    },
+    [simReady, syncFromSnapshot],
+  );
+
   const handlePlayPause = () => {
     const sim = simRef.current;
     if (!sim || !simReady) return;
@@ -506,6 +636,9 @@ export default function App() {
     respSigRef.current = '';
     setResp({ baseline: null, baselineE: null, window: null, summary: null, groups: null });
     setResetSignal((n) => n + 1);
+    // PR4：RESET 清掉自动快照（按住前状态已作废），手动快照保留；
+    // 快照信息由轮询从 SimClient 重新读回。
+    setSnapMsg(null);
   };
 
   const locked = snap?.locked ?? false;
@@ -577,9 +710,49 @@ export default function App() {
               旋转 {autoRotate ? '开' : '关'}
             </button>
           </div>
-          {locked && (
-            <div className="locked-banner">
-              网络已锁定 — 长时间持续输入使全网停在高活动态 · 点 RESET 恢复
+          {snap && (snap.approaching_lock || locked) && (
+            <div className={locked ? 'locked-banner' : 'hold-warning'}>
+              {/* 按钮放最前面、横幅左贴边：按钮的横坐标只取决于横幅左边缘，
+                  与横幅宽度无关。警告切到锁定横幅时文字变短、进度条消失，
+                  横幅宽度会变；按钮放后面会被带着平移约 250px，按住中点它
+                  时按下和松开落在不同元素上，click 事件根本不触发，
+                  恢复也就不执行（H2/H5 的根因，探针实测点击事件 0 次，
+                  而直接调恢复接口立刻恢复、平均 E 回到 0.015）。 */}
+              <button
+                type="button"
+                className="chip chip-small"
+                disabled={!snapInfo.auto}
+                onClick={() => handleRestoreSnapshot('auto')}
+                title="恢复到这次按住开始前的完整状态"
+              >
+                恢复到按住前
+              </button>
+              {locked && (
+                <button type="button" className="chip chip-small" onClick={handleReset} title="恢复仿真状态">
+                  RESET
+                </button>
+              )}
+              {locked ? (
+                <>网络进入了新的稳定状态（不是软件卡住）— 长时间持续输入使全网停在高活动态</>
+              ) : (
+                <>
+                  <span>
+                    按住输入中：全网活动正在上升（平均 E {snap.mean_e.toFixed(3)}，
+                    离锁定阈值 0.15 还有 {Math.max(0, 1 - snap.lock_progress).toFixed(0)}%）——
+                    松开即停；如果进入高活动稳定态，可一键恢复到按住前
+                  </span>
+                  <span
+                    className="hold-progress"
+                    role="progressbar"
+                    aria-label="离锁定还有多远"
+                    aria-valuenow={Math.round(snap.lock_progress * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${Math.round(snap.lock_progress * 100)}%` }} />
+                  </span>
+                </>
+              )}
             </div>
           )}
           {simError !== null && (
@@ -806,6 +979,135 @@ export default function App() {
                   )}
                 </>
               )}
+            </div>
+          </section>
+
+          <section className="screen panel background-panel">
+            <div className="screen-title">背景活动 · BACKGROUND</div>
+            <div className="panel-body">
+              <div className="view-toggle" role="group" aria-label="背景活动模式">
+                {(
+                  [
+                    ['quiet', '安静 Quiet'],
+                    ['spontaneous', '自发 Spontaneous'],
+                    ['oscillatory', '振荡 Oscillatory'],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`chart-toggle ${bgMode === mode ? 'chart-toggle-on' : ''}`}
+                    disabled={!simReady}
+                    onClick={() => handleBackgroundMode(mode)}
+                    title={
+                      mode === 'quiet'
+                        ? '安静基线：无背景输入，与改版前行为完全一致'
+                        : mode === 'spontaneous'
+                          ? '自发背景：每脑区持续收到 Ornstein–Uhlenbeck 背景输入，活动来自模型计算'
+                          : '振荡：10 Hz 正弦外部驱动（明确标注的外部驱动信号，不是自发节律）'
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {bgMode === 'quiet' && (
+                <p className="panel-text">
+                  安静基线：无背景输入，什么都不做时大脑基本静止（平均 E ≈
+                  0.011）。与改版前行为完全一致。
+                </p>
+              )}
+              {bgMode === 'spontaneous' && (
+                <p className="panel-text">
+                  自发背景：每个脑区持续收到 Ornstein–Uhlenbeck 背景输入
+                  （相关时间 τ = {modeParams ? modeParams.ou_tau_ms.toFixed(0) : '—'} ms，
+                  幅度 σ = {modeParams ? modeParams.ou_sigma.toFixed(2) : '—'} 模型单位
+                  P），活动来自模型计算，不是装饰闪烁。同一随机种子重跑，
+                  活动序列逐值相同。
+                </p>
+              )}
+              {bgMode === 'oscillatory' && (
+                <p className="panel-text">
+                  振荡（外部驱动）：{modeParams ? modeParams.ext_sine_freq_hz.toFixed(0) : '—'} Hz
+                  正弦外部驱动（幅度{' '}
+                  {modeParams ? modeParams.ext_sine_amp.toFixed(2) : '—'} 模型单位
+                  P），全脑同相。注意：这是明确标注的外部驱动信号，不是自发节律——
+                  本 Wilson–Cowan 参数族里没有稳定的自发极限环（已扫描验证，见模型信息）。
+                </p>
+              )}
+              <p className="panel-text">
+                三种输入的关系：背景是持续输入（本面板）；偏置是你对选中脑区施加的
+                持续输入（REGION 面板）；脉冲是一次性输入（点击）。三者叠加进同一个 P。
+              </p>
+              <div className="seed-row">
+                <label htmlFor="bg-seed">随机种子</label>
+                <input
+                  id="bg-seed"
+                  type="number"
+                  className="edge-number mono"
+                  aria-label="随机种子"
+                  min={0}
+                  step={1}
+                  value={seed}
+                  disabled={!simReady}
+                  title="换种子后从下一刻起按新种子抽取；要点 RESET 才能从头按新种子重跑"
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!Number.isNaN(v)) handleSeedChange(v);
+                  }}
+                />
+                <span className="panel-text mono">种子 {seed} · 同种子重跑逐值相同</span>
+              </div>
+              <div className="conn-title">实验快照 · SNAPSHOT</div>
+              <p className="panel-text">
+                快照保存当前完整实验状态（参数、全部 76×76 权重、偏置、仿真时间、
+                随机种子与 RNG 状态、OU 状态、E/I、延迟历史），恢复后继续跑的轨迹
+                与不恢复完全一致。
+              </p>
+              <div className="snapshot-controls">
+                <button
+                  type="button"
+                  className="chip chip-small"
+                  disabled={!simReady}
+                  onClick={handleSaveSnapshot}
+                  title="手动保存当前状态到浏览器 localStorage（关掉页面还在，RESET 不清）"
+                >
+                  保存快照
+                </button>
+                <button
+                  type="button"
+                  className="chip chip-small"
+                  disabled={!simReady || !snapInfo.manual}
+                  onClick={() => handleRestoreSnapshot('manual')}
+                  title="恢复手动保存的快照"
+                >
+                  恢复手动快照
+                </button>
+                <button
+                  type="button"
+                  className="chip chip-small"
+                  disabled={!simReady || !snapInfo.auto}
+                  onClick={() => handleRestoreSnapshot('auto')}
+                  title="恢复这次按住开始前的状态"
+                >
+                  恢复到按住前
+                </button>
+              </div>
+              <p className="panel-text mono">
+                {snapInfo.manual
+                  ? `手动快照：仿真时间 ${(snapInfo.manual.t_ms / 1000).toFixed(1)} s · 存在 localStorage 里`
+                  : '手动快照：尚未保存'}
+                <br />
+                {snapInfo.auto
+                  ? `自动快照：仿真时间 ${(snapInfo.auto.t_ms / 1000).toFixed(1)} s · 只在内存里，按住开始时自动存，RESET 时清掉，绝不覆盖手动快照`
+                  : '自动快照：尚未按住（按住开始时自动存按住前状态）'}
+              </p>
+              {snapMsg !== null && <p className="panel-text">{snapMsg}</p>}
+              <p className="panel-text panel-foot">
+                点击与按住的区分：静止按住 300 ms 触发持续输入；移动超过 6 px
+                视为拖动（旋转），不触发刺激；一次短于 300 ms 的点击即使在慢机器上
+                也不会变成按住。
+              </p>
             </div>
           </section>
 
@@ -1069,7 +1371,7 @@ export default function App() {
       <footer className="bottombar">
         <span>点击刺激 · 按住持续输入 · 拖动旋转 · 滚轮缩放 · 双击背景恢复视角</span>
         <span className="bottombar-mid">
-          {locked ? '网络已锁定 — 点 RESET 恢复' : 'LIVE SIMULATION · WILSON–COWAN'}
+          {locked ? '网络进入了新的稳定状态 — 可恢复到按住前' : 'LIVE SIMULATION · WILSON–COWAN'}
         </span>
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
@@ -1121,6 +1423,47 @@ export default function App() {
               <p className="panel-text">
                 演示预设为 TVB A-set 只改 θ_e（0 → 1.0），全局耦合 G = 0.35。
                 纯 A-set 本身是双稳态的，保留在代码里作参考配置。
+              </p>
+              <div className="conn-title">背景活动 · 三档（PR4）</div>
+              <p className="panel-text">
+                安静（Quiet）：无背景输入，与改版前行为完全一致。默认是自发
+                （Spontaneous）：每脑区持续收到 Ornstein–Uhlenbeck 背景输入，
+                相关时间 τ = 100 ms、幅度 σ = 0.10（模型单位 P），OU 状态在
+                引擎内每步更新一次；同一随机种子（默认 0）重跑，活动序列逐值相同。
+                默认参数下连续运行 60 秒仿真时间不锁死、不发散（三个种子实测
+                最大平均 E ≤ 0.017，锁定阈值 0.15；演示脑区 40 的标准脉冲在
+                三个种子 × 八个点击时刻上 24 次全部恢复，节点活动标准差中位数
+                约 0.002）。但要注意：翻转概率取决于被点脑区——Quiet 下
+                （零背景）脑区 0/10/20/30/54/55/59/60 的标准脉冲同样会把全网
+                翻进高活动态（网络本身双稳态，PR4 之前就有），背景只多加了
+                一个边界脑区 69（约一半点击翻转）。锁住后横幅上有 RESET 一键恢复。
+              </p>
+              <p className="panel-text">
+                振荡（Oscillatory）：10 Hz 正弦外部驱动（幅度 0.30，全脑同相），
+                实测平均 E 在 0.0113–0.0211 之间以 10.00 Hz 振荡（FFT 峰值），
+                60 秒最大平均 E 0.021，脉冲叠加其上仍有完整响应（峰值 |ΔE| 0.48，
+                之后回到基线；四个正弦相位上点击都恢复）。这是明确标注
+                的外部驱动信号，不是自发节律——参数扫描证实，本 Wilson–Cowan
+                参数族里没有稳定的自发极限环：全部候选（含 TVB Table 1 那套
+                “20 Hz 振荡参数”，有/无恒定驱动 P 0.2–1.0，从各个初值出发）
+                单节点与 76 区网络都收敛到不动点；Table 1 本身收敛到高活动
+                不动点（单节点 E*≈0.32、网络平均 E*≈0.49），接近锁定态，
+                故不采用。另注意：OU 幅度不是越大越好——0.20 在 1.3–35.9 秒内
+                自己锁死，0.15 在固定点击时刻看着安全、换八个点击时刻就有
+                2/24 次点击把网络翻进高活动态（点击瞬间的 OU 状态决定结果），
+                正弦幅度 0.50 下脉冲也锁死；所以默认值取的是三项安全检查
+                （60 秒空跑、固定时刻脉冲、八个时刻 × 三个种子脉冲）全过的
+                最大幅度。
+              </p>
+              <p className="panel-text">
+                实验快照：保存当前完整实验状态（参数、全部 76×76 权重、偏置、
+                仿真时间、随机种子与 RNG 状态、OU 状态、E/I、延迟历史），恢复后
+                继续跑的轨迹与不恢复逐值一致。手动快照存在浏览器 localStorage
+                里（brainrun.snapshot.manual.v1），关掉页面还在，RESET 不清；
+                自动快照只在内存里，每次按住开始时存按住前状态，RESET 时清掉，
+                绝不覆盖手动快照。长按预警：按住中平均 E 超过 0.05 时提前提示，
+                锁定（平均 E 持续 500 ms 超过 0.15）是网络进入了新的稳定状态，
+                不是软件卡住；松开即停输入，一键可恢复到按住前。
               </p>
               <div className="conn-title">引用与许可</div>
               <p className="panel-text">

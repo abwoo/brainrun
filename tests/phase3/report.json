@@ -7,7 +7,7 @@
   {
     "check": "simulation clock advances",
     "ok": true,
-    "detail": "TIME 2.4 -> 3.7 s"
+    "detail": "TIME 2.8 -> 3.9 s"
   },
   {
     "check": "click selects a region",
@@ -52,12 +52,12 @@
   {
     "check": "pause freezes simulation time",
     "ok": true,
-    "detail": "TIME 8.6 -> 8.6 s"
+    "detail": "TIME 8.8 -> 8.8 s"
   },
   {
     "check": "resume restarts the clock",
     "ok": true,
-    "detail": "TIME 8.6 -> 9.6 s"
+    "detail": "TIME 8.8 -> 9.8 s"
   },
   {
     "check": "reset restores t=0",

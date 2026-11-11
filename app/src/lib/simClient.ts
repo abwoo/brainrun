@@ -8,7 +8,9 @@
  * 另挂一个测试桥 `window.__brainSim`（只读状态 + 与 UI 相同的命令），
  * 供 Playwright 因果测试使用；它不产生任何额外活动。
  */
-import type { SimParams, Snapshot, WorkerInMessage, WorkerOutMessage } from '../worker/protocol';
+import type { ModeParams, SimParams, Snapshot, WorkerInMessage, WorkerOutMessage } from '../worker/protocol';
+
+export type { ModeParams } from '../worker/protocol';
 
 export interface StimulusMarker {
   /** 刺激开始的仿真时间 ms（以发送时最近快照为准）。 */
@@ -72,6 +74,59 @@ export const BIAS_MAX = 1;
 /** Bias value applied when the user switches the bias on (excitatory). */
 export const BIAS_DEFAULT_ON = 0.5;
 
+/** PR4 — background activity modes (mirror the Rust `BgMode`). */
+export type BackgroundMode = 'quiet' | 'spontaneous' | 'oscillatory';
+export const BACKGROUND_MODES: BackgroundMode[] = ['quiet', 'spontaneous', 'oscillatory'];
+/** Default background mode (PR4, measured): Spontaneous (OU sigma
+ *  0.10, tau 100 ms) — the network shows model-driven ongoing activity
+ *  (median node E std 0.0020-0.0022) while staying far from lock over
+ *  60 s on the real network (max mean E <= 0.017 across 3 seeds, lock
+ *  threshold 0.15), and standard pulses on the demo node 40 recover on
+ *  all tested seeds and click times (24/24 clicks).  Quiet remains one
+ *  click away.  See docs/model-spec.md §9.
+ *  QUALIFICATION (measured, do not drop): flip probability depends on
+ *  the PULSED NODE.  In Quiet (zero background) pulses on nodes
+ *  0/10/20/30/54/55/59/60 already flip the network 2/2 — the network
+ *  is bistable and most nodes' standard pulses tip it; that predates
+ *  PR4.  The background adds exactly one borderline node (69, ~50% at
+ *  sigma 0.10, still borderline 1/2 at 0.05).  The safety bar for the
+ *  default is therefore "no lock on open" (60 s idle) + "demo-node
+ *  clicks recover", not "no node ever flips"; a pulse flip recovers
+ *  via the locked banner's RESET button.
+ *  NOTE: the first two candidates FAILED on the real network and were
+ *  rejected by measurement: sigma 0.20 locks within 1.3-35.9 s even
+ *  with no input, and sigma 0.15 looks safe at a fixed click time but
+ *  flips the network on 2/24 clicks when the click time varies (the OU
+ *  state at click time decides).  0.10 is the largest sigma that passes
+ *  all three safety checks (60 s alone, pulse at a fixed time, pulse
+ *  across 8 click times x 3 seeds, all on node 40).  See
+ *  reference/python-model/pr4_ou_60s_scan.py, pr4_pulse_safety.py,
+ *  pr4_pulse_timing.py and pr4_pulse_nodes.py. */
+export const DEFAULT_BACKGROUND_MODE: BackgroundMode = 'spontaneous';
+/** Manual snapshot localStorage key (PR4).  The auto snapshot is never
+ *  written here — it lives only in Worker memory and never overwrites
+ *  the manual snapshot. */
+export const MANUAL_SNAPSHOT_KEY = 'brainrun.snapshot.manual.v1';
+
+/** One stored snapshot: Worker time + full state JSON + wall-clock save time. */
+export interface StoredSnapshot {
+  id: string;
+  t_ms: number;
+  json: string;
+  savedAtWall: number;
+}
+
+/** Snapshot summary parsed back out of a snapshot JSON (params /
+ *  weights / bias), used to re-sync the UI after a restore. */
+export interface SnapshotSummary {
+  t_ms: number;
+  params: { g: number; c_ei: number; stim_amplitude: number; stim_duration_ms: number };
+  mode: BackgroundMode;
+  modeParams: ModeParams;
+  weights: number[][];
+  bias: number[];
+}
+
 /** 三类标记的脑区 id 列表（供 __brainSim 调试桥与 3D 标记读取）。 */
 export interface ResponseGroups {
   /** 输入位置：被刺激的脑区（琥珀色环）。 */
@@ -121,6 +176,60 @@ export const DEFAULT_PARAMS: SimParams = {
 
 export type SnapshotListener = (snap: Snapshot) => void;
 
+/** PR4: parse a snapshot JSON back into the summary the UI needs to
+ *  re-sync after a restore.  Returns null if the JSON is not a snapshot
+ *  (corrupt localStorage entry, wrong shape). */
+function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
+  try {
+    const snap = JSON.parse(stored.json) as {
+      params?: {
+        g?: number;
+        c_ei?: number;
+        stim_amplitude?: number;
+        stim_duration_ms?: number;
+        bg_mode?: string;
+        ou_tau_ms?: number;
+        ou_sigma?: number;
+        ext_sine_amp?: number;
+        ext_sine_freq_hz?: number;
+      };
+      weights?: number[][];
+      bias?: number[];
+    };
+    if (!snap.params || !Array.isArray(snap.weights) || !Array.isArray(snap.bias)) {
+      return null;
+    }
+    const modeRaw = snap.params.bg_mode ?? 'Quiet';
+    const mode: BackgroundMode =
+      modeRaw === 'Spontaneous'
+        ? 'spontaneous'
+        : modeRaw === 'Oscillatory'
+          ? 'oscillatory'
+          : 'quiet';
+    return {
+      t_ms: stored.t_ms,
+      params: {
+        g: snap.params.g ?? DEFAULT_PARAMS.g,
+        c_ei: snap.params.c_ei ?? DEFAULT_PARAMS.c_ei,
+        stim_amplitude: snap.params.stim_amplitude ?? DEFAULT_PARAMS.stim_amplitude,
+        stim_duration_ms: snap.params.stim_duration_ms ?? DEFAULT_PARAMS.stim_duration_ms,
+      },
+      mode,
+      modeParams: {
+        mode,
+        ou_tau_ms: snap.params.ou_tau_ms ?? 100,
+        ou_sigma: snap.params.ou_sigma ?? 0.10,
+        ext_sine_amp: snap.params.ext_sine_amp ?? 0,
+        ext_sine_freq_hz: snap.params.ext_sine_freq_hz ?? 10,
+      },
+      weights: snap.weights,
+      bias: snap.bias,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export class SimClient {
   private worker: Worker | null = null;
   private listeners = new Set<SnapshotListener>();
@@ -166,6 +275,23 @@ export class SimClient {
   private ready = false;
   private readyListeners: Array<() => void> = [];
   private error: string | null = null;
+  /** PR4: background mode (default Spontaneous — see
+   *  DEFAULT_BACKGROUND_MODE) + last mode parameters reported by the
+   *  Worker after a mode change. */
+  private backgroundMode: BackgroundMode = DEFAULT_BACKGROUND_MODE;
+  private modeParams: ModeParams | null = null;
+  private seed = 0;
+  /** PR4: stored snapshots (id → snapshot).  'manual' is also persisted
+   *  to localStorage; 'auto' lives only here (memory) and in the Worker. */
+  private snapshots = new Map<string, StoredSnapshot>();
+  private snapshotWaiters = new Map<
+    string,
+    Array<(info: { id: string; t_ms: number }) => void>
+  >();
+  private restoreWaiters = new Map<
+    string,
+    Array<(summary: SnapshotSummary) => void>
+  >();
 
   /** 启动 Worker 并用连接矩阵初始化引擎。 */
   start(weights: number[][], lengths: number[][]): void {
@@ -180,6 +306,49 @@ export class SimClient {
         const cbs = this.readyListeners;
         this.readyListeners = [];
         cbs.forEach((cb) => cb());
+      } else if (msg.type === 'mode_applied') {
+        // PR4: the Worker confirms the mode + the applied OU/sine
+        // parameters (the UI reads these, it never assumes them).
+        this.backgroundMode = msg.params.mode;
+        this.modeParams = msg.params;
+      } else if (msg.type === 'snapshot_saved') {
+        // PR4: keep the snapshot in memory; manual snapshots are also
+        // persisted to localStorage (auto snapshots never are).
+        const stored: StoredSnapshot = {
+          id: msg.id,
+          t_ms: msg.t_ms,
+          json: msg.json,
+          savedAtWall: Date.now(),
+        };
+        this.snapshots.set(msg.id, stored);
+        if (msg.id === 'manual') {
+          try {
+            window.localStorage.setItem(MANUAL_SNAPSHOT_KEY, JSON.stringify(stored));
+          } catch {
+            // localStorage full / unavailable: the in-memory copy still works.
+          }
+        }
+        const waiters = this.snapshotWaiters.get(msg.id) ?? [];
+        this.snapshotWaiters.delete(msg.id);
+        waiters.forEach((cb) => cb({ id: msg.id, t_ms: msg.t_ms }));
+      } else if (msg.type === 'snapshot_restored') {
+        // PR4: a restore rewound the engine — re-sync the client mirrors
+        // from the snapshot JSON (params, weights, bias) and drop the
+        // response data, which belongs to the pre-restore trajectory.
+        const stored = this.snapshots.get(msg.id);
+        const summary = stored ? parseSnapshotSummary(stored) : null;
+        if (summary) this.applySnapshotSummary(summary);
+        this.markers = [];
+        this.holdStartWall = null;
+        this.peakE = null;
+        this.snapHistory = [];
+        this.baselineE = null;
+        this.baselineT = null;
+        this.baselineNode = null;
+        this.pinnedWindow = null;
+        const waiters = this.restoreWaiters.get(msg.id) ?? [];
+        this.restoreWaiters.delete(msg.id);
+        if (summary) waiters.forEach((cb) => cb(summary));
       } else if (msg.type === 'snapshot') {
         this.latest = msg;
         if (this.peakE === null) {
@@ -228,6 +397,25 @@ export class SimClient {
     });
     // 把默认参数同步进引擎（引擎默认已是演示预设，此处显式确认一遍）。
     this.send({ type: 'set_params', params: { ...this.params } });
+    // PR4：引擎默认是 Quiet（旧行为）；产品默认模式由客户端在引擎就绪
+    // 后发 set_background_mode 设定——不能在 init 后立刻发，Worker 在
+    // WASM 加载完成前会丢弃消息（sim 尚未创建）。
+    this.onReady(() => {
+      this.send({ type: 'set_background_mode', mode: this.backgroundMode });
+    });
+    // PR4：恢复上次浏览器会话里手动保存的快照（localStorage；自动快照
+    // 从不写 localStorage，所以这里只有 manual）。
+    try {
+      const raw = window.localStorage.getItem(MANUAL_SNAPSHOT_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw) as StoredSnapshot;
+        if (stored && stored.id === 'manual' && typeof stored.json === 'string') {
+          this.snapshots.set('manual', stored);
+        }
+      }
+    } catch {
+      // localStorage 不可用或内容损坏：没有可恢复的手动快照。
+    }
   }
 
   stop(): void {
@@ -477,11 +665,33 @@ export class SimClient {
     this.baselineT = null;
     this.baselineNode = null;
     this.pinnedWindow = null;
-    // PR3: RESET clears the sustained bias (applied input) but NEVER
+    // PR4: RESET clears the sustained bias (applied input) but NEVER
     // the edited weights — modifiedWeights / currentWeights survive.
     // The engine side clears its bias in its own reset().
     this.biasMap.clear();
+    // PR4：RESET 清掉自动快照（它对应“按住前”，按住已随 RESET 消失）；
+    // 手动快照是用户存的东西，RESET 不动它（Worker 侧同样处理）。
+    this.snapshots.delete('auto');
     this.send({ type: 'reset' });
+  }
+
+  /** Atomic reset + pause (one Worker message).  Deterministic stepping
+   *  must use this, never reset() followed by pause(): the two-message
+   *  form leaves a race window where live ticks consume RNG draws and
+   *  same-seed reruns differ.  Client-side state clearing mirrors
+   *  reset() exactly. */
+  resetPaused(): void {
+    this.markers = [];
+    this.holdStartWall = null;
+    this.peakE = null;
+    this.snapHistory = [];
+    this.baselineE = null;
+    this.baselineT = null;
+    this.baselineNode = null;
+    this.pinnedWindow = null;
+    this.biasMap.clear();
+    this.snapshots.delete('auto');
+    this.send({ type: 'reset_paused' });
   }
 
   // -- PR3: runtime weight editing (single-sided, range 0–3) -----------
@@ -592,6 +802,115 @@ export class SimClient {
       .sort((a, b) => a.node - b.node);
   }
 
+  // -- PR4: background activity, seeds, deterministic stepping ---------
+  /** Set the background activity mode.  Only changes bg_mode (+ the
+   *  sine parameters for Oscillatory); local parameters and knob values
+   *  are untouched.  The Worker confirms via 'mode_applied'. */
+  setBackgroundMode(mode: BackgroundMode): void {
+    this.backgroundMode = mode;
+    this.send({ type: 'set_background_mode', mode });
+  }
+
+  /** Current background activity mode (client-side intent; the Worker
+   *  confirms it via 'mode_applied'). */
+  getBackgroundMode(): BackgroundMode {
+    return this.backgroundMode;
+  }
+
+  /** Last mode parameters reported by the Worker (OU tau/sigma, sine
+   *  amp/freq); null before the first mode confirmation. */
+  getModeParams(): ModeParams | null {
+    return this.modeParams ? { ...this.modeParams } : null;
+  }
+
+  /** Change the deterministic seed (see WASM `set_seed`): future RNG
+   *  draws follow the new seed from the next step on; E/I, OU state,
+   *  weights and bias are NOT touched.  To replay from the start with
+   *  the new seed, call `reset()` afterwards. */
+  setSeed(seed: number): void {
+    this.seed = Math.max(0, Math.floor(seed));
+    this.send({ type: 'set_seed', seed: this.seed });
+  }
+
+  getSeed(): number {
+    return this.seed;
+  }
+
+  /** Advance the engine exactly `ms` ms.  Only works while paused
+   *  (the Worker ignores it while running, so step counts stay
+   *  deterministic).  Used by the PR4 tests for exact reproducibility
+   *  checks; the live UI never calls it. */
+  advanceMs(ms: number): void {
+    this.send({ type: 'advance_ms', ms });
+  }
+
+  // -- PR4: experiment snapshots ----------------------------------------
+  /** Save a manual snapshot (returns a promise resolved when the
+   *  Worker confirms).  Manual snapshots persist in localStorage
+   *  (key `MANUAL_SNAPSHOT_KEY`) and survive reloads and RESETs. */
+  saveSnapshot(): Promise<{ id: string; t_ms: number }> {
+    return new Promise((resolve) => {
+      const list = this.snapshotWaiters.get('manual') ?? [];
+      list.push(resolve);
+      this.snapshotWaiters.set('manual', list);
+      this.send({ type: 'save_snapshot', id: 'manual' });
+    });
+  }
+
+  /** Restore a snapshot by id ('manual' | 'auto').  Resolves with the
+   *  parsed summary (params / weights / bias) so the caller can re-sync
+   *  the UI.  Rejects (never resolves) if no snapshot with that id
+   *  exists — the caller should check `getSnapshotInfo()` first. */
+  restoreSnapshot(id: string): Promise<SnapshotSummary> {
+    const stored = this.snapshots.get(id);
+    if (!stored) {
+      return Promise.reject(new Error(`没有可恢复的快照：${id}`));
+    }
+    return new Promise((resolve) => {
+      const list = this.restoreWaiters.get(id) ?? [];
+      list.push(resolve);
+      this.restoreWaiters.set(id, list);
+      this.send({ type: 'restore_snapshot', id, json: stored.json });
+    });
+  }
+
+  /** Which snapshots exist (Worker time + wall-clock save time). */
+  getSnapshotInfo(): {
+    manual: { t_ms: number; savedAtWall: number } | null;
+    auto: { t_ms: number; savedAtWall: number } | null;
+  } {
+    const pick = (id: string) => {
+      const s = this.snapshots.get(id);
+      return s ? { t_ms: s.t_ms, savedAtWall: s.savedAtWall } : null;
+    };
+    return { manual: pick('manual'), auto: pick('auto') };
+  }
+
+  /** Re-sync the client mirrors from a restored snapshot's summary:
+   *  parameters, background mode, live weights (and which edges differ
+   *  from the TVB originals), sustained bias. */
+  private applySnapshotSummary(summary: SnapshotSummary): void {
+    this.params = { ...summary.params };
+    this.backgroundMode = summary.mode;
+    this.modeParams = summary.modeParams;
+    if (this.originalWeights) {
+      this.currentWeights = summary.weights.map((r) => [...r]);
+      this.modifiedWeights.clear();
+      for (let i = 0; i < summary.weights.length; i++) {
+        for (let j = 0; j < summary.weights[i].length; j++) {
+          const orig = this.originalWeights[i]?.[j];
+          if (orig !== undefined && Math.abs(summary.weights[i][j] - orig) > 1e-12) {
+            this.modifiedWeights.set(`${i},${j}`, summary.weights[i][j]);
+          }
+        }
+      }
+    }
+    this.biasMap.clear();
+    summary.bias.forEach((value, node) => {
+      if (value !== 0) this.biasMap.set(node, value);
+    });
+  }
+
   /** 测试桥：只读状态 + 与 UI 相同的命令，不产生额外活动。 */
   attachDebugBridge(): void {
     (window as unknown as { __brainSim?: unknown }).__brainSim = {
@@ -658,6 +977,7 @@ export class SimClient {
       pause: () => this.pause(),
       resume: () => this.resume(),
       reset: () => this.reset(),
+      resetPaused: () => this.resetPaused(),
       isReady: () => this.isReady(),
       getError: () => this.getError(),
       // PR3 调试桥：权重与偏置（只读已发送的值 + 与 UI 相同的命令，
@@ -675,6 +995,17 @@ export class SimClient {
       getAllBias: () => this.getAllBias(),
       clearBias: (node: number) => this.clearBias(node),
       clearAllBias: () => this.clearAllBias(),
+      // PR4 调试桥：背景模式 / 种子 / 确定性步进 / 快照（只读已发送的
+      // 值 + 与 UI 相同的命令，不产生额外活动）。
+      setBackgroundMode: (mode: BackgroundMode) => this.setBackgroundMode(mode),
+      getBackgroundMode: () => this.getBackgroundMode(),
+      getModeParams: () => this.getModeParams(),
+      setSeed: (seed: number) => this.setSeed(seed),
+      getSeed: () => this.getSeed(),
+      advanceMs: (ms: number) => this.advanceMs(ms),
+      saveSnapshot: () => this.saveSnapshot(),
+      restoreSnapshot: (id: string) => this.restoreSnapshot(id),
+      getSnapshotInfo: () => this.getSnapshotInfo(),
     };
   }
 }

@@ -64,6 +64,28 @@ but NEVER the weights; only ``reset_weight`` / ``reset_all_weights``
 restore TVB originals.  Idelays are built once from the original
 weights and never recomputed (see the Rust module docs for why).
 
+PR4 — living default (mirrors crates/brain-core/src/lib.rs):
+``bg_mode`` 0 = Quiet (pre-PR4 silent baseline), 1 = Spontaneous
+(per-node Ornstein–Uhlenbeck drive added to P; OU state advanced
+EXACTLY ONCE per step in the run loop — never inside ``_deriv``,
+which Heun calls twice per step — using the same SplitMix64 RNG and
+the same Box–Muller formula as the Rust engine), 2 = Oscillatory
+(the ``Params.oscillatory()`` preset).  ``drive_const`` is a constant
+input added to P on every node, every step (part of the parameter set,
+stored in snapshots).  The Oscillatory preset is an EXPLICITLY
+LABELLED external sinusoidal drive (see ``Params.oscillatory``):
+the parameter scans in pr4_scan.py / pr4_scan2.py / pr4_scan3.py
+found NO stable limit cycle in this Wilson–Cowan parameter family
+(all candidates settle to a fixed point, std = 0, from every initial
+condition, with and without constant drive), so the rhythm is a
+documented external drive, never claimed to be spontaneous.
+``take_snapshot`` / ``restore_snapshot`` capture the full experiment
+state (params, live weights, bias, step count, RNG state, OU state,
+E/I, and the delayed-coupling history window) so a restored run
+continues the uninterrupted trajectory exactly; the history lives in
+a ring buffer (``_hist`` / ``hist_base``) mirroring the Rust engine's
+trimmed ``e_hist``.
+
 No smoothing, no beautification, no hidden activity: every number
 returned comes from the equations above.
 """
@@ -71,10 +93,20 @@ returned comes from the equations above.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
+
+# ---------------------------------------------------------------------------
+# Background activity modes (PR4) — integer codes, mirroring the Rust
+# `BgMode` enum: 0 = Quiet, 1 = Spontaneous (OU drive), 2 = Oscillatory
+# (explicitly labelled external sinusoidal drive; see Params.oscillatory).
+# ---------------------------------------------------------------------------
+BG_QUIET = 0
+BG_SPONTANEOUS = 1
+BG_OSCILLATORY = 2
 
 # ---------------------------------------------------------------------------
 # Parameters (A-set: TVB code defaults, Sanz-Leon et al. 2015 Table 11a)
@@ -119,6 +151,27 @@ class Params:
     # Noise (off by default; see module docstring)
     noise_amp: float = 0.0
     seed: int = 0
+    # PR4: background activity mode (0 = Quiet, 1 = Spontaneous,
+    # 2 = Oscillatory).  Quiet is the pre-PR4 silent baseline.
+    bg_mode: int = BG_QUIET
+    # PR4: OU correlation time (ms) and stationary std (model units of
+    # P).  The OU process is dx = -(x/tau) dt + sigma*sqrt(2 dt/tau) dW,
+    # Euler–Maruyama, advanced once per step; the drive added to P_i is
+    # the OU state x_i itself.
+    ou_tau_ms: float = 100.0
+    ou_sigma: float = 0.10
+    # PR4: constant background input added to P on every node, every
+    # step (model units of P; 0 = none).  Part of the parameter set, so
+    # it is stored in snapshots and survives reset().
+    drive_const: float = 0.0
+    # PR4: external sinusoidal drive (Oscillatory mode only): the same
+    # sine is added to P on every node, P_sine(t) =
+    # ext_sine_amp * sin(2*pi*ext_sine_freq_hz*t).  This is an EXTERNAL
+    # drive signal, explicitly labelled as such in the UI and docs — it
+    # is NOT a spontaneous rhythm (no stable limit cycle exists in this
+    # Wilson–Cowan parameter family; see pr4_scan*.py).
+    ext_sine_amp: float = 0.0
+    ext_sine_freq_hz: float = 10.0
 
     @classmethod
     def demo(cls) -> "Params":
@@ -136,6 +189,34 @@ class Params:
         docs/model-spec.md Phase 2 appendix.
         """
         return cls(theta_e=1.0)
+
+    @classmethod
+    def oscillatory(cls) -> "Params":
+        """Oscillatory preset (PR4): demo parameters + an explicitly
+        labelled external sinusoidal drive.
+
+        The parameter scans (pr4_scan.py, pr4_scan2.py, pr4_scan3.py)
+        found NO stable limit cycle in this Wilson–Cowan parameter
+        family — every candidate (including the TVB Table 1 set, with
+        and without constant drive P in {0.2, 0.5, 1.0}, from every
+        initial condition) settles to a fixed point, single node and
+        76-node network alike.  The Table 1 set itself settles at a
+        HIGH fixed point (single node E*=0.32, network mean E*=0.49),
+        i.e. next to the locked state, so it is rejected as a preset.
+        This preset therefore does NOT claim a spontaneous rhythm: it
+        drives the demo network with a documented 10 Hz sine of
+        amplitude 0.30 (model units of P), in phase on all nodes.
+        Measured on the 76-node network (G=0.35): mean E oscillates
+        in [0.0113, 0.0211] (peak-to-peak 0.0099, max single-node
+        peak-to-peak 0.0125) at 10.00 Hz (FFT peak), max mean E 0.021
+        over 60 s — far below the 0.15 lock threshold — and a pulse on
+        top still gives its full transient response (peak |ΔE[40]| =
+        0.483, and the network returns to baseline afterwards: a 0.50
+        amplitude would NOT return — see pr4_pulse_safety.py).
+        See docs/model-spec.md §9.
+        """
+        return cls(theta_e=1.0, bg_mode=BG_OSCILLATORY,
+                   ext_sine_amp=0.30, ext_sine_freq_hz=10.0)
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +241,26 @@ class SplitMix64:
 
     def next_f64(self) -> float:
         return (self.next_u64() >> 11) * (1.0 / 9007199254740992.0)
+
+    def next_gaussian(self) -> float:
+        """Standard normal draw (Box–Muller, cosine branch) — PR4 OU drive.
+
+        Consumes exactly two uniforms, in order.  ``u1`` is mapped to
+        (0, 1] so ``log(u1)`` is never evaluated at 0.  The Rust engine
+        uses the identical formula; the two implementations are
+        cross-checked bit-for-bit in tests/pr4.
+        """
+        u1 = 1.0 - self.next_f64()
+        u2 = self.next_f64()
+        return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
+
+    def get_state(self) -> int:
+        """Raw internal state (PR4: snapshots store it)."""
+        return self.state
+
+    def set_state(self, state: int) -> None:
+        """Restore a state previously read with ``get_state()``."""
+        self.state = state & _MASK64
 
     def noise_vector(self, n: int) -> np.ndarray:
         """Uniform noise in [-1, 1) per node, in node order."""
@@ -255,6 +356,16 @@ class Simulator:
         self.max_delay = int(self.idelays.max()) if self.n else 0
         self.e0 = float(e0)
         self.i0 = float(i0)
+        # PR4: delayed-coupling history as a ring buffer, mirroring the
+        # Rust engine's trimmed e_hist.  Absolute step s lives in slot
+        # s % _hist_cap; rows older than hist_base are never read (any
+        # future step can only request steps >= step_count - max_delay).
+        # keep = max(max_delay + 8, 64) live rows, cap = keep + 64 so the
+        # corrector's predictor row never aliases a live row.
+        self._hist_keep = max(self.max_delay + 8, 64)
+        self._hist_cap = self._hist_keep + 64
+        self._hist = np.zeros((self._hist_cap, self.n), dtype=np.float64)
+        self.hist_base = 0
         self.reset()
 
     # -- state ---------------------------------------------------------
@@ -263,12 +374,86 @@ class Simulator:
 
         PR3: clears the sustained bias (an applied input) but NEVER the
         weights — edited weights survive a reset by design.
+        PR4: also zeroes the OU state and re-seeds the RNG from
+        ``params.seed``, so reset + rerun reproduces the first run
+        exactly; the history ring restarts at absolute step 0.
         """
         self.E = np.full(self.n, self.e0, dtype=np.float64)
         self.I = np.full(self.n, self.i0, dtype=np.float64)
         self.step_count = 0
         self.rng = SplitMix64(self.params.seed)
         self.bias = np.zeros(self.n, dtype=np.float64)
+        self.ou = np.zeros(self.n, dtype=np.float64)
+        self._hist[0] = self.E
+        self.hist_base = 0
+
+    # -- PR4: background activity + snapshots ---------------------------
+    def reseed(self, seed: int) -> None:
+        """Change the deterministic seed: future RNG draws (OU and white
+        noise) follow the new seed from the next step on.  E/I, OU state,
+        weights and bias are NOT touched — this is not a reset.  To
+        replay a run from the start with the new seed, call ``reset()``
+        afterwards (which re-seeds from ``params.seed``)."""
+        self.params = replace(self.params, seed=int(seed))
+        self.rng = SplitMix64(self.params.seed)
+
+    def take_snapshot(self) -> dict:
+        """Complete experiment state (PR4) — JSON-friendly.  Restoring
+        reproduces the uninterrupted trajectory exactly (see
+        ``restore_snapshot``).  ``weights_orig`` is deliberately NOT
+        stored: it never changes after construction."""
+        rows = [
+            self._hist[s % self._hist_cap].tolist()
+            for s in range(self.hist_base, self.step_count + 1)
+        ]
+        return {
+            "params": dict(self.params.__dict__),
+            "weights": self.weights.tolist(),
+            "bias": self.bias.tolist(),
+            "step_count": self.step_count,
+            "rng_state": self.rng.get_state(),
+            "ou": self.ou.tolist(),
+            "E": self.E.tolist(),
+            "I": self.I.tolist(),
+            "e_hist": rows,
+            "hist_base": self.hist_base,
+            "e0": self.e0,
+            "i0": self.i0,
+        }
+
+    def restore_snapshot(self, snap: dict) -> None:
+        """Restore a snapshot from ``take_snapshot`` (PR4).  After this
+        call the simulator is identical to the moment the snapshot was
+        taken — same E/I, same history window, same RNG and OU state —
+        so continuing to run reproduces the uninterrupted trajectory
+        exactly."""
+        n = self.n
+        E = np.asarray(snap["E"], dtype=np.float64)
+        I = np.asarray(snap["I"], dtype=np.float64)
+        ou = np.asarray(snap["ou"], dtype=np.float64)
+        weights = np.asarray(snap["weights"], dtype=np.float64)
+        bias = np.asarray(snap["bias"], dtype=np.float64)
+        if not (len(E) == len(I) == len(ou) == len(bias) == n
+                and weights.shape == (n, n)):
+            raise ValueError(
+                f"snapshot has n={len(E)} but this simulator has n={n}")
+        rows = snap["e_hist"]
+        if any(len(r) != n for r in rows):
+            raise ValueError("snapshot history rows have the wrong width")
+        self.params = Params(**snap["params"])
+        self.weights = weights
+        self.bias = bias
+        self.step_count = int(snap["step_count"])
+        self.rng.set_state(int(snap["rng_state"]))
+        self.ou = ou
+        self.E = E
+        self.I = I
+        self.hist_base = int(snap["hist_base"])
+        for k, row in enumerate(rows):
+            self._hist[(self.hist_base + k) % self._hist_cap] = np.asarray(
+                row, dtype=np.float64)
+        self.e0 = float(snap["e0"])
+        self.i0 = float(snap["i0"])
 
     # -- PR3: runtime weight editing (single-sided, range 0–3) ---------
     WEIGHT_MIN = 0.0
@@ -346,17 +531,45 @@ class Simulator:
         z = np.clip(-a * (x - b), -700.0, 700.0)
         return c / (1.0 + np.exp(z))
 
-    def _delayed_E(self, e_hist: np.ndarray, step: int) -> np.ndarray:
-        """E_delayed[i, j] = E_j at step (step - idelay_ij).
+    def _delayed_E(self, step: int, predictor: np.ndarray | None = None) -> np.ndarray:
+        """E_delayed[i, j] = E_j at ABSOLUTE step (step - idelay_ij).
 
-        ``e_hist`` rows are E snapshots, row ``step`` is the current
-        state; for the corrector call the caller appends the predictor
-        state as the extra last row so index ``step`` resolves to it.
-        Steps before t=0 read as the initial state (row 0).
+        Rows ``hist_base..step_count`` of the ring are committed states;
+        absolute step ``step_count + 1`` is the predictor row (only
+        reachable when idelay == 0 in the corrector call, and only when
+        the caller has written it into its ring slot).  Steps before t=0
+        — and rows trimmed away — read as the initial state ``e0``.
+        ``step`` here is the ABSOLUTE step (``self.step_count`` at the
+        predictor call, ``+1`` at the corrector call), so the history
+        stays correct across consecutive ``run()`` calls, unlike the
+        old run-local history.
         """
-        idx = np.maximum(step - self.idelays, 0)  # (n, n) step indices into e_hist rows
+        idx = step - self.idelays  # (n, n) absolute step indices
         j = np.arange(self.n)[None, :]
-        return e_hist[idx, j]
+        committed = (idx >= self.hist_base) & (idx <= self.step_count)
+        slots = np.mod(idx, self._hist_cap)
+        out = np.where(committed, self._hist[slots, j], self.e0)
+        if predictor is not None:
+            is_pred = idx == self.step_count + 1
+            out = np.where(is_pred, predictor[j], out)
+        return out
+
+    def _ou_step(self) -> None:
+        """Advance the OU background drive EXACTLY ONCE per step (PR4).
+
+        Euler–Maruyama for dx = -(x/tau) dt + sigma*sqrt(2 dt/tau) dW,
+        one Gaussian per node in node order, drawn from the shared RNG.
+        Called at the top of each step in ``run()`` — never inside
+        ``_deriv``, which Heun calls twice per step.
+        """
+        p = self.params
+        if p.bg_mode != BG_SPONTANEOUS:
+            return
+        dt = p.dt
+        decay = dt / p.ou_tau_ms
+        diff = p.ou_sigma * math.sqrt(2.0 * dt / p.ou_tau_ms)
+        gauss = np.array([self.rng.next_gaussian() for _ in range(self.n)])
+        self.ou = self.ou + (-self.ou * decay + diff * gauss)
 
     def _deriv(
         self,
@@ -392,8 +605,28 @@ class Simulator:
 
     def _applied_p(self, t_ms: float, events: list[StimulusEvent]) -> np.ndarray:
         """External input actually applied: stimulus events PLUS the
-        sustained per-node bias (PR3).  This is what ``run`` records."""
-        return self._stimulus_vector(t_ms, events) + self.bias
+        sustained per-node bias (PR3) PLUS the constant drive (PR4,
+        ``drive_const``, if any).  This is what ``run`` records."""
+        return self._stimulus_vector(t_ms, events) + self.bias + self.params.drive_const
+
+    def _total_p(self, t_ms: float, events: list[StimulusEvent]) -> np.ndarray:
+        """Total P applied during a step: ``_applied_p`` + the OU state
+        (Spontaneous mode only) + the external sine drive (Oscillatory
+        mode only; the same in-phase sine on every node, no RNG
+        involved).  NOTE the sine uses the ABSOLUTE simulation time
+        (``step_count * dt``), not the run-local ``t_ms`` — exactly like
+        the Rust engine, whose ``step_one`` receives absolute times — so
+        the phase does not restart on consecutive ``run()`` calls.
+        ``t_ms`` still carries the run-local event time for stimuli."""
+        p = self.params
+        total = self._applied_p(t_ms, events)
+        if p.bg_mode == BG_SPONTANEOUS:
+            total = total + self.ou
+        elif p.bg_mode == BG_OSCILLATORY and p.ext_sine_amp != 0.0:
+            t_abs_ms = self.step_count * p.dt
+            total = total + p.ext_sine_amp * math.sin(
+                2.0 * math.pi * p.ext_sine_freq_hz * t_abs_ms / 1000.0)
+        return total
 
     def run(
         self,
@@ -403,43 +636,54 @@ class Simulator:
     ) -> RunResult:
         """Run for ``duration_ms``. Returns full traces (every step if
         snapshot_every == 1).  The simulator is NOT reset first: call
-        reset() explicitly when a fresh deterministic run is wanted."""
+        reset() explicitly when a fresh deterministic run is wanted.
+        Event times are relative to THIS run() call (start_ms is measured
+        from the call's t=0), but the delayed-coupling history is
+        ABSOLUTE: it persists across consecutive run() calls via the
+        ring buffer, so a second run() continues the true trajectory
+        (unlike the old run-local history, which re-seeded delays from
+        the run-start state).  On a fresh reset() both agree exactly.
+        """
         p = self.params
         events = events or []
         n_steps = int(round(duration_ms / p.dt))
-        # History of E: row s is the state at step s.  We keep one extra
-        # row so the corrector can read "step n+1 - idelay" with
-        # idelay == 0 as the predictor state.
-        e_hist = np.zeros((n_steps + 2, self.n), dtype=np.float64)
-        e_hist[0] = self.E
         E_out = np.zeros((n_steps + 1, self.n), dtype=np.float64)
         I_out = np.zeros((n_steps + 1, self.n), dtype=np.float64)
         P_out = np.zeros((n_steps + 1, self.n), dtype=np.float64)
         E_out[0] = self.E
         I_out[0] = self.I
-        P_out[0] = self._applied_p(0.0, events)
+        P_out[0] = self._total_p(0.0, events)
 
         for n in range(n_steps):
             t = n * p.dt
-            P = self._applied_p(t, events)
-            # Predictor (Euler) using delayed E at step n.
-            e_del1 = self._delayed_E(e_hist, n)
+            # PR4: OU advances exactly once per step, before the P for
+            # this step is computed (never inside _deriv).
+            self._ou_step()
+            P = self._total_p(t, events)
+            abs_step = self.step_count
+            # Predictor (Euler) using delayed E at absolute step abs_step.
+            e_del1 = self._delayed_E(abs_step)
             dE1, dI1 = self._deriv(self.E, self.I, e_del1, P)
             E_star = self.E + p.dt * dE1
             I_star = self.I + p.dt * dI1
-            # Corrector: delayed E at step n+1; row n+1 of e_hist holds
-            # the predictor state so idelay == 0 reads E_star.
-            e_hist[n + 1] = E_star
-            e_del2 = self._delayed_E(e_hist, n + 1)
+            # Corrector: delayed E at absolute step abs_step+1; write the
+            # predictor state into that step's ring slot so idelay == 0
+            # reads E_star.
+            self._hist[(abs_step + 1) % self._hist_cap] = E_star
+            e_del2 = self._delayed_E(abs_step + 1, predictor=E_star)
             dE2, dI2 = self._deriv(E_star, I_star, e_del2, P)
             self.E = self.E + (p.dt / 2.0) * (dE1 + dE2)
             self.I = self.I + (p.dt / 2.0) * (dI1 + dI2)
             self._check(self.E, self.I)
             self.step_count += 1
-            e_hist[n + 1] = self.E
+            # Commit the new state into its ring slot, then trim the
+            # history window (mirror of the Rust keep rule).
+            self._hist[self.step_count % self._hist_cap] = self.E
+            if self.step_count - self.hist_base > self._hist_keep:
+                self.hist_base = self.step_count - self._hist_keep
             E_out[n + 1] = self.E
             I_out[n + 1] = self.I
-            P_out[n + 1] = self._applied_p((n + 1) * p.dt, events)
+            P_out[n + 1] = self._total_p((n + 1) * p.dt, events)
 
         t_ms = np.arange(n_steps + 1, dtype=np.float64) * p.dt
         if snapshot_every > 1:

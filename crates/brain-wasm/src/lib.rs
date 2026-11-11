@@ -9,7 +9,7 @@
 //! Parameter changes apply from the next step onward.  They are explicit
 //! events submitted by the UI; nothing is mutated behind the engine's back.
 
-use brain_core::{Params, Simulator, StimulusEvent};
+use brain_core::{BgMode, Params, Simulator, StimulusEvent};
 use wasm_bindgen::prelude::*;
 
 /// One simulation instance.  Created from flat 76x76 weights/lengths
@@ -178,12 +178,116 @@ impl WasmSim {
     /// clear all events, clear the sustained bias, clear the divergence
     /// flag.  Parameters AND edited weights are kept (PR3: weights are
     /// structural edits; only reset_weight / reset_all_weights change
-    /// them back).
+    /// them back).  PR4: the background mode is also kept, so reset +
+    /// rerun reproduces the first run exactly (same mode, same seed).
     pub fn reset(&mut self) {
         self.sim.reset();
         self.events.clear();
         self.last_p = vec![0.0; self.sim.n];
         self.diverged = None;
+    }
+
+    // -- PR4: background activity mode ----------------------------------
+    /// Set the background activity mode: 0 = Quiet (pre-PR4 silent
+    /// baseline), 1 = Spontaneous (OU drive), 2 = Oscillatory
+    /// (explicitly labelled external sinusoidal drive).  Switching
+    /// modes only changes `bg_mode` (and, for Oscillatory, the sine
+    /// parameters from `Params::oscillatory()`); the local Wilson–Cowan
+    /// parameters and the user's knob values are untouched, so no UI
+    /// knob needs re-syncing on a mode switch.  Returns the mode
+    /// actually set; out-of-range values are ignored (mode unchanged).
+    pub fn set_background_mode(&mut self, mode: u8) -> u8 {
+        match mode {
+            0 => self.sim.params.bg_mode = BgMode::Quiet,
+            1 => self.sim.params.bg_mode = BgMode::Spontaneous,
+            2 => {
+                let osc = Params::oscillatory();
+                self.sim.params.bg_mode = BgMode::Oscillatory;
+                self.sim.params.ext_sine_amp = osc.ext_sine_amp;
+                self.sim.params.ext_sine_freq_hz = osc.ext_sine_freq_hz;
+            }
+            _ => return self.background_mode(),
+        }
+        self.background_mode()
+    }
+
+    /// Current background activity mode (0 = Quiet, 1 = Spontaneous,
+    /// 2 = Oscillatory).
+    pub fn background_mode(&self) -> u8 {
+        match self.sim.params.bg_mode {
+            BgMode::Quiet => 0,
+            BgMode::Spontaneous => 1,
+            BgMode::Oscillatory => 2,
+        }
+    }
+
+    /// Change the deterministic seed: future RNG draws follow the new
+    /// seed from the next step on.  E/I, OU state, weights and bias are
+    /// NOT touched — this is not a reset.  To replay from the start
+    /// with the new seed, call `reset()` afterwards.
+    pub fn set_seed(&mut self, seed: f64) {
+        self.sim.reseed(seed as u64);
+    }
+
+    /// Current deterministic seed.
+    pub fn seed(&self) -> f64 {
+        self.sim.params.seed as f64
+    }
+
+    /// OU correlation time (ms) — Spontaneous mode.
+    pub fn ou_tau_ms(&self) -> f64 {
+        self.sim.params.ou_tau_ms
+    }
+
+    /// OU stationary standard deviation (model units of P).
+    pub fn ou_sigma(&self) -> f64 {
+        self.sim.params.ou_sigma
+    }
+
+    /// Constant background input (model units of P; 0 = none).
+    pub fn drive_const(&self) -> f64 {
+        self.sim.params.drive_const
+    }
+
+    /// External sine drive amplitude (model units of P; Oscillatory mode).
+    pub fn ext_sine_amp(&self) -> f64 {
+        self.sim.params.ext_sine_amp
+    }
+
+    /// External sine drive frequency (Hz; Oscillatory mode).
+    pub fn ext_sine_freq_hz(&self) -> f64 {
+        self.sim.params.ext_sine_freq_hz
+    }
+
+    /// Current OU background-drive state (model units of P).
+    pub fn snapshot_ou(&self) -> Vec<f64> {
+        self.sim.ou_state().to_vec()
+    }
+
+    // -- PR4: experiment snapshots ---------------------------------------
+    /// Take a complete snapshot of the experiment state as JSON
+    /// (params, live weights, bias, step count, RNG state, OU state,
+    /// E/I, delay history).  See `brain_core::StateSnapshot`.
+    pub fn take_snapshot(&self) -> String {
+        serde_json::to_string(&self.sim.take_snapshot())
+            .unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}"))
+    }
+
+    /// Restore a snapshot taken with `take_snapshot`.  After this call
+    /// the simulator is bit-identical to the snapshot moment, so
+    /// continuing reproduces the uninterrupted trajectory exactly.
+    /// Also clears the divergence flag and any scheduled events (a
+    /// restored hold must not re-apply itself).
+    pub fn restore_snapshot(&mut self, json: &str) -> Result<(), JsValue> {
+        let snap: brain_core::StateSnapshot =
+            serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.sim
+            .restore_snapshot(&snap)
+            .map_err(|e| JsValue::from_str(&e))?;
+        self.events.clear();
+        self.last_p = vec![0.0; self.sim.n];
+        self.diverged = None;
+        Ok(())
     }
 
     // -- PR3: runtime weight editing (single-sided, range 0–3) ---------

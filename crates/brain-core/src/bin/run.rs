@@ -16,7 +16,7 @@
 use std::fs;
 use std::process::ExitCode;
 
-use brain_core::{Params, Simulator, StimulusEvent};
+use brain_core::{BgMode, Params, Simulator, StimulusEvent};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +49,32 @@ struct ScenarioParams {
     stim_duration_ms: f64,
     noise_amp: f64,
     seed: u64,
+    /// PR4 fields are optional in scenario JSON (old scenarios omit
+    /// them): bg_mode is "quiet" | "spontaneous" | "oscillatory".
+    #[serde(default)]
+    bg_mode: BgMode,
+    #[serde(default = "default_ou_tau")]
+    ou_tau_ms: f64,
+    #[serde(default = "default_ou_sigma")]
+    ou_sigma: f64,
+    #[serde(default)]
+    drive_const: f64,
+    #[serde(default)]
+    ext_sine_amp: f64,
+    #[serde(default = "default_sine_freq")]
+    ext_sine_freq_hz: f64,
+}
+
+fn default_ou_tau() -> f64 {
+    100.0
+}
+
+fn default_ou_sigma() -> f64 {
+    0.10
+}
+
+fn default_sine_freq() -> f64 {
+    10.0
 }
 
 impl From<ScenarioParams> for Params {
@@ -81,6 +107,12 @@ impl From<ScenarioParams> for Params {
             stim_duration_ms: s.stim_duration_ms,
             noise_amp: s.noise_amp,
             seed: s.seed,
+            bg_mode: s.bg_mode,
+            ou_tau_ms: s.ou_tau_ms,
+            ou_sigma: s.ou_sigma,
+            drive_const: s.drive_const,
+            ext_sine_amp: s.ext_sine_amp,
+            ext_sine_freq_hz: s.ext_sine_freq_hz,
         }
     }
 }

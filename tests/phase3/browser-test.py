@@ -54,6 +54,13 @@ def main():
         page.wait_for_function("window.__brainSim && window.__brainSim.isReady()", timeout=30000)
         page.wait_for_timeout(1500)
 
+        # PR4: the default background mode is now Spontaneous (OU drive on
+        # every node).  The isolation checks below (G=0, release-stops-input)
+        # measure the pulse/hold mechanism with zero background, so run this
+        # suite in Quiet; the background itself is covered by the PR4 test.
+        page.evaluate("window.__brainSim.setBackgroundMode('quiet')")
+        page.wait_for_timeout(300)
+
         check("sim ready, PLAY running",
               "运行中" in page.locator("button:has-text('PLAY')").inner_text())
         t1 = sim_time(page)
@@ -139,7 +146,9 @@ def main():
 
         # --- reset restores t=0 --------------------------------------------
         # RESET 后时钟从 0 重新走：400 ms 后读数应在 1 s 以内（且远小于重置前）。
-        page.locator("button:has-text('RESET')").click()
+        # PR4: scope to the topbar — the locked banner (PR4) also has a
+        # RESET button, so the bare locator is ambiguous when locked.
+        page.locator(".topbar button:has-text('RESET')").click()
         page.wait_for_timeout(400)
         tr = sim_time(page)
         check("reset restores t=0", tr < 1.0, f"TIME 400 ms after reset = {tr} s (was ~7.8 s)")
