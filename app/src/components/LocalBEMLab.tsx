@@ -6,6 +6,10 @@ import {
   templateSourcePotentials, type HeadMesh, type LocalFsaverageBEM,
 } from '../lib/fsaverageBEM';
 import type {Vec3Mm} from '../lib/volumeConduction';
+import {
+  COUPLING_ID,COUPLING_LIMITATION,DEFAULT_MORPHOLOGY,
+  alignedDipoleVectorNAm,createLocalCorticalColumn,
+} from '../lib/localCorticalColumn';
 
 /**
  * Human-template BEM 3D demo. The user must supply licensed local fsaverage
@@ -21,23 +25,73 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
   const [axis,setAxis]=useState<'X'|'Y'|'Z'>('X');
   const [reference,setReference]=useState<'average'|'infinity'>('average');
   const [selectedSensor,setSelectedSensor]=useState('Cz');
+  const [sourceMode,setSourceMode]=useState<'manual'|'local-column'>('manual');
+  const simulator=useMemo(()=>createLocalCorticalColumn(),[]);
+  const simulatorRef=useRef(simulator);
+  const [columnState,setColumnState]=useState(()=>simulator.read());
+  const [running,setRunning]=useState(false);
+  const pulseUntilMs=useRef(-1);
+  const [pulseDrive,setPulseDrive]=useState(1.4);
+  const [columnHistory,setColumnHistory]=useState<number[]>(()=>[0]);
   const mount=useRef<HTMLDivElement>(null);
   const display=useRef<((idx:number,dir:Vec3Mm,v:number[])=>void)|null>(null);
-  const direction=useMemo<Vec3Mm>(()=>axis==='X'?[1,0,0]:axis==='Y'?[0,1,0]:[0,0,1],[axis]);
-  const volts=useMemo(()=>data?templateSourcePotentials(data,sourceIndex,
-    [direction[0]*moment,direction[1]*moment,direction[2]*moment],{mode:reference}):[],[
-      data,sourceIndex,direction,moment,reference,
+  const manualDirection=useMemo<Vec3Mm>(()=>axis==='X'?[1,0,0]:axis==='Y'?[0,1,0]:[0,0,1],[axis]);
+  const direction=sourceMode==='local-column' && data?
+    data.source_positions[sourceIndex].normal_head_unit:manualDirection;
+  const momentVector=useMemo<Vec3Mm>(()=>sourceMode==='local-column'?
+    alignedDipoleVectorNAm(columnState.equivalentMomentNAm,direction):
+    [direction[0]*moment,direction[1]*moment,direction[2]*moment],[
+      sourceMode,columnState.equivalentMomentNAm,direction,moment,
     ]);
+  const volts=useMemo(()=>data?templateSourcePotentials(data,sourceIndex,
+    momentVector,{mode:reference}):[],[data,sourceIndex,momentVector,reference]);
   const max=Math.max(.001,...volts.map(Math.abs));
   const current=data?.electrodes.findIndex(x=>x.label===selectedSensor)??-1;
   const currentV=current>=0?volts[current]:null;
+
+  // The independent local population runs only when this visible experiment
+  // is open and selected. Its ODE clock is not inferred from Three.js frames.
+  useEffect(()=>{
+    if(!data || sourceMode!=='local-column' || !running)return;
+    let frame=0,last=0,acc=0;
+    const tick=(timestamp:number)=>{
+      if(last===0)last=timestamp;
+      acc+=Math.max(0,Math.min(50,timestamp-last));
+      last=timestamp;
+      const steps=Math.min(50,Math.floor(acc));
+      if(steps>0){
+        for(let k=0;k<steps;k++){
+          const time=simulatorRef.current.read().tMs;
+          simulatorRef.current.step(time<pulseUntilMs.current?pulseDrive:0);
+        }
+        acc-=steps;
+        const next=simulatorRef.current.read();
+        setColumnState(next);
+        setColumnHistory(prev=>[...prev.slice(-99),next.equivalentMomentNAm]);
+      }
+      frame=requestAnimationFrame(tick);
+    };
+    frame=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(frame);
+  },[data,sourceMode,running,pulseDrive]);
+  const resetColumn=()=>{
+    pulseUntilMs.current=-1;
+    setRunning(false);
+    const next=simulatorRef.current.reset();
+    setColumnState(next);
+    setColumnHistory([0]);
+  };
+  const stimulate=()=>{
+    pulseUntilMs.current=simulatorRef.current.read().tMs+200;
+    setRunning(true);
+  };
 
   const load=async(file?:File)=>{
     if(!file)return;
     try{
       const parsed=JSON.parse(await file.text()) as LocalFsaverageBEM;
       validateFsaverageBEM(parsed);
-      setData(parsed);setSourceIndex(0);setSelectedSensor(
+      setData(parsed);resetColumn();setSourceIndex(0);setSelectedSensor(
         parsed.electrodes.some(e=>e.label==='Cz')?'Cz':parsed.electrodes[0].label
       );setError(null);
     }catch(e){setError('无效 MRI/BEM 模型：'+String(e));setData(null);}
