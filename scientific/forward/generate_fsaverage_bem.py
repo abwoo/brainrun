@@ -184,8 +184,21 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
     transform_file=Path(mne.__file__).parent/"data/fsaverage/fsaverage-trans.fif"
     trans=mne.read_trans(transform_file)
     mri_to_head=as_mri_to_head(trans)
+    # FreeSurfer calls this 'talairach.xfm', but MNE's documented destination
+    # is mni_tal (MNI305-style stereotaxic coordinates). It must NOT be
+    # silently labeled MNI152 or true Talairach atlas coordinates.
+    mri_to_mni305=mne.read_talxfm(
+        "fsaverage",subjects_dir=fs_dir.parent,verbose=False)
+    if (mri_to_mni305["from"]!=FIFF.FIFFV_COORD_MRI or
+        mri_to_mni305["to"]!=FIFF.FIFFV_MNE_COORD_MNI_TAL):
+        raise ValueError("MNI305 transform frame mismatch")
     src=mne.read_source_spaces(src_file,verbose=False)
     points,pos_head=sources_from_src(src,mri_to_head,sources_per_hemisphere)
+    head_to_mri=mne.transforms.invert_transform(mri_to_head)
+    mri_source_m=mne.transforms.apply_trans(head_to_mri,pos_head)
+    mni305_source_m=mne.transforms.apply_trans(mri_to_mni305,mri_source_m)
+    for item,p in zip(points,mni305_source_m):
+        item["mni305_mm"]=np.round(p*1000,5).tolist()
     info=registered_montage(montage_name)
     gain=gain_from_bem(bem_file,info,pos_head)
     # Require actual anatomical boundaries; a spherical mesh is not enough.
@@ -227,6 +240,8 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
       "montage":montage_name,
       "frame":"HEAD_RAS_MM",
       "transform_mri_to_head_rowmajor":np.round(mri_to_head["trans"],12).tolist(),
+      "transform_mri_to_mni305_rowmajor":np.round(mri_to_mni305["trans"],12).tolist(),
+      "standard_coordinate_definition":"MNE mni_tal (FreeSurfer MNI305), not MNI152 and not Talairach",
       "source_moment_unit":"nA_m",
       "gain_unit":"uV_per_nA_m",
       "forward_method":"MNE make_forward_dipole + fsaverage three-layer BEM",
@@ -240,7 +255,7 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
       "license_status":"REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET",
       "limitations":[
           "Template anatomy is not a subject-specific MRI.",
-          "MRI/HEAD registration follows MNE fsaverage transform; not Talairach.",
+          "MRI/HEAD registration follows MNE fsaverage transform; MNI305 uses FreeSurfer talairach.xfm; no MNI152 or true Talairach conversion.",
           "No neural-mass (Wilson-Cowan) to physical current dipole calibration.",
           "EEG lead-fields valid at these source vertices; not arbitrary free-space drag.",
           "Generated geometry/forward is FreeSurfer-derived; do not distribute until license review.",
