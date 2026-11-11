@@ -23,7 +23,9 @@ test('version, units, validated model metadata and dimensions', () => {
 test('all montage labels belong to the common head-coordinate sphere', () => {
   for (const [key,expected] of [['10-20',19],['10-10',94],['10-05',343]]) {
     assert.equal(data.montages[key].length,expected);
-    for (const name of ['Cz','Pz','Oz']) assert.ok(data.montages[key].includes(name));
+    for (const name of ['Cz','Pz']) assert.ok(data.montages[key].includes(name));
+    if (key !== '10-20') assert.ok(data.montages[key].includes('Oz'));
+    else assert.ok(!data.montages[key].includes('Oz'), 'classic 19-electrode 10-20 subset omits Oz');
   }
   for (const s of data.sensors) near(Math.hypot(...s.position_mm),95,0.001);
 });
