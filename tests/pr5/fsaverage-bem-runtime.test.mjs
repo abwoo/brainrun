@@ -21,8 +21,8 @@ const fixture={
   transform_mri_to_mni305_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
   standard_coordinate_definition:'MNI305 (MNE mni_tal), not MNI152 or true Talairach',
   source_positions:[
-    {hemisphere:'lh',vertex:10,head_mm:[-30,0,0],mni305_mm:[-27,2,3],atlas:'aparc',region:'lh.precentral'},
-    {hemisphere:'rh',vertex:11,head_mm:[30,0,0],mni305_mm:[27,2,3],atlas:'aparc',region:'rh.precentral'},
+    {hemisphere:'lh',vertex:10,head_mm:[-30,0,0],normal_head_unit:[0,0,1],mni305_mm:[-27,2,3],atlas:'aparc',region:'lh.precentral'},
+    {hemisphere:'rh',vertex:11,head_mm:[30,0,0],normal_head_unit:[0,0,-1],mni305_mm:[27,2,3],atlas:'aparc',region:'rh.precentral'},
   ],
   electrodes:[
     {label:'Cz',head_mm:[0,0,100]},
@@ -38,6 +38,9 @@ const near=(a,b,eps=1e-10)=>assert.ok(Math.abs(a-b)<eps, a+' vs '+b);
 
 test('validated MRI-BEM fixture enforces correct physical units and version',()=>{
   validateFsaverageBEM(fixture);
+  assert.throws(()=>validateFsaverageBEM({...fixture,source_positions:[
+    {...fixture.source_positions[0],normal_head_unit:[2,0,0]},fixture.source_positions[1]
+  ]}),/normal/);
   assert.throws(()=>validateFsaverageBEM({...fixture,gain_unit:'V'}),/metadata/);
   assert.throws(()=>validateFsaverageBEM({...fixture,frame:'MNI'}),/metadata/);
   assert.throws(()=>validateFsaverageBEM({...fixture,license_status:'APPROVED'}),/metadata/);
