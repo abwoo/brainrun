@@ -210,3 +210,24 @@
 | `node --experimental-strip-types --test tests/pr5/*.test.mjs` | 77/78 通过；仅剩 contract.test.mjs 的跨子代理 U5 断言（见残留项） |
 | PR5 浏览器冒烟 `app/tests/pr5-browser-smoke.mjs` | 通过（第 4 次运行） |
 | 方法学测试 + 构建 + 冒烟（新规合并门槛，本子代理范围内） | 除上述 1 项他人断言外全部通过 |
+
+## CI 根因：runner DNS 坏掉，不是偶发波动（2026-11-11，总协调补记）
+
+- run 43049437545（physics，提交 6afdf85，已带 3 次重试）仍在第 26 步
+  “Install Playwright Chromium”失败；BEM run 43049425432 同样只败在
+  第 10 步同一命令。新提交 f774bf2 的两路 run（43052491835 /
+  43052473975）也在同一两步各卡 30 分钟以上。
+- 拉到 job 日志（job 130622196641）才看到真因：每次尝试约 10.5 分钟，
+  `apt-get` 全部失败——`W: Failed to fetch ... Temporary failure
+  resolving 'azure.archive.ubuntu.com'`，`E: Unable to fetch some
+  archives`，`Failed to install browsers`，exit 100。runner 解析不了
+  Azure Ubuntu 镜像的 DNS，`--with-deps` 的 apt 路径根本走不通；
+  重试 3 次只是把同样的失败烧 31 分钟。
+- 修复（提交待推）：两 workflow 一律去掉 `--with-deps`，只装浏览器
+  二进制（`npx playwright install chromium`，走 Playwright CDN；
+  runner 上 npm/pip/MNE 下载一直正常），保留 3 次重试防 CDN 波动。
+  ubuntu-24.04 runner 镜像自带 Google Chrome，headless Chromium 要的
+  系统库都在。冒烟测试用 `chromium.launch({headless: true})`，即
+  bundled Chromium（含 headless shell），不受此改动影响。
+- 旧 run 43052491835 已发取消（202）；43052473975 取消时已自行失败
+  （409）。

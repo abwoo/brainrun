@@ -81,16 +81,21 @@ jobs:
       - name: Install Playwright Chromium
         working-directory: app
         # 2026-11-11: run 43032235876 failed ONLY here (step 26) while steps
-        # 1-25 passed — a transient environment failure of the apt/system-deps
-        # install, not a product failure. Keep `--with-deps chromium` (the
-        # pinned Playwright 1.56.1 browser + its exact system deps is what the
-        # smoke test was validated against; switching to a runner-provided
-        # system Chromium would silently change the browser under test), and
-        # retry the install up to 3 times with a backoff instead.
+        # 1-25 passed; run 43049437545 then failed here AGAIN after 3 retries.
+        # Root cause (from the job log): the runner cannot resolve
+        # `azure.archive.ubuntu.com` — every `apt-get` inside
+        # `--with-deps` fails with "Temporary failure resolving
+        # 'azure.archive.ubuntu.com'" and each attempt burns ~10 min.
+        # Retrying cannot fix a broken apt mirror DNS. Fix: drop
+        # `--with-deps` entirely — install only the browser binaries from
+        # the Playwright CDN (which the runner reaches fine; npm/pip/MNE
+        # downloads all worked). The ubuntu-24.04 runner image already
+        # ships Google Chrome, so the shared libraries headless Chromium
+        # needs are present. Keep the 3-attempt retry for CDN flakes.
         run: |
           for attempt in 1 2 3; do
             echo "Playwright Chromium install, attempt $attempt/3"
-            if npx playwright install --with-deps chromium; then
+            if npx playwright install chromium; then
               echo "Playwright Chromium install succeeded on attempt $attempt"
               exit 0
             fi
