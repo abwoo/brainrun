@@ -10,9 +10,9 @@ export interface SimParams {
   g: number;
   /** 抑制自耦合 c_ei，范围 3–8（Phase 2：降到 2 会翻转全网）。 */
   c_ei: number;
-  /** 刺激幅度（模型单位），STIMULUS 旋钮非线性映射结果，范围 0.5–2.0。 */
+  /** 刺激幅度（模型单位），STIMULUS 滑杆非线性映射结果，范围 0.5–2.0。 */
   stim_amplitude: number;
-  /** 脉冲持续时间 ms（DURATION 旋钮），范围 20–500。 */
+  /** 脉冲持续时间 ms（DURATION 滑杆），范围 20–500。 */
   stim_duration_ms: number;
 }
 

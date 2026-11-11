@@ -187,106 +187,161 @@ body {
   text-align: center;
 }
 
-/* ---- 旋钮（Phase 3 已接入引擎） ---- */
-.knobs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+/* ---- 参数滑杆控件（PR2：替换旋转旋钮，用户反馈旋钮用鼠标滑不动） ---- */
+/* 四个参数上下排布，每行给滑杆留足宽度；窄屏同样够宽。 */
+.params {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.knobs-live {
+.params-live {
   opacity: 1;
 }
 
-.knob {
+.param {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  user-select: none;
+  gap: 4px;
 }
 
-.knob-disabled {
+.param-disabled {
   opacity: 0.45;
-  cursor: not-allowed;
 }
 
-.knob-dragging .knob-dial {
-  border-color: var(--blue);
+.param-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
-.knob-dial {
-  width: 54px;
-  height: 54px;
-  border: 1px solid var(--blue-mid);
-  border-radius: 50%;
-  position: relative;
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.knob-disabled .knob-dial {
-  cursor: not-allowed;
-}
-
-.knob-dial:focus-visible {
-  outline: 1px solid var(--blue);
-  outline-offset: 2px;
-}
-
-/* 表盘刻度：11 格，-135° ~ +135°，每 27° 一格；两端与中点加粗。 */
-.knob-tick {
-  position: absolute;
-  left: calc(50% - 0.5px);
-  top: calc(50% - 2.5px);
-  width: 1px;
-  height: 5px;
-  background: var(--blue-dim);
-  pointer-events: none;
-}
-
-.knob-tick-major {
-  height: 7px;
-  background: var(--blue-mid);
-}
-
-.knob-pointer {
-  position: absolute;
-  left: 50%;
-  top: 4px;
-  width: 1px;
-  height: 14px;
-  background: var(--blue);
-  transform-origin: 50% 23px;
-  transform: translateX(-50%) rotate(35deg);
-}
-
-.knob-value {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--text);
-}
-
-.knob-name {
+.param-name {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--text-dim);
-  text-align: center;
 }
 
-.knob-note {
+.param-note {
   font-size: 10px;
   color: var(--text-dim);
-  text-align: center;
 }
 
-.knob-model {
+.param-value {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.param-step {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--blue-mid);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.param-step:hover:not(:disabled) {
+  border-color: var(--blue);
+}
+
+.param-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.param-step:focus-visible,
+.param-number:focus-visible,
+.param-slider:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* 原生 range 滑杆：28 px 高触控区，大拇指。 */
+.param-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.param-slider:disabled {
+  cursor: not-allowed;
+}
+
+.param-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--blue-dim);
+  border-radius: 2px;
+}
+
+.param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  border: 1px solid var(--blue);
+  border-radius: 50%;
+  background: var(--blue-mid);
+  cursor: grab;
+}
+
+.param-slider::-moz-range-track {
+  height: 4px;
+  background: var(--blue-dim);
+  border-radius: 2px;
+}
+
+.param-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--blue);
+  border-radius: 50%;
+  background: var(--blue-mid);
+  cursor: grab;
+}
+
+.param-number {
+  flex: 0 0 auto;
+  width: 76px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--frame);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+  /* 步进按钮已另设，隐藏数字框自带的小箭头。 */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.param-number::-webkit-outer-spin-button,
+.param-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.param-model {
   font-size: 10px;
   color: var(--blue);
-  text-align: center;
   line-height: 1.35;
-  /* Phase 4：允许换行，不再 nowrap 截断（窄屏下模型文字曾被切掉）。 */
 }
 
 /* ---- 活动波形（Phase 3） ---- */
@@ -352,6 +407,8 @@ body {
   top: 6px;
   right: 8px;
   z-index: 6;
+  display: flex;
+  gap: 6px;
 }
 
 .chip-small {
@@ -372,6 +429,110 @@ body {
   letter-spacing: 0.08em;
   padding: 5px 12px;
   white-space: nowrap;
+}
+
+/* ---- PR2：刺激响应面板 ---- */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.replay-speeds {
+  display: flex;
+  gap: 4px;
+}
+
+.replay-seek {
+  width: 100%;
+  accent-color: #4fb6f2;
+}
+
+.resp-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+
+.resp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resp-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-family: var(--sans);
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(19, 57, 84, 0.5);
+  padding: 3px 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.resp-row:hover {
+  color: var(--blue);
+}
+
+.resp-row:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.marker-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.marker-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+
+.dot-input {
+  border: 2px solid #ffb340;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.dot-local {
+  background: #ffc861;
+  border-radius: 50%;
+}
+
+.dot-network {
+  background: #4fb6f2;
+  border-radius: 50%;
+  width: 7px;
+  height: 7px;
+  margin: 0 1.5px;
 }
 
 /* ---- 脑区面板 ---- */

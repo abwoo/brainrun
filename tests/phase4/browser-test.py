@@ -1,7 +1,7 @@
 """Phase 4 browser test for Brain Physics Playground (local headless Chromium).
 
 Covers the Phase 4 polish on top of the Phase 3 loop:
-- knob wheel / drag / double-click-reset
+- param slider wheel / drag / double-click-reset (PR2: knobs replaced by sliders)
 - E/I/BOTH chart toggles
 - touch tap selects a region; two-finger pinch zooms (CDP touch events)
 - smooth camera fly-to on double-click background (via __brainScene bridge)
@@ -40,8 +40,8 @@ def sim_time(page):
     return float(m.group(1)) if m else -1.0
 
 
-def knob_value(page, idx):
-    return page.locator(".knob-value").nth(idx).inner_text()
+def param_value(page, idx):
+    return page.locator(".param-value").nth(idx).inner_text()
 
 
 def cam_pos(page):
@@ -104,52 +104,62 @@ def main():
         page.wait_for_timeout(600)
         page.screenshot(path=str(OUT / "02-after-click.png"))
 
-        # --- knob: wheel ----------------------------------------------------
-        dial = page.locator(".knob-dial").first
-        dial_box = dial.bounding_box()
-        dx, dy = dial_box["x"] + dial_box["width"] / 2, dial_box["y"] + dial_box["height"] / 2
-        v0 = knob_value(page, 0)
-        page.mouse.move(dx, dy)
+        # --- param slider: wheel --------------------------------------------
+        # PR2（用户要求）：旋转旋钮已换成横向滑杆控件（ParamControl）。
+        # 滚轮、拖动、双击恢复默认的行为保留，等价检查改到滑杆上；
+        # 与旋钮无关的其余检查一字未动。
+        slider = page.locator(".param-slider").first
+        slider_box = slider.bounding_box()
+        v0 = param_value(page, 0)
+        page.mouse.move(slider_box["x"] + slider_box["width"] / 2,
+                        slider_box["y"] + slider_box["height"] / 2)
         # STIMULUS 默认已在量程顶（2.00）：先向下滚，再向上滚。
         page.mouse.wheel(0, 120)
         page.wait_for_timeout(300)
-        v1 = knob_value(page, 0)
-        check("knob wheel decreases value", v1 != v0, f"STIMULUS {v0} -> {v1}")
+        v1 = param_value(page, 0)
+        check("slider wheel decreases value", v1 != v0, f"STIMULUS {v0} -> {v1}")
         page.mouse.wheel(0, -120)
         page.wait_for_timeout(300)
-        v2 = knob_value(page, 0)
-        check("knob wheel increases value", v2 != v1, f"STIMULUS {v1} -> {v2}")
+        v2 = param_value(page, 0)
+        check("slider wheel increases value", v2 != v1, f"STIMULUS {v1} -> {v2}")
 
-        # --- knob: drag + double-click reset --------------------------------
-        # 先向下滚 5 格留出量程空间（此时旋钮在顶，向上拖会被钳制，看不出变化）。
+        # --- param slider: drag + double-click reset -------------------------
+        # 先向下滚 5 格留出量程空间（此时滑杆在顶，向右拖会被钳制，看不出变化）。
         for _ in range(5):
             page.mouse.wheel(0, 120)
             page.wait_for_timeout(120)
-        v_pre = knob_value(page, 0)
-        page.mouse.move(dx, dy)
+        v_pre = param_value(page, 0)
+        # 滑杆值 k = value/1000；拇指中心 x 按 k 在轨道上的位置算。
+        k_pre = float(page.locator(".param-slider").first.input_value()) / 1000
+        thumb_x = slider_box["x"] + 11 + k_pre * (slider_box["width"] - 22)
+        thumb_y = slider_box["y"] + slider_box["height"] / 2
+        page.mouse.move(thumb_x, thumb_y)
         page.mouse.down()
-        page.mouse.move(dx, dy - 60, steps=8)
+        page.mouse.move(thumb_x + 60, thumb_y, steps=8)
         page.mouse.up()
         page.wait_for_timeout(300)
-        v3 = knob_value(page, 0)
-        check("knob drag increases value", float(v3) > float(v_pre),
+        v3 = param_value(page, 0)
+        check("slider drag increases value", float(v3) > float(v_pre),
               f"STIMULUS {v_pre} -> {v3}")
-        dial.dblclick()
+        slider.dblclick()
         page.wait_for_timeout(300)
-        v4 = knob_value(page, 0)
-        check("knob double-click restores default", v4 == "2.00",
+        v4 = param_value(page, 0)
+        check("slider double-click restores default", v4 == "2.00",
               f"STIMULUS after dblclick = {v4} (default 2.00)")
 
         # --- chart toggles ----------------------------------------------------
-        toggles = page.locator(".chart-toggle")
+        # PR2: `.chart-toggle` is now also used by the response-panel view
+        # toggle and the replay speed buttons, so scope to the chart's own
+        # toggle group instead of assuming the class is unique on the page.
+        toggles = page.locator(".chart-toggles .chart-toggle")
         check("E/I/BOTH toggles present", toggles.count() == 3)
         toggles.nth(1).click()  # I
         page.wait_for_timeout(300)
-        on = page.locator(".chart-toggle-on").inner_text()
+        on = page.locator(".chart-toggles .chart-toggle-on").inner_text()
         check("chart toggle switches to I", on == "I", f"active={on!r}")
         toggles.nth(2).click()  # BOTH
         page.wait_for_timeout(300)
-        on = page.locator(".chart-toggle-on").inner_text()
+        on = page.locator(".chart-toggles .chart-toggle-on").inner_text()
         check("chart toggle switches to BOTH", on == "BOTH", f"active={on!r}")
         toggles.nth(0).click()  # back to E
         page.wait_for_timeout(200)
