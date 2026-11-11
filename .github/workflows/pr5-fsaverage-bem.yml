@@ -5,6 +5,9 @@ on:
     branches: [feat/pr5-physics-core]
     paths:
       - scientific/forward/generate_fsaverage_bem.py
+      - app/tests/pr5-real-bem-browser.mjs
+      - app/pr5-real-bem.html
+      - app/src/pr5RealBEMHarness.tsx
       - tests/pr5/test_fsaverage_bem_live.py
       - .github/workflows/pr5-fsaverage-bem.yml
   workflow_dispatch:
@@ -32,6 +35,23 @@ jobs:
             --output .local-assets/pr5/fsaverage-bem.json
       - name: Independently validate real BEM, MRI/HEAD registration and template scalp coordinates
         run: python -m unittest discover -s tests/pr5 -p 'test_fsaverage_bem_live.py' -v
+      - name: Setup Node.js for real-BEM browser verification
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install frontend dependencies and local-only browser harness
+        working-directory: app
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install Chromium in isolated test runner
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+      - name: Test REAL fsaverage anatomy and MNE BEM field in Chromium
+        working-directory: app
+        run: node tests/pr5-real-bem-browser.mjs
       - name: Ensure fsaverage-derived artifacts are excluded from the git repository
         run: |
           if git ls-files | grep -E '^(\.local-assets/|app/public/fsaverage/|app/public/real-bem/)'; then
