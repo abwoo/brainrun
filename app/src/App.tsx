@@ -11,10 +11,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrainScene from './components/BrainScene';
 import ActivityChart from './components/ActivityChart';
 import ParamControl from './components/ParamControl';
+import CellularLab from './components/CellularLab';
 import DipoleLab from './components/DipoleLab';
 import EegAnalysisLab from './components/EegAnalysisLab';
+import ExperimentLab from './components/ExperimentLab';
 import HeadSphereLab from './components/HeadSphereLab';
 import LocalBEMLab from './components/LocalBEMLab';
+import StimLab from './components/StimLab';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData, topConnections } from './lib/brainData';
 import { DEFAULT_PARAMS, DELTA_FULL, KNOB_MAP, RESPONSE_THRESHOLD, SimClient } from './lib/simClient';
@@ -28,6 +31,7 @@ import type {
   SnapshotSummary,
 } from './lib/simClient';
 import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, DEFAULT_BACKGROUND_MODE, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
+import { validateSphereFixture, type SphereFixture } from './lib/sphereForward';
 import type { Snapshot } from './worker/protocol';
 import './App.css';
 
@@ -171,6 +175,32 @@ export default function App() {
   const [showHeadSphereLab, setShowHeadSphereLab] = useState(false);
   const [showEegLab, setShowEegLab] = useState(false);
   const [showLocalBEM, setShowLocalBEM] = useState(false);
+  // PR7：多尺度与高级实验台（计划 PR-13–15）。
+  const [showCellularLab, setShowCellularLab] = useState(false);
+  const [showStimLab, setShowStimLab] = useState(false);
+  const [showExperimentLab, setShowExperimentLab] = useState(false);
+  // PR7：对照实验用的球形正向模型 fixture（与 EegAnalysisLab 同一来源；
+  // 打开对照实验时才加载，null 时源定位对照不可用，其余两节可用）。
+  const [expFixture, setExpFixture] = useState<SphereFixture | null>(null);
+  const [expFixtureError, setExpFixtureError] = useState<string | null>(null);
+
+  // PR7：打开对照实验时加载球形正向模型（只加载一次；失败时源定位
+  // 对照不可用，其余两节照常可用，不静默编造 fixture）。
+  useEffect(() => {
+    if (!showExperimentLab || expFixture || expFixtureError) return;
+    const controller = new AbortController();
+    fetch(import.meta.env.BASE_URL + 'forward-assets/sphere-model.json', { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py');
+        const data = (await r.json()) as SphereFixture;
+        validateSphereFixture(data);
+        setExpFixture(data);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setExpFixtureError(String(e));
+      });
+    return () => controller.abort();
+  }, [showExperimentLab, expFixture, expFixtureError]);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [holdMs, setHoldMs] = useState<number | null>(null);
@@ -689,6 +719,18 @@ export default function App() {
           <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}
             title="独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG">
             DIPOLE LAB
+          </button>
+          <button type="button" className="chip" onClick={() => setShowCellularLab(true)}
+            title="细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）">
+            细胞实验
+          </button>
+          <button type="button" className="chip" onClick={() => setShowStimLab(true)}
+            title="脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）">
+            刺激实验
+          </button>
+          <button type="button" className="chip" onClick={() => setShowExperimentLab(true)}
+            title="对照实验：双脑 A/B、时间机器、闭环控制（PR-15）">
+            对照实验
           </button>
           <button
             type="button"
@@ -1403,6 +1445,48 @@ export default function App() {
       {showEegLab && <EegAnalysisLab onClose={() => setShowEegLab(false)} />}
       {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
       {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
+      {showCellularLab && (
+        <div className="modal-backdrop" onClick={() => setShowCellularLab(false)}>
+          <div
+            className="modal screen eeg-lab-modal"
+            role="dialog"
+            aria-label="细胞级实验"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="screen-title" style={{ display: 'flex', justifyContent: 'space-between', right: 0, pointerEvents: 'auto' }}>
+              PR-13 · CELLULAR LAB
+              <button className="chip chip-small" type="button" onClick={() => setShowCellularLab(false)}>关闭</button>
+            </div>
+            <div className="modal-body">
+              <CellularLab />
+            </div>
+          </div>
+        </div>
+      )}
+      {showStimLab && <StimLab onClose={() => setShowStimLab(false)} />}
+      {showExperimentLab && (
+        <div className="modal-backdrop" onClick={() => setShowExperimentLab(false)}>
+          <div
+            className="modal screen eeg-lab-modal"
+            role="dialog"
+            aria-label="对照实验"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="screen-title" style={{ display: 'flex', justifyContent: 'space-between', right: 0, pointerEvents: 'auto' }}>
+              PR-15 · EXPERIMENT LAB
+              <button className="chip chip-small" type="button" onClick={() => setShowExperimentLab(false)}>关闭</button>
+            </div>
+            <div className="modal-body">
+              {expFixtureError && (
+                <p className="panel-text" style={{ color: '#ffb340' }}>
+                  球形正向模型未加载（{expFixtureError}）：源定位对照不可用，双脑数值比较与时间机器、闭环照常可用。
+                </p>
+              )}
+              <ExperimentLab fixture={expFixture} onClose={() => setShowExperimentLab(false)} />
+            </div>
+          </div>
+        </div>
+      )}
       {showModelInfo && (
         <div className="modal-backdrop" onClick={() => setShowModelInfo(false)}>
           <div

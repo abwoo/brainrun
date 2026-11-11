@@ -222,5 +222,10 @@ python3 scripts/push-to-pr6-branch.py
     TS 59/59 全绿；扰动前曾暴露的另两处同级脆弱断言（peak_value places=6、
     网格值 places=9）已一并按同一依据修掉。
   - 每次模拟后 sphere-model.json 均从备份恢复（与分支存量逐位相同）。
-- 推送：修补提交推到同一分支 pr6-eeg-analysis（API 方式，凭证走
-  dynamic_credentials surrogate，未用 git push）；新 CI 两路待核对。
+- 推送：修补提交 b8e5eb3（父提交 940ae5f，main 未动）推到同一分支
+  pr6-eeg-analysis（API 方式，凭证走 dynamic_credentials surrogate，
+  未用 git push；推送本身耗时约 9.5 分钟，系逐文件建 blob 的 API 方式
+  所致，非故障）。新 CI 两路全绿：run 43082978168 PR6 EEG Analysis
+  Checks + run 43082978017 PR5 Physics Baseline Checks（2026-11-12
+  约 02:35），eeg-analysis job 全步骤 success。合并门槛已达到，PR
+  正文已更新；PR 仍为 Draft，未合并、未标 Ready，等把关人合并。

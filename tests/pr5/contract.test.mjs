@@ -50,6 +50,20 @@ import {
 import {
   SPLINE_ORDER_M, SPLINE_N_MAX, SPLINE_LAMBDA_DEFAULT,
 } from '../../app/src/lib/topography.ts';
+import {
+  CELLULAR_ID, DEFAULT_LIF_PARAMS, DEFAULT_HH_PARAMS, SYNAPSE_DEFAULTS,
+  WC_BASELINE_E, DEFAULT_DIPOLE_N_CELLS,
+} from '../../app/src/lib/cellular.ts';
+import {
+  STIMULATION_ID, TES_MODEL_ID, TMS_MODEL_ID, STIM_PZ_GAIN_UV_PER_NAM,
+  TES_SIGMA_DEFAULT_S_M, DEFAULT_TMS_COIL, DEFAULT_TES_ELECTRODES,
+  FIELD_TO_WC_GAIN_DEFAULT, FIELD_TO_JR_GAIN_DEFAULT, TMS_LOOP_SEGMENTS_DEFAULT,
+} from '../../app/src/lib/stimulation.ts';
+import {
+  EXPERIMENTS_ID, DT_MS, CONTROL_DT_MS, DEFAULT_PID_OUTPUT_MIN_PER_S,
+  DEFAULT_PID_OUTPUT_MAX_PER_S, DEFAULT_FEATURE_WINDOW_MS, DEFAULT_FEATURE_FREQ_HZ,
+} from '../../app/src/lib/experiments.ts';
+import { DEPTH_WEIGHT_DEFAULT } from '../../app/src/lib/depthWeightedInverse.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (rel) => readFileSync(join(root, rel), 'utf8');
@@ -687,4 +701,109 @@ test('PR6 WAVES/ERP（B2）：晚期机制默认 = Python 对照 = fixture；Pz 
   assert.ok(contract.includes('DEFAULT_LATE_RESPONSE_PARAMS'));
   assert.ok(contract.includes('PZ_GAIN_UV_PER_NAM'));
   assert.ok(contract.includes("LATE_RESPONSE_ID = 'local-jansen-rit-slow-late-v1'"));
+});
+
+test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记；App 已挂载', () => {
+  const cellPy = src('reference/python-model/cellular_reference.py');
+  const pyConst = (name) => {
+    // 数值字面量可能含下划线千分位（如 1_000_000），先去掉再转数字。
+    const m = cellPy.match(new RegExp(`^${name}\\s*=\\s*([\\d._]+)`, 'm'));
+    assert.ok(m, `Python 缺常量 ${name}`);
+    return Number(m[1].replace(/_/g, ''));
+  };
+  // 1. 模型 ID 与 LIF/HH 默认（TS 导出值）。
+  assert.equal(CELLULAR_ID, 'local-cellular-multiscale-v1');
+  assert.deepEqual({ ...DEFAULT_LIF_PARAMS }, {
+    capacitancePF: 250, leakNS: 25, leakReversalMv: -65, thresholdMv: -50,
+    resetMv: -65, refractoryMs: 2, dtMs: 0.1,
+  });
+  assert.deepEqual({ ...DEFAULT_HH_PARAMS }, {
+    capacitanceUFperCm2: 1, gNaMSperCm2: 120, gKMSperCm2: 36, gLMSperCm2: 0.3,
+    eNaMv: 50, eKMv: -77, eLMv: -54.387, restMv: -65, dtMs: 0.025,
+  });
+  assert.equal(SYNAPSE_DEFAULTS.ampa.eRevMv, 0);
+  assert.equal(SYNAPSE_DEFAULTS.ampa.tauAlphaMs, 2);
+  assert.equal(SYNAPSE_DEFAULTS.gaba.eRevMv, -75);
+  assert.equal(SYNAPSE_DEFAULTS.gaba.tauAlphaMs, 8);
+  // 2. TS 默认 = Python 对照（数值）。
+  assert.equal(DEFAULT_LIF_PARAMS.capacitancePF, pyConst('LIF_C_PF'));
+  assert.equal(DEFAULT_HH_PARAMS.capacitanceUFperCm2, pyConst('HH_C_UF_PER_CM2'));
+  assert.equal(DEFAULT_HH_PARAMS.gNaMSperCm2, pyConst('HH_GNA_MS_PER_CM2'));
+  assert.equal(WC_BASELINE_E, pyConst('WC_BASELINE_E'));
+  assert.equal(DEFAULT_DIPOLE_N_CELLS, pyConst('DIPOLE_N_CELLS'));
+  // 3. 契约 §1.9 已登记；App 挂载 CellularLab（宽 modal）。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）'));
+  assert.ok(contract.includes("CELLULAR_ID = 'local-cellular-multiscale-v1'"));
+  assert.ok(appTsx.includes("import CellularLab from './components/CellularLab';"));
+  assert.ok(appTsx.includes('<CellularLab />'), 'App 应挂载 CellularLab');
+  assert.ok(appTsx.includes('细胞实验'), 'App 应有细胞实验入口');
+});
+
+test('PR7 刺激（B）：模型 ID 与线圈/电极默认前后一致；契约 §1.10 已登记；App 已挂载', () => {
+  const stimPy = src('scientific/forward/stimulation_reference.py');
+  // 1. 模型 ID 与常量（TS 导出值）。
+  assert.equal(STIMULATION_ID, 'brain-stimulation-lab-pr14-v1');
+  assert.equal(TES_MODEL_ID, 'tes-uniform-infinite-point-source-v1');
+  assert.equal(TMS_MODEL_ID, 'tms-circular-coil-uniform-conductor-v1');
+  assert.equal(STIM_PZ_GAIN_UV_PER_NAM, 0.16);
+  assert.equal(TES_SIGMA_DEFAULT_S_M, 0.33);
+  assert.equal(TMS_LOOP_SEGMENTS_DEFAULT, 360);
+  assert.equal(FIELD_TO_WC_GAIN_DEFAULT, 0.01);
+  assert.equal(FIELD_TO_JR_GAIN_DEFAULT, 1.0);
+  // 2. 默认线圈与默认电极（TS 导出值；Python 用同一组数）。
+  assert.deepEqual([...DEFAULT_TMS_COIL.centerMm], [0, 0, 102]);
+  assert.deepEqual([...DEFAULT_TMS_COIL.axis], [0, 0, 1]);
+  assert.equal(DEFAULT_TMS_COIL.radiusMm, 35);
+  assert.equal(DEFAULT_TMS_COIL.turns, 10);
+  assert.equal(DEFAULT_TMS_COIL.dIdtAPerS, 1e8);
+  assert.ok(stimPy.includes('"dIdtAPerS": 1e8'), 'Python 默认线圈 dI/dt 应为 1e8 A/s');
+  assert.equal(DEFAULT_TES_ELECTRODES.length, 2);
+  assert.equal(DEFAULT_TES_ELECTRODES[0].currentMA, 2);
+  assert.equal(DEFAULT_TES_ELECTRODES[1].currentMA, -2);
+  assert.equal(
+    DEFAULT_TES_ELECTRODES.reduce((s, e) => s + e.currentMA, 0), 0,
+    'TES 默认电极电流总和须为 0',
+  );
+  // 3. 契约 §1.10 已登记；App 挂载 StimLab。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('### 1.10 PR7 PR-14 脑刺激实验室（B，2026-11-12）'));
+  assert.ok(contract.includes("TES_MODEL_ID = 'tes-uniform-infinite-point-source-v1'"));
+  assert.ok(contract.includes("TMS_MODEL_ID = 'tms-circular-coil-uniform-conductor-v1'"));
+  assert.ok(appTsx.includes("import StimLab from './components/StimLab';"));
+  assert.ok(appTsx.includes('<StimLab onClose={'), 'App 应挂载 StimLab');
+  assert.ok(appTsx.includes('刺激实验'), 'App 应有刺激实验入口');
+});
+
+test('PR7 实验（C）：步长/节拍/PID/深度默认前后一致；契约 §1.11 已登记；App 已挂载', () => {
+  const expPy = src('reference/python-model/experiments_pr7.py');
+  const depthPy = src('scientific/eeg/depth_reference.py');
+  const pyConst = (text, name) => {
+    const m = text.match(new RegExp(`^${name}\\s*=\\s*([\\d.]+)`, 'm'));
+    assert.ok(m, `Python 缺常量 ${name}`);
+    return Number(m[1]);
+  };
+  // 1. 步长/节拍/PID/特征/深度默认（TS 导出值 = Python 对照）。
+  // CONTROL_DT_MS 在 Python 里是表达式（DT_MS * CONTROL_TICK_STEPS），
+  // 按表达式断言，不按数字字面量硬抠。
+  assert.equal(EXPERIMENTS_ID, 'pr15-experiments-v1');
+  assert.equal(DT_MS, 0.5);
+  assert.equal(DT_MS, pyConst(expPy, 'DT_MS'));
+  assert.equal(CONTROL_DT_MS, 4);
+  assert.ok(expPy.includes('CONTROL_TICK_STEPS = 8'));
+  assert.ok(expPy.includes('CONTROL_DT_MS = DT_MS * CONTROL_TICK_STEPS'));
+  assert.equal(DEFAULT_PID_OUTPUT_MIN_PER_S, -90);
+  assert.equal(DEFAULT_PID_OUTPUT_MAX_PER_S, 300);
+  assert.equal(DEFAULT_FEATURE_WINDOW_MS, 252);
+  assert.equal(DEFAULT_FEATURE_FREQ_HZ, 10);
+  assert.equal(DEPTH_WEIGHT_DEFAULT, 0.8);
+  assert.equal(DEPTH_WEIGHT_DEFAULT, pyConst(depthPy, 'DEPTH_DEFAULT'));
+  // 2. 契约 §1.11 已登记（含深度加权诚实边界）；App 挂载 ExperimentLab。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('### 1.11 PR7 PR-15 双脑 / 时间机器 / 闭环 + 深度加权（C，2026-11-12）'));
+  assert.ok(contract.includes('DEPTH_WEIGHT_DEFAULT'));
+  assert.ok(contract.includes('没有一种方法同时修好深浅两端'));
+  assert.ok(appTsx.includes("import ExperimentLab from './components/ExperimentLab';"));
+  assert.ok(appTsx.includes('<ExperimentLab fixture={expFixture}'), 'App 应挂载 ExperimentLab 并传 fixture');
+  assert.ok(appTsx.includes('对照实验'), 'App 应有对照实验入口');
 });

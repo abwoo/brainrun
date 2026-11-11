@@ -5,6 +5,9 @@
 > R6（MNI152/Talairach 类型消除）已解决，见 §1.2 / §2 / §4.2 / §4.3 / §7。
 > PR6 增补（2026-11-12，B1）：PR-07 多导 EEG（§1.6），R4（电极参考 UI 入口）
 > 已解决，见 §1.6 / §5.3 U1 / §7。
+> PR7 增补（2026-11-12，总协调集成）：PR-13 细胞级（§1.9）、PR-14 刺激（§1.10）、
+> PR-15 实验与深度加权（§1.11）。三方原报的 §1.9 编号冲突，总协调重排为
+> §1.9 / §1.10 / §1.11。
 > **适用范围：** brainrun 2.0 PR-04+05+06（物理核心）及后续 PR5–PR8 全程。
 > **规则来源：** 用户 2026-11-11 22:53 定——前端（React/Three.js 界面、`app/src/lib/*.ts`、Worker 协议）与后端（Rust/WASM 引擎、Python 对照、`scientific/forward` 的 MNE 模型）共用同一份契约；改任一侧时同步改契约与另一侧，并用测试卡住漂移。
 > **测试节奏新规（2026-11-11 22:57 用户定）：** 每轮 PR 只保留该轮必需的方法学测试 + 构建通过 + 新功能冒烟；全面回归、浏览器交互全套、前端布局全面扫查、性能、五维验收、十个演示全部推迟到 PR8 合并之后做一次最终大测试。本契约的漂移测试（`tests/pr5/contract.test.mjs`）属于方法学测试（单位与坐标正确性），按新规保留。布局正确性要求见 §9——新界面按契约做对、不留已知遮挡，全面扫查留到最后。
@@ -331,6 +334,91 @@ B2 只在此登记断言文本，不越界改文件）：**
   （WavesTab `{ recording, channel }`、ErpTab `{ recording, events, epochs,
   onEpochsChange, channel }`），且两文件均不 import 柱模型之外的实验运行器
   （ErpTab 不跑模型）。
+
+### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）
+
+模块：`app/src/lib/cellular.ts`（`CELLULAR_ID = 'local-cellular-multiscale-v1'`）；Python 独立对照：`reference/python-model/cellular_reference.py`（SciPy DOP853；NEURON 9.0.2 内置 `hh` 机制交叉验证）；出处 Hodgkin & Huxley 1952, J. Physiol. 117:500–544；LIF 参数取 Dayan & Abbott 2001 教科书标准值。时间 ms、电位 mV、电流 pA（HH 例外 µA/cm² 与 mS/cm²）、偶极矩 nA·m、电位 µV。
+UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电流注入、膜电位与电导曲线、发放计数、跨尺度耦合面板；每个控件对应 `cellular.ts` 里的真实函数），由 `App.tsx` 以宽 modal（`eeg-lab-modal`）挂载。
+
+| 参数 | TS 默认 | Python 对照 | 单位 |
+|---|---|---|---|
+| LIF C / gL / EL / Vth / Vreset / tref / dt | 250 / 25 / −65 / −50 / −65 / 2 / 0.1 | `LIF_C_PF / LIF_GLEAK_NS / LIF_EL_MV / LIF_VTH_MV / LIF_VRESET_MV / LIF_TREF_MS / LIF_DT_MS` 同值 | pF / nS / mV / mV / mV / ms / ms |
+| LIF 流变电流 | 375（导出值 `gL·(Vth−EL)`） | 同式 | pA |
+| HH C / gNa / gK / gL | 1 / 120 / 36 / 0.3 | `HH_C_UF_PER_CM2 / HH_GNA_MS_PER_CM2 / HH_GK_MS_PER_CM2 / HH_GL_MS_PER_CM2` 同值 | µF/cm² / mS/cm² |
+| HH ENa / EK / EL / Vrest / dt | 50 / −77 / −54.387 / −65 / 0.025 | `HH_ENA_MV / HH_EK_MV / HH_EL_MV / HH_VREST_MV / HH_DT_MS` 同值 | mV / ms |
+| 多房室胞体/顶/基（d×L） | 20×20 / 2×200 / 2×100 | `MULTICOMP` 同值 | µm |
+| 多房室 Ra / Cm / 漏密度 / E_leak | 100 / 1 / 0.3 / −65 | 同值（`ra_ohm_cm / cm_uf_per_cm2 / g_leak_ms_per_cm2 / e_leak_mv`） | Ω·cm / µF/cm² / mS/cm² / mV |
+| 多房室 g_axial 顶/基（导出值） | 31.38 / 62.71 | 同式（圆柱几何） | nS |
+| 突触 AMPA Erev / alpha tau | 0 / 2 | `SYNAPSE_DEFAULTS['ampa']` 同值 | mV / ms |
+| 突触 GABA Erev / alpha tau | −75 / 8 | `SYNAPSE_DEFAULTS['gaba']` 同值 | mV / ms |
+| 跨尺度 WC 基线 E0 | 0.011（契约 §4.1 的 WC 静息平均 E） | `WC_BASELINE_E` 同值 | 无量纲 |
+| 跨尺度 →LIF 增益 / →HH 增益 | 1000 / 20（假设，未校准） | `WC_TO_LIF_GAIN_PA_PER_E / WC_TO_HH_GAIN_UA_PER_CM2_PER_E` 同值 | pA/单位 E / µA/cm²/单位 E |
+| 反向增益 | 0.002（假设，未校准） | `RATE_TO_P_GAIN_PER_HZ` 同值 | P 单位/Hz |
+| 偶极链 N / coherence / Pz 增益 | 1,000,000 / 0.08 / 0.16（沿用 PR5/PR6，未重拟合） | `DIPOLE_N_CELLS / DIPOLE_COHERENCE / PZ_GAIN_UV_PER_NAM` 同值 | 个 / 无量纲 / µV/(nA·m) |
+
+校验：`validateLifParams`（C/gL>0、Vth>Vreset、dt>0）；`validateHodgkinHuxleyParams`（电容>0、电导≥0、dt≤0.1 ms）；`validateMulticompMorphology`（全部几何/物理量>0）；`validateSynapseParams`（gMax≥0、tau>0）；`wcToLifCurrentPA / wcToHhCurrentDensityUAperCm2` 只接受 E∈[0,1]；`firingRateToPopulationDriveP` 只接受 rate≥0。发放检测：膜电位上穿 0 mV（LIF 为步末越阈）。
+对照容差（方法学级）：LIF 逐点 1e-9 mV（精确更新，实测差 0.0）；HH V 0.02 mV、m/h/n 1e-4、gNa/gK 1e-2 mS/cm²（RK4 dt=0.025 ms vs DOP853 实测最大差 5.7e-3 mV，dt 减半降 20.4 倍）；多房室被动 V 1e-3 mV（实测 3.6e-5）、主动 V 0.02 mV、轴向电流 1 pA（实测 0.25 pA）。
+**同名变量不混淆**：JR 的 y0 是锥体群体突触后电位（mV），HH 的 V 是单神经元膜电位（mV），LIF 的 V 是点神经元膜电位（mV）——三者分属不同模型，数值不得互换。
+
+### 1.10 PR7 PR-14 脑刺激实验室（B，2026-11-12）
+
+模块：`app/src/lib/stimulation.ts`（`STIMULATION_ID = 'brain-stimulation-lab-pr14-v1'`）；Python 独立对照：`scientific/forward/stimulation_reference.py`；UI：`app/src/components/StimLab.tsx`（自带宽 modal）。坐标一律球心头 RAS（mm），与 §2 同框；单位 mm / nA·m / µV / ms / Hz / mA / V/m。确定性：同一输入两次运行逐值相同（无随机数）。
+
+| 参数 | 符号 | 值 / 范围 | 单位 | 前端 | 后端 |
+|---|---|---|---|---|---|
+| TES 模型 | — | `TES_MODEL_ID = 'tes-uniform-infinite-point-source-v1'`，均匀导体点源解析解 | — | `StimLab.tsx` | `tesElectricField` / `tesFieldGrid` |
+| TES 电极数 | — | 2–8 | 个 | 阳极/阴极位置下拉（5 个球面预设） | `validateTesElectrodes` |
+| TES 电极位置 | r_k | 球面 r = 95 mm（允差 ±1 mm） | mm | 同上 | 同上 |
+| TES 电流 | I_k | 每个电极 \|I\| ≤ 4 mA；总和 = 0（允差 1e-9 mA） | mA | 电流滑杆 0.5–4 | 同上 |
+| TES 电导率 | σ | 0.10–1.00，默认 0.33 | S/m | 电导率滑杆 | `tesElectricField(..., sigmaSPerM)` |
+| TES 目标 | r | 脑球内 r ≤ 85.5 mm，距电极 ≥ 5 mm | mm | 目标下拉（4 预设） | `validateTesTarget`（内部） |
+| TMS 模型 | — | `TMS_MODEL_ID = 'tms-circular-coil-uniform-conductor-v1'`，均匀导体圆环解析积分，σ = 0.33 S/m（只记入 J = σE，不进入 E） | — | `StimLab.tsx` | `tmsInducedField` / `tmsFieldGrid` |
+| TMS 线圈中心 | — | [0, 0, 102] mm（固定） | mm | 无控件（文案注明） | `DEFAULT_TMS_COIL` |
+| TMS 线圈轴 | — | [0, 0, 1]（固定） | — | 无控件 | 同上 |
+| TMS 半径 | a | 10–100，默认 35 | mm | 半径滑杆 | `validateTmsCoil` |
+| TMS 匝数 | N | 1–50（整数），默认 10 | 匝 | 匝数滑杆 | 同上 |
+| TMS 电流变化率 | dI/dt | \|dI/dt\| ≤ 2×10⁸，默认 1×10⁸ | A/s | 滑杆 0–2×10⁸ | 同上 |
+| TMS 环路分段 | — | 360（默认；与 3600 段差 < 1e-6 V/m） | — | 无控件 | `tmsInducedField(coil, target, segments)` |
+| TMS 目标 | r | 脑球内 r ≤ 85.5 mm，距导线 ≥ 2 mm | mm | 目标下拉（与 TES 共用） | 同上 |
+| Level D WC 增益 | g_WC | ≥ 0，默认 0.01 | 模型单位/(V/m) | 增益滑杆 0–0.1 | `fieldToDrive` |
+| Level D JR 增益 | g_JR | ≥ 0，默认 1.0 | (1/s)/(V/m) | 增益滑杆 0–10 | 同上 |
+| Level D 驱动范围 | — | WC \|drive\| ≤ 10，JR drive ∈ [0, 1000] 1/s；超限抛错，不钳制 | — | 超限时显示抛错信息 | `fieldToDrive` / `runLevelDResponse` |
+| Level A WC 驱动 | — | \|drive\| ≤ 10 | 模型单位 | 驱动滑杆 −2–2 | `runDirectDrive` |
+| Level A JR 驱动 | — | [0, 1000] | 1/s | 驱动滑杆 0–300 | 同上 |
+| 刺激时长 | — | 40–200（UI），默认 100 | ms | 时长滑杆 | `runDirectDrive` / `runLevelDResponse` 的 `durationMs` |
+| Pz 代理增益 | — | 0.16（与 PR6 `PZ_GAIN_UV_PER_NAM` 同值） | µV/(nA·m) | 响应显示 | `STIM_PZ_GAIN_UV_PER_NAM` |
+| 视觉闪烁 | f / 强度 | f ∈ (0, 60] Hz（UI 1–30），强度 ∈ [0, 1]；驱动 = 强度 × 0.5 × sin(2πft)，WC 柱 | Hz / — | 频率与强度滑杆 | `visualFlickerDriveAt` / `runVisualFlicker` |
+| 听觉 burst | — | burst 50 ms × 5，首个 500 ms，ISI ∈ [100, 5000] ms（UI 250/500/1000），强度 ∈ [0, 1]，驱动 = 强度 × 1.0 模型单位 | ms / — | 音调/强度/ISI 控件 | `runAuditoryTrain` |
+| 音调频率 | — | [20, 20000] Hz，**元数据，不进入动力学** | Hz | 音调数字框 | `AuditoryTrainResult.toneHz` |
+| 感觉柱模型 | — | WC（JR 不提供闪烁/听觉：p0=90 低分支双稳态，≥50 1/s 脉冲即锁存） | — | 无控件 | `runVisualFlicker` / `runAuditoryTrain` 内部钉死 WC |
+
+### 1.11 PR7 PR-15 双脑 / 时间机器 / 闭环 + 深度加权（C，2026-11-12）
+
+模块：`app/src/lib/experiments.ts`（双脑 A/B、时间机器、闭环）；深度加权模块：`app/src/lib/depthWeightedInverse.ts`（`depthWeightedMneInverse` / `dspmInverse` / `eloretaInverse` / `evaluateDepthMethods`）；Python 对照：`reference/python-model/experiments_pr7.py`、`scientific/eeg/depth_reference.py`；UI：`app/src/components/ExperimentLab.tsx`（`{ fixture, onClose }`，fixture 为球形正向模型，与 EegAnalysisLab 同一来源；null 时源定位对照不可用，其余两节可用），由 `App.tsx` 以宽 modal（`eeg-lab-modal`）挂载，fixture 在打开时加载。闭环仅用于模拟环境，不直接控制人体设备。
+
+| 参数 | 符号 | 值 / 范围 | 单位 | 前端 | 后端 |
+|---|---|---|---|---|---|
+| 实验步长 | dt | 0.5（固定，不可调） | ms | `experiments.ts` `DT_MS` | Python `DT_MS = 0.5` |
+| 控制器节拍 | — | 4（每 8 个植物步） | ms | `CONTROL_DT_MS` | Python `CONTROL_DT_MS = 4.0` |
+| JR 静息输入 | p0 | 90（默认；220 为 ~10.5 Hz 极限环，须配 `limitCycle: true`） | 1/s | `ExperimentConfig.baselineInputPerS` | Python 同名 |
+| 事件驱动 | drive | [0, 1000] | 1/s | `ExperimentEventInput.drivePerS` | Python 同名 |
+| 事件时长 | — | > 0，0.5 的整数倍 | ms | `ExperimentEventInput.durationMs` | Python 同名 |
+| 适应利用率 | U | (0, 1) | 无量纲 | `AdaptationConfig.utilization` | Python 同名 |
+| 适应恢复 | τ_rec | > 0 | ms | `AdaptationConfig.tauRecMs` | Python 同名 |
+| 快照间隔 | — | 10（默认），0.5 的整数倍 | ms | `TimeMachine.snapshotIntervalMs` | Python `snapshot_interval_ms` |
+| Pz 代理增益 | — | 0.16（复用 PR6 `PZ_GAIN_UV_PER_NAM`） | µV/(nA·m) | `experiments.ts` | Python `PZ_GAIN_UV_PER_NAM = 0.16` |
+| 特征窗 | — | 252（默认） | ms | `FeatureConfig.windowMs` | Python 同名 |
+| 特征目标频率 | — | 10（默认） | Hz | `FeatureConfig.targetFreqHz` | Python 同名 |
+| 阈值输出 | u_on | 默认 −80（负值 = 抑制） | 1/s | `ThresholdConfig.outputPerS` | Python 同名 |
+| PID 输出范围 | — | [−90, 300]（默认） | 1/s | `PidParams.outputMinPerS/outputMaxPerS` | Python 同名 |
+| 控制器延迟 | — | ≥ 0，4 的整数倍 | ms | `ClosedLoopConfig.delayMs` | Python `delay_ms` |
+| 测量噪声 | — | ≥ 0（RMS） | µV | `ClosedLoopConfig.measurementNoiseRmsUv` | Python 同名 |
+| 深度加权指数 | depth | [0, 2]，默认 0.8 | 无量纲 | `depthWeightedInverse.ts` `DEPTH_WEIGHT_DEFAULT` | Python `DEPTH_DEFAULT = 0.8` |
+| eLORETA 迭代 | — | ≤ 20（默认），收敛阈值 1e-3（max 相对变化） | — | `eloretaInverse` | Python 同名 |
+| 坐标系 | — | 位置 mm、偶极矩 nA·m、电位 µV、时间 ms、频率 Hz | — | 与契约 §0 一致 | 同左 |
+
+函数映射（前端 → Python 对照）：`runSingleExperiment` ↔ `run_single_experiment`；`runAB`/`compareRuns` ↔ `run_ab`/`compare_runs`；`TimeMachine` ↔ `TimeMachine`（step/step_to/restore/fork/replay）；`PidController` ↔ `PidController`；`simulatePidStepResponse` ↔ `simulate_pid_step_response`；`runClosedLoop` ↔ `run_closed_loop`；`compareControlVsNoControl`（TS 独有，无 Python 对照——由 fixture 数值覆盖）；`depthWeightedMneInverse`/`dspmInverse`/`eloretaInverse`/`evaluateDepthMethods` ↔ `depth_weighted_mne`/`dspm`/`eloreta`/`evaluate_case`。
+**深度加权诚实边界**：无噪声 10-20 下深源 plain 55.43 → depth 0.8 为 45.25 → dSPM 0.00 → eLORETA 32.00 mm；但浅源 dSPM 变坏到 55.43、eLORETA 78.38 mm，有噪声 0.5 µV 时深源 depth 96.00 mm 比 plain 78.38 更差——没有一种方法同时修好深浅两端，深度偏置仍是残留项，不得谎称已修。
 
 ---
 
