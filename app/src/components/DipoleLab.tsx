@@ -107,7 +107,7 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
       renderer.dispose();canvas.remove();
     };
   },[sensors]);
-  useEffect(()=>display.current?.(position,dir,voltage),[position,axis,moment,conductivity,reference]);
+  useEffect(()=>display.current?.(position,dir,voltage),[position,dir,voltage]);
 
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="电流偶极子物理实验"
