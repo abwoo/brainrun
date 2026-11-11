@@ -181,7 +181,7 @@ try {
     mimeType:'application/json',
     buffer:Buffer.from(JSON.stringify(localFixture),'utf8'),
   });
-  await real.getByText('test-left', {exact:false}).first().waitFor();
+  await real.getByText('模板 fsaverage', {exact:false}).waitFor();
   const sourceMenu = real.getByLabel('皮层源位置');
   assert.equal(await sourceMenu.locator('option').count(),2);
   const localVoltage = async () => {
