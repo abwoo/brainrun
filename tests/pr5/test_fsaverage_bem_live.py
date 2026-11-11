@@ -70,8 +70,26 @@ class TestRealFsaverageBEM(unittest.TestCase):
         for p in pts:
             self.assertEqual(p["atlas"],"aparc")
             self.assertEqual(len(p["head_mm"]),3)
+            self.assertEqual(len(p["mni305_mm"]),3)
+            self.assertTrue(np.isfinite(p["mni305_mm"]).all())
             self.assertTrue(np.isfinite(p["head_mm"]).all())
             self.assertIsInstance(p["vertex"],int)
+
+    def test_mni305_coordinates_use_real_fsaverage_talairach_transform(self):
+        from mne.io.constants import FIFF
+        self.assertIn("MNI305",self.payload["standard_coordinate_definition"])
+        self.assertIn("not MNI152",self.payload["standard_coordinate_definition"])
+        t=mne.read_talxfm("fsaverage",subjects_dir=SUBJECTS,verbose=False)
+        self.assertEqual(t["from"],FIFF.FIFFV_COORD_MRI)
+        self.assertEqual(t["to"],FIFF.FIFFV_MNE_COORD_MNI_TAL)
+        mri_to_head=np.asarray(self.payload["transform_mri_to_head_rowmajor"])
+        head_to_mri=np.linalg.inv(mri_to_head)
+        for source in self.payload["source_positions"][:4]:
+            head=np.asarray(source["head_mm"])*1e-3
+            mri=(head_to_mri@np.array([*head,1.]))[:3]
+            mni=mne.transforms.apply_trans(t,mri)*1e3
+            np.testing.assert_allclose(
+                mni,np.asarray(source["mni305_mm"]),atol=2e-4,rtol=0)
 
     def test_precomputed_bem_gain_matches_fresh_mne_solve(self):
         # Independently reconstruct a subset from the actual MNE BEM,
