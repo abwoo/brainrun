@@ -93,6 +93,21 @@ class TestRealFsaverageBEM(unittest.TestCase):
             np.testing.assert_allclose(
                 mni,np.asarray(source["mni305_mm"]),atol=2e-4,rtol=0)
 
+    def test_cortical_normal_rotation_matches_original_mri_source_space(self):
+        # Independent provenance: source normal comes from the full MRI source
+        # geometry, not from the simplified Three.js mesh.
+        src=mne.read_source_spaces(
+            self.subject/"bem/fsaverage-ico-5-src.fif",verbose=False)
+        trans=np.asarray(self.payload["transform_mri_to_head_rowmajor"])
+        rotation=trans[:3,:3]
+        for source in self.payload["source_positions"]:
+            hemi=0 if source["hemisphere"]=="lh" else 1
+            original=np.asarray(src[hemi]["nn"][source["vertex"]])
+            expected=rotation@original
+            expected/=np.linalg.norm(expected)
+            actual=np.asarray(source["normal_head_unit"])
+            np.testing.assert_allclose(actual,expected,atol=2e-8,rtol=0)
+
     def test_precomputed_bem_gain_matches_fresh_mne_solve(self):
         # Independently reconstruct a subset from the actual MNE BEM,
         # compare with serialized µV/(nA.m) forward. No synthetic sphere.
