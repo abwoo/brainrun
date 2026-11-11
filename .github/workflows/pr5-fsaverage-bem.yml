@@ -56,7 +56,24 @@ jobs:
           npm install --no-save --package-lock=false playwright@1.56.1
       - name: Install Chromium in isolated test runner
         working-directory: app
-        run: npx playwright install --with-deps chromium
+        # 2026-11-11: run 43049425432 failed ONLY here (step 10) while the
+        # physics workflow's identical install (run 43032235876, step 26)
+        # failed the same way — a transient environment failure of the
+        # apt/system-deps install, not a product failure. Same fix as
+        # pr5-physics.yml: keep `--with-deps chromium` (pinned Playwright
+        # 1.56.1 browser + exact system deps) and retry up to 3 times.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright Chromium install, attempt $attempt/3"
+            if npx playwright install --with-deps chromium; then
+              echo "Playwright Chromium install succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Playwright Chromium install failed after 3 attempts" >&2
+          exit 1
       - name: Cross-check local E/I→physical dipole→19-electrode real BEM
         run: node --experimental-strip-types --test tests/pr5/local-column-real-bem.test.mjs
       - name: Test REAL fsaverage anatomy and MNE BEM field in Chromium
