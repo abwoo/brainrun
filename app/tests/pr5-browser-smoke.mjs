@@ -89,6 +89,8 @@ try {
   await head.getByLabel('电极布局').selectOption('10-20');
   assert.equal(await head.getByLabel('选中电极').locator('option').count(),19);
   await head.getByRole('button', { name: '重置球形实验' }).click();
+  // Reset restores the selected electrode to Cz. Compare like-for-like: Fp1.
+  await head.getByLabel('选中电极').selectOption('Fp1');
   const resetHead = await measure();
   assert.ok(Math.abs(resetHead-base) < 0.001,
     'reset must recover original MNE sphere EEG voltage');
