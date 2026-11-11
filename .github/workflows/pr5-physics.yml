@@ -45,11 +45,6 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Regression test original Wilson-Cowan Rust engine
         run: cargo test --manifest-path crates/brain-core/Cargo.toml
-      - name: Test existing Python neural reference models
-        run: |
-          python reference/python-model/test_wilson_cowan.py
-          python reference/python-model/test_pr3.py
-          python reference/python-model/test_pr4.py
       - name: Install WASM packager
         run: cargo install wasm-pack
       - name: Compile original BrainRun WASM engine for browser
@@ -58,6 +53,11 @@ jobs:
         run: |
           python scripts/prepare-brain-data/fetch.py
           python scripts/prepare-brain-data/prepare.py
+      - name: Test existing Python neural reference models
+        run: |
+          python reference/python-model/test_wilson_cowan.py
+          python reference/python-model/test_pr3.py
+          python reference/python-model/test_pr4.py
       - name: Type-check frontend
         working-directory: app
         run: npx tsc -b
