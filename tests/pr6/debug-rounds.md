@@ -165,3 +165,62 @@ python3 scripts/push-to-pr6-branch.py
 - B2 诚实发现已记入验收与文档：晚期机制形态修好（300–500 ms 均值
   0.00006→0.070 µV）、幅度基本没动（峰 0.174 vs 真实 8.89 µV，51 倍），
   天花板是 JR sigmoid 饱和（约 0.21 µV），无重缩放；缺口如实保留。
+
+## CI 漂移诊断与修补（2026-11-12，修补执行人）
+
+- 现象：PR #7（分支 pr6-eeg-analysis，提交 940ae5f）的 CI run 43070474642
+  failure，唯一失败点是 eeg-analysis job 第 8 步「PR6 Python methodology
+  tests」，4 个用例失败；其余步骤被跳过。另一路 PR5 基线 run 43070476134
+  success。本地（~/workspace/eeg-venv）Python 45/45 全绿。
+- 4 个失败用例与 CI 实测漂移（CI 日志 ~/workspace/pr6-ci-fail.log）：
+  1. test_regenerated_fixture_matches_stored：q_nAm[4] -1.665e-15 vs -1.110e-16
+     （差 1.55e-15，容差 atol 1e-15）；
+  2. test_jr_q_matches_fixture：JR q 最大误差 1.038e-10（容差 1e-12）；
+  3. test_blind_table_freshness：mne spread_mm 78.10473943 vs 78.10474639
+     （差 6.96e-6，places=6）；
+  4. test_fixture_freshness：topo values 最大误差 2.460e-06（容差 1e-9）。
+- 根本原因（已实测，不是猜测）：跨环境浮点确定性，不是代码回归。
+  - 版本一致：CI 装 mne==1.11.0 → numpy 2.5.4、scipy 1.18.1、Python 3.12，
+    与本地 eeg-venv 逐字相同；本地与 CI 同为 Ubuntu 24.04、glibc 2.39。
+  - 本地重算与存量 fixture 逐位相同（差 0）：fixture 新鲜、代码未回归，
+    重算 fixture 不能修 CI（CI 算出的数与本地不同）。
+  - DOP853 误差底：把 rtol 从 1e-10 收紧到 1e-12 重算，JR q 变化
+    2.19e-10（相对 1.9e-10）——积分器自身在 rtol=1e-10 下的精度就
+    是 ~2e-10，CI 漂移 1.038e-10 落在其内；1e-12 的测试容差比积分器
+    自己的精度还严 100 倍。q_nAm[4] 是刺激前精确零，存量 -1.11e-16
+    与 CI 的 -1.67e-15 都是积分器 atol=1e-12 合同内的噪声。
+  - BLAS 线程敏感性：只改 OMP/OPENBLAS/MKL_NUM_THREADS=1，盲测 spread
+    就移动 1.4e-14～2.1e-14——线程数本身就会改结果。
+  - 增益敏感性：球形增益矩阵做 1e-7 相对扰动，盲测 spread 移动可达
+    4.84e-6；CI 的地形漂移 2.46e-6（0.77 µV 的 3.2e-6 相对）反推 CI
+    现场重算的球形正向模型（MNE 四层球求解，颅骨低电导致病态）与本地
+    增益差约 3e-6 相对。forward_eeg 是增益的线性映射，地形值只可能
+    来自增益差异——代码路径上没有别的变量。
+  - 结论：4 个失败全是“测试容差低于跨环境浮点确定性”，不是产品问题。
+    修法按任务书二选一：代码无回归、fixture 无需重算，改容差到实测
+    的跨环境确定性之上，并写清依据。
+- 改了什么（只改测试容差与注释，未动任何产品代码、fixture、科学门槛）：
+  - tests/pr6/test_eeg_recording.py：JR q (1e-12, 1e-12) → (1e-9, 1e-9)
+    （误差底 2.19e-10 之上约 5 倍；仍比 TS/Python JR 互认 1.9e-8 严 20 倍）；
+    fixture 新鲜度 (1e-12, 1e-15) → (1e-9, 1e-12)（atol 取 DOP853 自己的
+    atol=1e-12；rtol 同 JR）。
+  - tests/pr6/test_tfr_topo_inverse.py：地形电极电位 atol 1e-9 → 1e-5 µV
+    （CI 漂移 2.46e-6；仍比同文件样条复现容差 0.02 µV 严 2000 倍）；
+    网格值 places=9 → 绝对 1e-5 µV（不能用相对容差：过零点附近相对误差
+    虚大，CI 量级扰动下可达 2.45e-4，绝对误差实测最大 1.59e-6）；
+    盲测 peak_value places=6 → 相对 1e-5、spread_mm places=6 → 相对 1e-5
+    （CI 漂移：峰 3.58e-6 相对、spread 8.9e-8 相对；位置分量仍精确相等）。
+  - tests/pr6/tfr-topo-inverse.test.mjs（TS 盲测，同根因、预先修掉，
+    否则 CI 第 9 步会倒在这里）：MNE 峰值/分布范围 1e-6 相对 → 1e-5 相对
+    （本机 3.2e-6 增益扰动下实测 TS 峰值相对误差 3.08e-6；其余 TS 测试
+    用存量 fixture 或自洽比较，不依赖 CI 现场重算的球形模型，不受影响）。
+  - 其余断言一字未动：位置分量精确相等、峰值网格点相等、相关 > 0.98、
+    样条复现 ≤ 0.02 µV、偶极子矩 1e-6、残差 places=9 等全部保留。
+- 验证（本地，eeg-venv / node）：
+  - 干净基线：Python 45/45、TS pr6 59/59 全绿。
+  - CI 模拟（球形增益做 CI 量级的 3.2e-6 相对扰动后重跑）：Python 45/45、
+    TS 59/59 全绿；扰动前曾暴露的另两处同级脆弱断言（peak_value places=6、
+    网格值 places=9）已一并按同一依据修掉。
+  - 每次模拟后 sphere-model.json 均从备份恢复（与分支存量逐位相同）。
+- 推送：修补提交推到同一分支 pr6-eeg-analysis（API 方式，凭证走
+  dynamic_credentials surrogate，未用 git push）；新 CI 两路待核对。

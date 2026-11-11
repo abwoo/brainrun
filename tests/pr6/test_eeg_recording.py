@@ -15,7 +15,13 @@
 ≤ 8e-14（V8 与 CPython 的 sin/cos 末位差异），容差取 1e-9 相对；
 柱模型 q(t) 用 DOP853，TS 的 RK4 与之差 WC 2.0e-6 nA·m、
 JR 1.9e-8 nA·m（见 TS 测试），本文件内 DOP853 自身的确定性
-对照（同参数两次运行）用 1e-12 相对。
+对照（同参数两次运行）用 1e-9 相对／1e-12 绝对——不是 1e-12：
+实测 DOP853 在 rtol=1e-10 下的自身误差底（把 rtol 收紧到 1e-12
+重算，JR q 变化 2.19e-10，相对 1.9e-10）就是 ~2e-10，CI 上
+的漂移 1.038e-10 正好落在这个误差底里；1e-12 的要求比积分器
+自己的精度还严 100 倍，跨环境（不同 CPU 的 libm/BLAS 内核）
+下不可能稳定满足。见 tests/pr6/debug-rounds.md（2026-11-12
+CI 漂移诊断）。
 """
 import json
 import math
@@ -223,15 +229,23 @@ class TestRunExperiment(unittest.TestCase):
     def test_jr_q_matches_fixture(self):
         stored = json.loads(FIXTURE_PATH.read_text())
         res = er.run_experiment(self.fixture, duration_ms=2000, source_model="jr")
+        # 1e-9：DOP853 自身误差底实测 2.19e-10（rtol 1e-12 重算对照），
+        # CI 漂移 1.038e-10 落在其内；仍比 TS/Python 的 JR 互认
+        # 1.9e-8 严 20 倍，科学门槛未动。
         assert_close(self, res["q_series"]["jr"], stored["run_jr_q_nAm"],
-                     1e-12, 1e-12, "JR q determinism")
+                     1e-9, 1e-9, "JR q determinism")
 
 
 class TestFixtureFreshness(unittest.TestCase):
     def test_regenerated_fixture_matches_stored(self):
         stored = json.loads(FIXTURE_PATH.read_text())
         fresh = er.generate_fixture()
-        assert_close_recursive(self, fresh, stored, 1e-12, 1e-15, "fixture")
+        # (rtol 1e-9, atol 1e-12)：atol 取 DOP853 自己的 atol=1e-12
+        #（积分器合同内的噪声量级；刺激前 q_nAm[4] 本就是精确零，
+        # 存量 -1.11e-16 与 CI 的 -1.67e-15 都是该量级的噪声）；
+        # rtol 取 JR 误差底 2.19e-10 之上的 1e-9。本地重算与存量
+        # 逐位相同（差 0），CI 漂移纯属跨环境浮点确定性，不是回归。
+        assert_close_recursive(self, fresh, stored, 1e-9, 1e-12, "fixture")
 
 
 if __name__ == "__main__":
