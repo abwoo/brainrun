@@ -44,6 +44,22 @@ jobs:
       - name: Build WASM engine
         run: bash scripts/build-wasm.sh
 
+      # PR1：脑数据资产构建时生成（见 docs/data-license.md）——
+      # TVB 示例数据再分发许可未明确，衍生资产不再提交进仓库；
+      # 这里下载原始文件并跑 prepare.py 生成 app/public/brain-assets/，
+      # Vite 构建时自动带入 dist/。fetch.py 校验失败即非零退出，
+      # 构建直接失败，不静默缺资产上线。
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install data-prep dependencies
+        run: pip install numpy
+
+      - name: Generate brain assets (build-time)
+        run: python3 scripts/prepare-brain-data/fetch.py && python3 scripts/prepare-brain-data/prepare.py
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

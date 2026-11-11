@@ -8,7 +8,8 @@
                                vertex_normals.txt
     raw/regionMapping_16k_76.txt
 
-输出（浏览器可直接用的轻量资产，放 app/public/brain-assets/）:
+输出（构建时生成的轻量资产，放 app/public/brain-assets/；CI 里由
+fetch.py 下载原始文件后生成，不提交进仓库，见 docs/data-license.md）:
     vertices.bin     Float32 LE, 16384 x 3, xyz (mm, TVB 原始坐标, 未做任何修改)
     triangles.bin    Uint32  LE, 32760 x 3, 顶点索引 0-based
     regionMap.bin    Uint8, 16384, 每顶点脑区 id (0-75)
@@ -28,12 +29,12 @@
   - 顶点 16384 行、三角面 32760 行、索引全部在 0-16383 内
   - 映射 16384 个值、取值 0-75、76 个脑区全部出现、无 -1
 
-许可: TVB 数据再分发许可未明确 (见 docs/model-spec.md §7), 原始文件
-只放 raw/ 且 .gitignore 忽略; 生成的轻量资产随附来源与引用:
-Sanz-Leon et al. 2013, Front. Neuroinform. 7:10,
+许可: TVB 数据再分发许可未明确 (见 docs/data-license.md), 原始文件
+与衍生资产均不进仓库，构建时下载并生成; 生成的 meta.json 随附
+来源与引用: Sanz-Leon et al. 2013, Front. Neuroinform. 7:10,
 doi:10.3389/fninf.2013.00010.
 
-用法: python3 scripts/prepare-brain-data/prepare.py
+用法: python3 scripts/prepare-brain-data/fetch.py && python3 scripts/prepare-brain-data/prepare.py
 依赖: Python 3 标准库 + numpy (仅本脚本使用, 浏览器运行时不需要)。
 """
 
@@ -49,15 +50,18 @@ RAW = HERE / "raw"
 OUT = HERE.parent.parent / "app" / "public" / "brain-assets"
 
 CONNECTIVITY_URL = (
-    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/"
+    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/"
+    "f1a3e7dc5370158df721f206c9c9bfad55d98172/"
     "tvb_data/connectivity/connectivity_76.zip"
 )
 CORTEX_URL = (
-    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/"
+    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/"
+    "f1a3e7dc5370158df721f206c9c9bfad55d98172/"
     "tvb_data/surfaceData/cortex_16384.zip"
 )
 MAPPING_URL = (
-    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/master/"
+    "https://raw.githubusercontent.com/the-virtual-brain/tvb-data/"
+    "f1a3e7dc5370158df721f206c9c9bfad55d98172/"
     "tvb_data/regionMapping/regionMapping_16k_76.txt"
 )
 
@@ -204,9 +208,9 @@ def main() -> None:
         },
         "note": "tvb-data GitHub 仓库已声明 DEPRECATED, 建议改用 Zenodo "
                 "https://zenodo.org/records/10128131 (内容一致性未核实)。",
-        "license_note": "TVB 数据再分发许可未明确 (tvb-data LICENSE 为 GPLv3 "
-                        "但未单独说明数据文件是否适用); 原始文件不进仓库, "
-                        "本资产仅为构建时下载的预处理结果。",
+        "license_note": "TVB 数据再分发许可未明确 (见 docs/data-license.md: "
+                        "tvb-data LICENSE 为 GPLv3 但未单独说明数据文件是否适用); "
+                        "原始文件与衍生资产均不进仓库, 本资产仅为构建时下载并生成的预处理结果。",
         "citation": "Sanz-Leon et al. 2013, Front. Neuroinform. 7:10, "
                     "doi:10.3389/fninf.2013.00010",
         "counts": {

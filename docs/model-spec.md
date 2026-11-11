@@ -16,6 +16,11 @@ Biophysical Journal 12:1–24，方程 11、12）。
 定位声明（对外口径）：这是“基于神经生理机制的实时仿真”，
 不是完整的第一性原理神经元物理仿真，也不是真实人类大脑全部
 生物物理细节的模拟。E、I 状态范围 [0, 1]。
+默认连接组是**演示用连接组（Demo Connectome）**：TVB 示例数据的
+猕猴 CoCoMac + 人类 DSI 混合矩阵，不是某个真人的个体化连接网络；
+TVB 官方声明该数据集“为数值测试与理论探索定制，生物物理真实性
+有限，不应以此为依据”。模拟结果是模型在该演示连接组上的行为，
+不代表真实人脑的客观反应。应用内「模型信息」与 README 有同样说明。
 
 ## 2. 方程（以 TVB 源码实测形式为准）
 
@@ -53,9 +58,11 @@ TVB 在线文档渲染的通用方程里，I 方程写的是 `c_ie·E_k − c_ee
 与参数定义矛盾；**源码实测为 `c_ie·E − c_ii·I`**，以源码为准，
 文档该处疑似笔误。实现时 I 方程的抑制自耦合系数必须是 `c_ii`。
 
-另：文档 Table 0 列出 `shift_sigmoid = True`，但当前 `tvb-library`
-master 源码全文无 `shift` 字样（grep 0 命中）。该开关语义未核实，
-MVP 按源码形式实现，**不引入该参数**。
+另：文档 Table 0 列出 `shift_sigmoid = True`。该开关在 `tvb-library`
+2.10.0 里存在且**默认 True**，会改变 sigmoid 使 S(0)=0；本实现
+按 `shift_sigmoid = False` 的形式实现（与 TVB 官方对照
+`docs/tvb-crosscheck.md` 一致）。旧版注记称源码无 `shift` 字样，
+在 2.10.0 下已不成立，见 PR1 订正。
 
 ## 3. 默认参数：A 套（TVB 代码实际默认值）
 
@@ -84,7 +91,10 @@ Phase 1 不采用。
 
 ## 4. 网络规模与数据处理规则
 
-- 节点数：76（TVB `connectivity_76` 配套数据）。
+- 节点数：76（TVB `connectivity_76` 配套数据，**演示用连接组**：
+  权重主要来自猕猴 CoCoMac 示踪数据，胼胝体连接是人类 DSI 纤维束
+  宽度缩放后填入的双半球混合矩阵，皮层下结构未包含；见 §7 与
+  TVB 官方文档《A Description of a Complete Dataset》）。
 - 连接权重 `C_ij`：`weights.txt`，76×76，值域 0–3，单位 au（任意单位，见 `info.txt`：`weights_unit = "au"`）。
   非零元 1560 个。值分布（本次预处理实测，纠正 phase0“全是整数”的说法）：
   5742 个值为整数 0/1/2/3，另有 34 个非整数值（如 0.0046263241、
@@ -137,15 +147,19 @@ Phase 1 不采用。
 
 ## 7. 数据许可与引用
 
-- TVB 示例数据许可未完全明确：`tvb-data` 仓库根 LICENSE 实测为 GPLv3
+- TVB 示例数据许可核查结论见 `docs/data-license.md`（PR1 专项核查，
+  含证据与出处）。本节只保留 Phase 0 已核实的部分口径：
+  `tvb-data` 仓库根 LICENSE 实测为 GPLv3
  （(c) 2012–2019, Baycrest Centre for Geriatric Care），但 GitHub API
   对该仓库的 license 判定为 Other / NOASSERTION，且 LICENSE 正文针对
   TVB 软件，未单独说明数据文件是否同样适用 GPLv3。
   **结论：数据再分发是否合规未核实，不能默认能直接分发。**
-- 因此：**TVB 数据文件绝不提交进仓库**。原始文件只放在
-  `scripts/prepare-brain-data/raw/`（`.gitignore` 忽略），构建时下载；
-  前端资产 `app/public/brain-assets/` 只放预处理生成的轻量二进制/JSON，
-  并随附来源与版本元信息。
+- 因此：**TVB 原始数据与衍生资产均不提交进仓库**。原始文件只放在
+  `scripts/prepare-brain-data/raw/`（`.gitignore` 忽略），构建时由
+  `fetch.py` 下载（URL 钉死提交，SHA-256 校验）；前端资产
+  `app/public/brain-assets/` 由 `prepare.py` 在构建时生成
+  （`.gitignore` 忽略），并随附来源与版本元信息。详见
+  `docs/data-license.md`。
 - 引用（使用数据时必须标注）：Sanz-Leon et al. 2013,
   Frontiers in Neuroinformatics 7:10, doi:10.3389/fninf.2013.00010。
 - 另：`tvb-data` GitHub 仓库已声明 DEPRECATED，建议改用 Zenodo 记录
@@ -162,8 +176,8 @@ Phase 1 不采用。
 ### 8.1 数据来源
 
 全部实验与引擎输入使用 `app/public/brain-assets/connectivity.json`
-（权重与长度，对角线已清零、长度只保留权重 > 0 的边、
-权重浮点原值、34 个非整数值不取整）。
+（**演示用连接组**，见 §1 与 §4；权重与长度，对角线已清零、长度只
+保留权重 > 0 的边、权重浮点原值、34 个非整数值不取整）。
 不用 `scripts/prepare-brain-data/raw/` 的原始文件。
 权重 76×76，值域 0–3（单位 au）；长度 76×76，值域 0–153.49 mm；
 权重 > 0 的边 1494 条；权重矩阵不对称（有向）；有 2 个脑区入边行和为 0。
@@ -178,8 +192,9 @@ coupling_E_i(t) = G · Σ_j C_ij · E_j(t − d_ij)
   单节点传播在 G=4–8 时仍 < 0.005，且 G ≥ 6 时不再恢复基线
   （`docs/validation.md` §2）。
 - G 为线性耦合斜率（TVB `Linear` 耦合的 `a`）。
-  TVB 默认斜率 0.0042 是为静息态 fMRI 调的，在本配置下单节点
-  传播不可见（实测），故演示用较大斜率。
+  TVB 默认斜率在 2.10.0 下为 0.00390625（旧版注记 0.0042 已订正），
+  是为静息态 fMRI 调的，在本配置下单节点传播不可见（实测），
+  故演示用较大斜率。
 - 长程耦合只进入 E 方程；I 方程不含耦合项；`local` = 0。
 
 ### 8.3 延迟

@@ -2,7 +2,8 @@
  * 脑数据加载与查询（Phase 1）。
  *
  * 数据来源：TVB 示例数据，经 scripts/prepare-brain-data/prepare.py 预处理，
- * 生成的轻量资产位于 public/brain-assets/。顶点坐标为 TVB 原始值（mm 量级），
+ * 生成的轻量资产位于 public/brain-assets/（由 CI 构建时生成，不提交进仓库，
+ * 见 docs/data-license.md）。顶点坐标为 TVB 原始值（mm 量级），
  * 本模块不做任何逐顶点修改；只在渲染层做整体居中（见 BrainScene）。
  * 引用：Sanz-Leon et al. 2013, Front. Neuroinform. 7:10.
  */

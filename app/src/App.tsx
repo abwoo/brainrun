@@ -26,6 +26,7 @@ export default function App() {
   const [resetSignal, setResetSignal] = useState(0);
   const [simReady, setSimReady] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
+  const [showModelInfo, setShowModelInfo] = useState(false);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [holdMs, setHoldMs] = useState<number | null>(null);
@@ -167,6 +168,14 @@ export default function App() {
           </button>
           <button type="button" className="chip" onClick={handleReset} title="恢复默认参数、清除刺激、恢复确定性初始状态、清空曲线">
             RESET
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setShowModelInfo(true)}
+            title="模型、数据来源与许可说明"
+          >
+            模型信息
           </button>
         </div>
       </header>
@@ -359,6 +368,55 @@ export default function App() {
         </span>
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
+
+      {showModelInfo && (
+        <div className="modal-backdrop" onClick={() => setShowModelInfo(false)}>
+          <div
+            className="modal screen"
+            role="dialog"
+            aria-label="模型信息"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="screen-title">模型信息 — 这是什么</div>
+            <div className="modal-body">
+              <div className="conn-title">连接组 · Demo Connectome（演示用连接组）</div>
+              <p className="panel-text">
+                76 区连接矩阵来自 The Virtual Brain 示例数据 connectivity_76。
+                权重主要来自猕猴 CoCoMac 神经示踪数据；胼胝体连接是人类 DSI
+                纤维束宽度缩放后填入的双半球混合矩阵；皮层下结构未包含。
+                这不是某个真人的 MRI / 扩散 MRI 测得的个体化连接网络。
+                TVB 官方声明：该数据集“为数值测试与理论探索定制，
+                生物物理真实性有限，不应以此为依据”。
+              </p>
+              <div className="conn-title">皮层网格</div>
+              <p className="panel-text">
+                16,384 顶点皮层网格同样来自 TVB 示例数据 cortex_16384，
+                与连接矩阵配套对齐。
+              </p>
+              <div className="conn-title">模型</div>
+              <p className="panel-text">
+                Wilson–Cowan 兴奋 / 抑制神经群体模型，是神经群体平均活动的
+                现象学模型，不是第一性原理求解器。这里模拟的是该模型在上述
+                演示连接组上的行为，不代表真实人脑的客观反应。
+              </p>
+              <div className="conn-title">默认预设</div>
+              <p className="panel-text">
+                演示预设为 TVB A-set 只改 θ_e（0 → 1.0），全局耦合 G = 0.35。
+                纯 A-set 本身是双稳态的，保留在代码里作参考配置。
+              </p>
+              <div className="conn-title">引用与许可</div>
+              <p className="panel-text">
+                Sanz-Leon et al. 2013, Front. Neuroinform. 7:10。
+                数据许可核查见仓库 docs/data-license.md；
+                代码 MIT，第三方说明见 NOTICE.md。
+              </p>
+              <button type="button" className="chip modal-close" onClick={() => setShowModelInfo(false)}>
+                知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

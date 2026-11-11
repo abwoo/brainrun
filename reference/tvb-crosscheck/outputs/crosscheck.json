@@ -1,0 +1,286 @@
+{
+  "versions": {
+    "python": "3.12.3",
+    "tvb-library": "2.10.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "numba": "0.68.1"
+  },
+  "config": {
+    "dt_ms": 1.0,
+    "speed_mm_per_ms": 3.0,
+    "G": 0.35,
+    "stim_node": 40,
+    "stim_amplitude": 2.0,
+    "stim_start_ms": 1000.0,
+    "stim_duration_ms": 100.0,
+    "free_length_ms": 1000.0,
+    "stim_length_ms": 2000.0,
+    "connectivity_asset": "app/public/brain-assets/connectivity.json",
+    "our_reference": "reference/python-model/wilson_cowan.py (Python vs Rust max deviation 3.33e-16, docs/validation.md \u00a73)"
+  },
+  "stimulus_semantics_probe": {
+    "tvb_scheme_one_step_dE_node40_with_stimulus_2.0": 1.8513427689316906,
+    "tvb_scheme_one_step_dE_node40_with_stimulus_0.0": 0.0032488363127449998,
+    "tvb_scheme_one_step_dI_node40_with_stimulus_2.0_on_E_row_only": 0.05071944838488959,
+    "our_engine_first_ms_dE_node40_with_P_2.0": 0.010449766268845969,
+    "note": "TVB stimulus is added to dX/dt outside dfun (scheme: X_next = X + dt/2*(f(X)+f(inter)) + dt*stimulus); our P enters the sigmoid argument inside dfun."
+  },
+  "scenarios": {
+    "free_a_set": {
+      "steps": 1000,
+      "max_abs_dE": 0.027257703180578907,
+      "rms_dE": 0.001802789634602051,
+      "max_abs_dI": 0.015141383225255434,
+      "rms_dI": 0.0010417973829621359,
+      "profile_max_abs_dE": {
+        "t=10ms": 6.613494107253134e-05,
+        "t=30ms": 0.004322563549747277,
+        "t=59ms": 0.027257703180578907,
+        "t=100ms": 0.0016591262176839927,
+        "t=200ms": 1.3419354516486237e-10,
+        "t=500ms": 1.3516265884305767e-10,
+        "t=1000ms": 1.3516265884305767e-10
+      },
+      "argmax_dE": {
+        "t_ms": 59.0,
+        "node": 2
+      },
+      "argmax_dI": {
+        "t_ms": 62.0,
+        "node": 2
+      },
+      "tvb_peak_E_node40": 0.4968952219296784,
+      "ours_peak_E_node40": 0.4968952220004287,
+      "tvb_final_mean_E": 0.4879589810043628,
+      "ours_final_mean_E": 0.4879589810029576,
+      "tvb_final_mean_I": 0.26638045273273603,
+      "ours_final_mean_I": 0.26638045273177546,
+      "checks": {
+        "tvb_idelays_match_ours_on_weighted_edges": true,
+        "max_abs_idelay_diff_weighted_edges": 0.0,
+        "tvb_idelays_nonzero_on_zero_weight_edges": 0,
+        "tvb_max_idelay": 46,
+        "our_max_idelay": 46,
+        "horizon": 47,
+        "model_stvar_after_configure": [
+          0,
+          1
+        ],
+        "model_cvar": [
+          0,
+          1
+        ],
+        "shift_sigmoid": false,
+        "state_variable_boundaries": null,
+        "integrator_boundaries": null,
+        "integrator_dt": 1.0,
+        "coupling_a": 0.35,
+        "coupling_b": 0.0,
+        "connectivity_speed": 3.0,
+        "undirected_flag": false,
+        "current_step_after_configure": 46,
+        "tvb_clock_offset_ms": 46.0
+      }
+    },
+    "stim_a_set": {
+      "steps": 2000,
+      "max_abs_dE": 0.027257703180578907,
+      "rms_dE": 0.0012750832678230602,
+      "max_abs_dI": 0.015141383225255434,
+      "rms_dI": 0.0007368460445857676,
+      "profile_max_abs_dE": {
+        "t=10ms": 6.613494107253134e-05,
+        "t=30ms": 0.004322563549747277,
+        "t=59ms": 0.027257703180578907,
+        "t=100ms": 0.0016591262176839927,
+        "t=200ms": 1.3419354516486237e-10,
+        "t=500ms": 1.3516265884305767e-10,
+        "t=1000ms": 1.3516265884305767e-10,
+        "t=1034ms": 1.1573111080576126e-07,
+        "t=1100ms": 2.089850514863656e-10,
+        "t=1200ms": 1.351621592426966e-10,
+        "t=2000ms": 1.3516232577615028e-10
+      },
+      "argmax_dE": {
+        "t_ms": 59.0,
+        "node": 2
+      },
+      "argmax_dI": {
+        "t_ms": 62.0,
+        "node": 2
+      },
+      "tvb_peak_E_node40": 0.4997255184904829,
+      "ours_peak_E_node40": 0.4997255185112496,
+      "tvb_final_mean_E": 0.48795898100457036,
+      "ours_final_mean_E": 0.48795898100316526,
+      "tvb_final_mean_I": 0.26638045273280775,
+      "ours_final_mean_I": 0.26638045273184724,
+      "checks": {
+        "tvb_idelays_match_ours_on_weighted_edges": true,
+        "max_abs_idelay_diff_weighted_edges": 0.0,
+        "tvb_idelays_nonzero_on_zero_weight_edges": 0,
+        "tvb_max_idelay": 46,
+        "our_max_idelay": 46,
+        "horizon": 47,
+        "model_stvar_after_configure": [
+          0,
+          1
+        ],
+        "model_cvar": [
+          0,
+          1
+        ],
+        "shift_sigmoid": false,
+        "state_variable_boundaries": null,
+        "integrator_boundaries": null,
+        "integrator_dt": 1.0,
+        "coupling_a": 0.35,
+        "coupling_b": 0.0,
+        "connectivity_speed": 3.0,
+        "undirected_flag": false,
+        "current_step_after_configure": 46,
+        "tvb_clock_offset_ms": 46.0,
+        "stimulus_route": "per-node model.P switched between continued Simulator runs (P=0, then P[40]=2.0 for 100 ms, then P=0); NOT Simulator.stimulus",
+        "P_shape_during_pulse": [
+          76
+        ]
+      }
+    },
+    "free_demo": {
+      "steps": 1000,
+      "max_abs_dE": 7.458091949304885e-05,
+      "rms_dE": 9.249936641942684e-06,
+      "max_abs_dI": 1.2214843251843327e-05,
+      "rms_dI": 1.6199611553201585e-06,
+      "profile_max_abs_dE": {
+        "t=10ms": 4.698381493402001e-06,
+        "t=30ms": 6.126697143445624e-05,
+        "t=59ms": 6.28395642572211e-05,
+        "t=100ms": 3.378435467415314e-05,
+        "t=200ms": 4.237575889746298e-06,
+        "t=500ms": 2.686191630241197e-09,
+        "t=1000ms": 1.233442466219703e-09
+      },
+      "argmax_dE": {
+        "t_ms": 42.0,
+        "node": 59
+      },
+      "argmax_dI": {
+        "t_ms": 54.0,
+        "node": 59
+      },
+      "tvb_peak_E_node40": 0.011780297355823305,
+      "ours_peak_E_node40": 0.011780297409637278,
+      "tvb_final_mean_E": 0.014884620447135446,
+      "ours_final_mean_E": 0.014884620645318042,
+      "tvb_final_mean_I": 0.017659351631182884,
+      "ours_final_mean_I": 0.017659351668619438,
+      "checks": {
+        "tvb_idelays_match_ours_on_weighted_edges": true,
+        "max_abs_idelay_diff_weighted_edges": 0.0,
+        "tvb_idelays_nonzero_on_zero_weight_edges": 0,
+        "tvb_max_idelay": 46,
+        "our_max_idelay": 46,
+        "horizon": 47,
+        "model_stvar_after_configure": [
+          0,
+          1
+        ],
+        "model_cvar": [
+          0,
+          1
+        ],
+        "shift_sigmoid": false,
+        "state_variable_boundaries": null,
+        "integrator_boundaries": null,
+        "integrator_dt": 1.0,
+        "coupling_a": 0.35,
+        "coupling_b": 0.0,
+        "connectivity_speed": 3.0,
+        "undirected_flag": false,
+        "current_step_after_configure": 46,
+        "tvb_clock_offset_ms": 46.0
+      }
+    },
+    "stim_demo": {
+      "steps": 2000,
+      "max_abs_dE": 0.0002490447039623714,
+      "rms_dE": 1.596831169742186e-05,
+      "max_abs_dI": 7.814216095998472e-05,
+      "rms_dI": 3.139001656847904e-06,
+      "profile_max_abs_dE": {
+        "t=10ms": 4.698381493402001e-06,
+        "t=30ms": 6.126697143445624e-05,
+        "t=59ms": 6.28395642572211e-05,
+        "t=100ms": 3.378435467415314e-05,
+        "t=200ms": 4.237575889746298e-06,
+        "t=500ms": 2.686191630241197e-09,
+        "t=1000ms": 1.233442466219703e-09,
+        "t=1034ms": 0.0002490447039623714,
+        "t=1100ms": 0.0001791394222887821,
+        "t=1200ms": 7.086010901265205e-05,
+        "t=2000ms": 1.2337438813625479e-09
+      },
+      "argmax_dE": {
+        "t_ms": 1034.0,
+        "node": 59
+      },
+      "argmax_dI": {
+        "t_ms": 1133.0,
+        "node": 40
+      },
+      "tvb_peak_E_node40": 0.49419374859093396,
+      "ours_peak_E_node40": 0.49419609053315555,
+      "tvb_final_mean_E": 0.014884620447135498,
+      "ours_final_mean_E": 0.014884620645455218,
+      "tvb_final_mean_I": 0.017659351631182926,
+      "ours_final_mean_I": 0.017659351668653112,
+      "checks": {
+        "tvb_idelays_match_ours_on_weighted_edges": true,
+        "max_abs_idelay_diff_weighted_edges": 0.0,
+        "tvb_idelays_nonzero_on_zero_weight_edges": 0,
+        "tvb_max_idelay": 46,
+        "our_max_idelay": 46,
+        "horizon": 47,
+        "model_stvar_after_configure": [
+          0,
+          1
+        ],
+        "model_cvar": [
+          0,
+          1
+        ],
+        "shift_sigmoid": false,
+        "state_variable_boundaries": null,
+        "integrator_boundaries": null,
+        "integrator_dt": 1.0,
+        "coupling_a": 0.35,
+        "coupling_b": 0.0,
+        "connectivity_speed": 3.0,
+        "undirected_flag": false,
+        "current_step_after_configure": 46,
+        "tvb_clock_offset_ms": 46.0,
+        "stimulus_route": "per-node model.P switched between continued Simulator runs (P=0, then P[40]=2.0 for 100 ms, then P=0); NOT Simulator.stimulus",
+        "P_shape_during_pulse": [
+          76
+        ]
+      }
+    }
+  },
+  "frozen_coupling_check": {
+    "free_a_set": {
+      "max_abs_dE_vs_tvb": 1.3719236385822953e-08,
+      "max_abs_dI_vs_tvb": 6.9954959186491195e-09
+    },
+    "free_demo": {
+      "max_abs_dE_vs_tvb": 1.2334398918900646e-09,
+      "max_abs_dI_vs_tvb": 2.3247608352261473e-10
+    },
+    "stim_demo": {
+      "max_abs_dE_vs_tvb": 2.024055752863907e-09,
+      "max_abs_dI_vs_tvb": 7.707555566005553e-10
+    }
+  },
+  "wall_time_s": 8.0
+}

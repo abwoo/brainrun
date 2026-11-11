@@ -9,11 +9,17 @@
 > 定位：CHIMERA 式的直观交互体验，科学计算的真实性是底线。
 > 没有假动画：所有颜色、波形、读数都只读模型快照；
 > 没有教程也能玩：触碰 → 观察 → 调节 → 发现。
+>
+> 数据说明：默认连接组是**演示用连接组（Demo Connectome）**——
+> TVB 示例数据的猕猴 CoCoMac + 人类 DSI 混合矩阵，
+> 不是某个真人的个体化连接网络；模拟结果是模型在该演示连接组上的
+> 行为，不代表真实人脑的客观反应。点右上角「模型信息」查看完整说明。
 
 ## 本地运行
 
 ```bash
-# 1. 准备脑数据（构建时下载 TVB 示例数据，不提交进仓库）
+# 1. 准备脑数据（构建时下载 TVB 示例数据并生成资产，不提交进仓库）
+python3 scripts/prepare-brain-data/fetch.py
 python3 scripts/prepare-brain-data/prepare.py
 
 # 2. 编译 Rust 引擎为 WASM（需要 cargo + wasm-pack）
@@ -41,7 +47,7 @@ GitHub Pages 构建：`npm run build:pages`（基路径 `/brainrun/`）。
 | 模块 | 技术 |
 | --- | --- |
 | 前端 | React 19 + TypeScript + Vite |
-| 3D 渲染 | Three.js（真实 TVB 皮层网格，16,384 顶点） |
+| 3D 渲染 | Three.js（TVB 示例数据皮层网格，16,384 顶点） |
 | 波形 | Canvas 2D（示波器风） |
 | 计算核心 | Rust（Wilson–Cowan 模型，Heun 积分，1 ms 步长） |
 | 浏览器计算 | WebAssembly + Web Worker（模型按真实时间推进，与渲染解耦） |
@@ -50,7 +56,11 @@ GitHub Pages 构建：`npm run build:pages`（基路径 `/brainrun/`）。
 ## 模型
 
 每个脑区是一对兴奋/抑制神经群体（Wilson–Cowan），76 个脑区通过
-TVB 的结构连接矩阵耦合，延迟由纤维长度 / 3.0 mm/ms 传导速度决定。
+TVB 示例数据（Demo Connectome）的结构连接矩阵耦合，延迟由纤维长度 /
+3.0 mm/ms 传导速度决定。该连接矩阵权重主要来自猕猴 CoCoMac 示踪数据，
+胼胝体连接是人类 DSI 纤维束宽度缩放后填入的双半球混合矩阵，
+皮层下结构未包含；TVB 官方声明该数据集为数值测试与理论探索定制，
+生物物理真实性有限。详见 `docs/model-spec.md` 与应用内「模型信息」。
 
 **默认预设**：TVB 的 A-set 参数只改一个值——θ_e 从 0 改为 1.0，
 全局耦合 G = 0.35。原因：纯 A-set 本身是双稳态的（三个不动点，
@@ -64,7 +74,11 @@ TVB 的结构连接矩阵耦合，延迟由纤维长度 / 3.0 mm/ms 传导速度
 
 脑结构与连接数据来自 The Virtual Brain 的示例数据（`tvb-data`）：
 76 节点连接矩阵、16,384 顶点皮层网格、脑区映射三者配套对齐。
-原始数据文件不进仓库，构建时下载、预处理脚本见
+**这是演示用连接组（Demo Connectome），不是真人个体化连接网络**：
+权重主要来自猕猴 CoCoMac 神经示踪数据，胼胝体连接是人类 DSI 纤维束
+宽度缩放后填入的双半球混合矩阵，皮层下结构未包含；TVB 官方声明该
+数据集“为数值测试与理论探索定制，生物物理真实性有限，
+不应以此为依据”。原始数据文件不进仓库，构建时下载、预处理脚本见
 `scripts/prepare-brain-data/`。引用：
 
 > Sanz-Leon, P., Knock, S. A., Spiegler, A., & Jirsa, V. K. (2015).
@@ -74,10 +88,12 @@ TVB 的结构连接矩阵耦合，延迟由纤维长度 / 3.0 mm/ms 传导速度
 
 ## 许可
 
-- 代码以 MIT 许可发布（LICENSE 文件待补）。
-- 脑数据许可：`tvb-data` 仓库的 LICENSE 为 GPLv3，但未单独说明数据文件
-  是否同样适用，再分发许可目前未明确；本仓库只收录预处理后的轻量资产，
-  原始数据文件不进仓库，引用与来源见 `app/public/brain-assets/meta.json`。
+- 代码以 MIT 许可发布，见根目录 `LICENSE` 文件；第三方说明见 `NOTICE.md`。
+- 脑数据许可：核查结论见 `docs/data-license.md`。`tvb-data` 仓库的
+  LICENSE 为 GPLv3，但未单独说明数据文件是否同样适用，再分发许可
+  目前未完全明确；原始数据与预处理衍生资产均不进仓库，构建时下载
+  并生成（见 `docs/data-license.md`），引用与来源见
+  `app/public/brain-assets/meta.json`（构建时生成）。
   公开使用前请自行确认数据许可。
 
 ## 验收
