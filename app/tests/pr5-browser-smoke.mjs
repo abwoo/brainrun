@@ -159,9 +159,11 @@ try {
     interpolation:'none; synthetic sample, never redistributed',
     license_status:'REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET',
     transform_mri_to_head_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+    transform_mri_to_mni305_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+    standard_coordinate_definition:'MNI305, not MNI152 or true Talairach',
     source_positions:[
-      {hemisphere:'lh',vertex:0,head_mm:[-30,0,0],atlas:'aparc',region:'test-left'},
-      {hemisphere:'rh',vertex:1,head_mm:[30,0,0],atlas:'aparc',region:'test-right'},
+      {hemisphere:'lh',vertex:0,head_mm:[-30,0,0],mni305_mm:[-30,0,0],atlas:'aparc',region:'test-left'},
+      {hemisphere:'rh',vertex:1,head_mm:[30,0,0],mni305_mm:[30,0,0],atlas:'aparc',region:'test-right'},
     ],
     electrodes:[
       {label:'Cz',head_mm:[0,0,100]},
