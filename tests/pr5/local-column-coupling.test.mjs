@@ -41,6 +41,19 @@ test('pyramidal count, coherence, dipole length and physical current each scale 
   }
   assert.ok(a>0);
 });
+test('N and coherence are structurally non-identifiable from one EEG amplitude',()=>{
+  // A scientifically important limit: even perfect voltage measurements alone
+  // cannot independently determine these assumed microscopic parameters.
+  const m={...DEFAULT_MORPHOLOGY};
+  const ref=equivalentMomentNAm(.32,.08,.1,.1,m);
+  const alternative={...m,effectivePyramidalCells:m.effectivePyramidalCells*2,
+    coherence:m.coherence/2};
+  near(equivalentMomentNAm(.32,.08,.1,.1,alternative),ref,1e-12);
+  const alternative2={...m,dipoleSeparationMm:m.dipoleSeparationMm*2,
+    excitatoryCurrentPA:m.excitatoryCurrentPA/2,
+    inhibitoryCurrentPA:m.inhibitoryCurrentPA/2};
+  near(equivalentMomentNAm(.32,.08,.1,.1,alternative2),ref,1e-12);
+});
 test('inhibitory activation can reverse dipole polarity, not force positive-only EEG',()=>{
   const x=equivalentMomentNAm(.25,.15,.2,.2);
   const y=equivalentMomentNAm(.2,.25,.2,.2);
