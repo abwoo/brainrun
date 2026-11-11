@@ -147,11 +147,35 @@ def head_mesh(mri_to_head, rr, tris):
         "triangles": indices.tolist(),
     }
 
+def simplified_cortex_mesh(mri_to_head, source_space, target_faces: int):
+    """Display-only quadric decimation; physical BEM sources never move.
+
+    This mesh is for Three.js only. The gain matrix is calculated from the
+    ORIGINAL MRI-space source vertices, never from simplified display points.
+    """
+    if target_faces < 2000:
+        raise ValueError("Display mesh simplification must retain >= 2000 faces")
+    rr=np.asarray(source_space["rr"],dtype=float)
+    tris=np.asarray(source_space["tris"],dtype=int)
+    if len(tris) <= target_faces:
+        return head_mesh(mri_to_head, rr, tris)
+    try:
+        import trimesh
+        geometry=trimesh.Trimesh(vertices=rr,faces=tris,process=False)
+        reduced=geometry.simplify_quadric_decimation(face_count=target_faces)
+    except ImportError as e:
+        raise RuntimeError(
+            "Install trimesh and fast-simplification for anatomical display mesh"
+        ) from e
+    if len(reduced.faces) > target_faces or len(reduced.faces) < target_faces*0.8:
+        raise ValueError("Display cortex decimation produced unexpected face count")
+    return head_mesh(mri_to_head, reduced.vertices, reduced.faces)
+
 def label_at_source_vertex(annot_labels,hemisphere,vertex):
     return next((label.name for label in annot_labels
        if label.hemi==hemisphere and vertex in label.vertices),"unknown")
 
-def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str):
+def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, display_mesh_faces:int=12000):
     require_version()
     bem_file=fs_dir/"bem/fsaverage-5120-5120-5120-bem-sol.fif"
     src_file=fs_dir/"bem/fsaverage-ico-5-src.fif"
@@ -182,7 +206,7 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str):
     }
     # Use source space mesh in MRI coordinates: no FreeSurfer surface-RAS ambiguity.
     geometry["cortex"]={
-       hemi:head_mesh(mri_to_head,s["rr"],s["tris"])
+       hemi:simplified_cortex_mesh(mri_to_head,s,display_mesh_faces)
        for hemi,s in zip(("lh","rh"),src)
     }
     labels=mne.read_labels_from_annot(
@@ -207,6 +231,8 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str):
       "gain_unit":"uV_per_nA_m",
       "forward_method":"MNE make_forward_dipole + fsaverage three-layer BEM",
       "interpolation":"none; only precomputed source vertices are physically validated",
+      "display_geometry":"decimated original cortical source-space surface (visualization only)",
+      "display_mesh_target_faces":display_mesh_faces,
       "source_positions":points,
       "electrodes":sensors,
       "gains_uV_per_nAm":np.round(gain,8).tolist(),
@@ -240,6 +266,7 @@ def main():
         help="Explicitly fetch source subject files from MNE; ~435 MB compressed")
     parser.add_argument("--sources-per-hemisphere",type=int,default=8)
     parser.add_argument("--montage",choices=MONTAGES,default="10-20")
+    parser.add_argument("--display-mesh-faces",type=int,default=12000)
     parser.add_argument("--output",type=Path,
        default=Path(".local-assets/pr5/fsaverage-bem.json"))
     args=parser.parse_args()
@@ -247,7 +274,7 @@ def main():
         fs_dir=mne.datasets.fetch_fsaverage(subjects_dir=args.subjects_dir,verbose=False)
     else:
         fs_dir=args.subjects_dir/"fsaverage"
-    build(fs_dir,args.output,args.sources_per_hemisphere,args.montage)
+    build(fs_dir,args.output,args.sources_per_hemisphere,args.montage,args.display_mesh_faces)
 
 if __name__=="__main__":
     main()
