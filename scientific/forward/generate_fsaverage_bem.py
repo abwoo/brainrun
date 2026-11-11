@@ -76,13 +76,25 @@ def sources_from_src(src, mri_to_head, per_hemisphere: int):
         chosen=vertno[np.linspace(0,len(vertno)-1,per_hemisphere,dtype=int)]
         mri_m=np.asarray(s["rr"])[chosen]
         head_m=mne.transforms.apply_trans(mri_to_head,mri_m)
+        # MNE source space 'nn' is the MRI cortical surface normal.
+        # Apply the rotation only (NO translation) to the HEAD RAS frame.
+        # The resulting normal is a physical ORIENTATION assumption for
+        # aligned cortical pyramidal cells, not a validated current sign.
+        normals_mri=np.asarray(s["nn"],dtype=float)[chosen]
+        rotation=np.asarray(mri_to_head["trans"],dtype=float)[:3,:3]
+        normal_head=normals_mri @ rotation.T
+        lengths=np.linalg.norm(normal_head,axis=1)
+        if np.any(~np.isfinite(lengths)) or np.min(lengths)<1e-10:
+            raise ValueError("Invalid cortical source surface normal")
+        normal_head=normal_head/lengths[:,None]
         if not np.isfinite(head_m).all():
             raise ValueError("Nonfinite source coordinates")
-        for v,p in zip(chosen,head_m):
+        for v,p,n in zip(chosen,head_m,normal_head):
             sources.append({
                 "hemisphere":hemisphere,
                 "vertex":int(v),
                 "head_mm":np.round(p*1000,5).tolist(),
+                "normal_head_unit":np.round(n,8).tolist(),
             })
             coords.append(p)
     return sources,np.asarray(coords)
@@ -245,6 +257,7 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
       "source_moment_unit":"nA_m",
       "gain_unit":"uV_per_nA_m",
       "forward_method":"MNE make_forward_dipole + fsaverage three-layer BEM",
+      "source_orientation":"MNE original cortical normals rotated MRI→HEAD (sign conventional; no subject calibration)",
       "interpolation":"none; only precomputed source vertices are physically validated",
       "display_geometry":"decimated original cortical source-space surface (visualization only)",
       "display_mesh_target_faces":display_mesh_faces,
@@ -256,7 +269,7 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
       "limitations":[
           "Template anatomy is not a subject-specific MRI.",
           "MRI/HEAD registration follows MNE fsaverage transform; MNI305 uses FreeSurfer talairach.xfm; no MNI152 or true Talairach conversion.",
-          "No neural-mass (Wilson-Cowan) to physical current dipole calibration.",
+          "An optional separate local Wilson-Cowan column has explicitly assumed effective current/cell count/geometry; this is not empirical calibration of TVB or human EEG.",
           "EEG lead-fields valid at these source vertices; not arbitrary free-space drag.",
           "Generated geometry/forward is FreeSurfer-derived; do not distribute until license review.",
       ],
