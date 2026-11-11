@@ -70,6 +70,8 @@ class TestRealFsaverageBEM(unittest.TestCase):
         for p in pts:
             self.assertEqual(p["atlas"],"aparc")
             self.assertEqual(len(p["head_mm"]),3)
+            self.assertEqual(len(p["normal_head_unit"]),3)
+            self.assertAlmostEqual(np.linalg.norm(p["normal_head_unit"]),1.,places=5)
             self.assertEqual(len(p["mni305_mm"]),3)
             self.assertTrue(np.isfinite(p["mni305_mm"]).all())
             self.assertTrue(np.isfinite(p["head_mm"]).all())
