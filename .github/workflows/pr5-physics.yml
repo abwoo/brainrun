@@ -31,3 +31,19 @@ jobs:
       - name: Lint frontend
         working-directory: app
         run: npm run lint
+      - name: Install browser test runner
+        working-directory: app
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install Playwright Chromium
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke test of 3D physical causality
+        working-directory: app
+        run: node tests/pr5-browser-smoke.mjs
+      - name: Upload PR5 browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr5-dipole-lab-screenshot
+          path: tests/pr5/shots/
+          if-no-files-found: ignore
