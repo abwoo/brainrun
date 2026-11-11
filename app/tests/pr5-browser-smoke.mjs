@@ -21,6 +21,23 @@ try {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  // PR1–PR4 regression: the original Rust/WASM neural simulation must
+  // still boot and respond physically after the new physics lab is added.
+  await page.waitForFunction(() => window.__brainSim?.isReady?.() === true,
+    null, {timeout: 45000});
+  const beforeTime = await page.evaluate(() => window.__brainSim.getSnapshot()?.t_ms ?? 0);
+  await page.waitForTimeout(900);
+  const afterTime = await page.evaluate(() => window.__brainSim.getSnapshot()?.t_ms ?? 0);
+  assert.ok(afterTime > beforeTime, 'original Wilson-Cowan clock advances');
+  await page.evaluate(() => {
+    window.__brainSim.resetPeakTracking();
+    window.__brainSim.pulse(40);
+  });
+  await page.waitForTimeout(1200);
+  const originalPeak = await page.evaluate(() => window.__brainSim.getPeakE()?.[40] ?? 0);
+  assert.ok(originalPeak > 0.05,
+    'PR1–PR4 original BrainRun neural stimulus still produces a real peak');
+
   await page.getByRole('button', { name: 'DIPOLE LAB' }).click();
   const modal = page.getByRole('dialog', { name: '电流偶极子物理实验' });
   await modal.waitFor();
