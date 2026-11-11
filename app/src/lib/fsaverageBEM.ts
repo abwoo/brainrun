@@ -22,6 +22,8 @@ export interface CorticalNode {
   hemisphere: 'lh' | 'rh';
   vertex: number;
   head_mm: Vec3Mm;
+  /** Original MNE cortical normal rotated from MRI to HEAD; signed orientation. */
+  normal_head_unit: Vec3Mm;
   /** MNE/FreeSurfer mni_tal (MNI305), NOT MNI152 or true Talairach. */
   mni305_mm: Vec3Mm;
   atlas: string;
@@ -109,6 +111,10 @@ export function validateFsaverageBEM(f:LocalFsaverageBEM):void {
   }
   for (const source of f.source_positions) {
     xyz(source.head_mm,'cortical source');
+    xyz(source.normal_head_unit,'source normal');
+    if (Math.abs(Math.hypot(...source.normal_head_unit)-1)>1e-3) {
+      throw new Error('Cortical normal is not a unit direction');
+    }
     xyz(source.mni305_mm,'FreeSurfer MNI305 coordinate');
     if (!['lh','rh'].includes(source.hemisphere) ||
         !Number.isInteger(source.vertex) || source.vertex<0 ||
