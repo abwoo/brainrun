@@ -16,11 +16,11 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
   const [conductivity, setConductivity] = useState(DEFAULT_CONDUCTIVITY_S_M);
   const [reference, setReference] = useState<'average'|'infinity'>('average');
   const sensors = useMemo(() => demoSphereSensors(90), []);
-  const dir: Vec3Mm = axis === 'X' ? [1,0,0] : axis === 'Y' ? [0,1,0] : [0,0,1];
-  const voltage = sensorPotentialsMicrovolts([{
+  const dir = useMemo<Vec3Mm>(() => axis === 'X' ? [1,0,0] : axis === 'Y' ? [0,1,0] : [0,0,1], [axis]);
+  const voltage = useMemo(() => sensorPotentialsMicrovolts([{
     positionMm: position,
     momentNAm: [dir[0]*moment, dir[1]*moment, dir[2]*moment],
-  }], sensors, { mode: reference }, conductivity);
+  }], sensors, { mode: reference }, conductivity), [position, dir, moment, sensors, reference, conductivity]);
   const maxAbs = Math.max(0.001, ...voltage.map(Math.abs));
 
   useEffect(() => {
