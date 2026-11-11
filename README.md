@@ -22,6 +22,10 @@
 python3 scripts/prepare-brain-data/fetch.py
 python3 scripts/prepare-brain-data/prepare.py
 
+# 1b. 构建 PR5 的 MNE 四层球形 EEG 正向模型（无须下载人类 MRI）
+python3 -m pip install mne==1.11.0
+python3 scientific/forward/generate_sphere_model.py
+
 # 2. 编译 Rust 引擎为 WASM（需要 cargo + wasm-pack）
 bash scripts/build-wasm.sh
 
@@ -37,6 +41,8 @@ GitHub Pages 构建：`npm run build:pages`（基路径 `/brainrun/`）。
 ## 玩法
 
 - **点击脑区**：施加一次短暂刺激，看活动变化与网络响应。
+- **HEAD EEG**：独立的四层球形物理头模型，直接拖动电流源、改变方向/强度、切换标准电极布局，看 MNE 预计算的电位实时变化；不是人类 MRI/BEM。
+- **DIPOLE LAB**：均匀无限导体解析物理基线（12 个示意传感器），用于比较边界条件的影响。
 - **按住脑区**：持续输入，松开即停（按住过久会把网络锁在高活动态——这是网络进入了新的稳定状态，不是软件卡住；横幅上点「恢复到按住前」可一键回到按住前，或点 RESET）。
 - **背景活动**：安静 / 自发 / 振荡三档，默认自发——每脑区持续收到 Ornstein–Uhlenbeck 背景输入（τ = 100 ms、σ = 0.10），同一随机种子重跑逐值相同；振荡档是明确标注的 10 Hz 正弦外部驱动（不是自发节律，见 `docs/model-spec.md` §9）。
 - **实验快照**：保存当前完整实验状态（一键恢复，恢复后继续跑的轨迹与不恢复逐值一致）；手动快照存浏览器本地，刷新后还在，按住开始时另存一份自动快照，不覆盖手动快照。
@@ -97,6 +103,10 @@ TVB 示例数据（Demo Connectome）的结构连接矩阵耦合，延迟由纤�
   并生成（见 `docs/data-license.md`），引用与来源见
   `app/public/brain-assets/meta.json`（构建时生成）。
   公开使用前请自行确认数据许可。
+
+## PR #5 的科学与发布边界
+
+当前新增的 HEAD EEG 使用 MNE 的四层同心球近似，不是个体化头部 BEM 或真实人类图谱。10–20 基础 19 点、扩展 10–10 94 点、10–05 343 点由 MNE 模板电极方向径向投影到同一球面，**不能将投影点直接称为实际个体头皮位置**。源空间为球心附近的有限三维立方网格，源移动时采用经过 MNE 数值比对的三线性插值；**不代表已将 TVB 76 区 E/I 神经活动映射成具有单位的皮层电流源**。模型来源、限定参数、可复现实验、未完成的 MRI/图谱/BEM/许可门槛详见 [`docs/pr5-acceptance.md`](docs/pr5-acceptance.md)。
 
 ## 验收
 
