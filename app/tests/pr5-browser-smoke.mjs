@@ -69,7 +69,7 @@ try {
   await head.getByLabel('选中电极').selectOption('Fp1');
   const measure = async () => {
     const value = await head.getByText('当前电极电位：', {exact:false}).textContent();
-    const match = value?.match(/(-?[0-9]+(?:\\.[0-9]+)?)\\s*µV/);
+    const match = value?.match(/(-?[0-9]+(?:[.][0-9]+)?)[ ]*µV/);
     assert.ok(match, 'EEG electrode reading must have numeric µV unit: '+value);
     return Number(match[1]);
   };
