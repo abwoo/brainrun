@@ -970,3 +970,181 @@ body {
   gap: 10px;
   margin: 4px 0;
 }
+
+/* ---- EEG 分析实验（PR-07，B1） ---- */
+.eeg-lab-modal {
+  width: min(1100px, 96vw);
+  max-height: 90vh;
+}
+
+.eeg-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 12px;
+}
+
+.eeg-lab-close {
+  margin-left: auto;
+}
+
+.eeg-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.eeg-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.eeg-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eeg-control-group label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.eeg-control-group select,
+.eeg-control-group input[type="number"] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--blue-mid);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.eeg-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.eeg-noise {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--frame);
+  border-radius: 3px;
+}
+
+.eeg-noise-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.eeg-noise-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+
+.eeg-noise-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.eeg-noise-row label {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+}
+
+.eeg-noise-row input[type="range"] {
+  width: 100%;
+}
+
+.eeg-run-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.eeg-error {
+  color: #ff9a9a;
+  font-size: 12px;
+}
+
+.eeg-summary {
+  margin: 0;
+}
+
+.eeg-wave-list {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--frame);
+  border-radius: 3px;
+  padding: 4px 0;
+}
+
+.eeg-wave-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+.eeg-wave-row-selected {
+  background: rgba(79, 182, 242, 0.12);
+}
+
+.eeg-wave-label {
+  flex: 0 0 34px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.eeg-wave-row-selected .eeg-wave-label {
+  color: #ffb340;
+}
+
+.eeg-wave-svg {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+}
+
+.eeg-foot {
+  margin-top: 12px;
+  color: var(--text-dim);
+}
+
+/* ---- EEG 实验窄屏（978px）：控件单列，波形区可滚 ---- */
+@media (max-width: 1100px) {
+  .eeg-lab-modal {
+    width: 96vw;
+    max-height: 92vh;
+  }
+
+  .eeg-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .eeg-noise-sliders {
+    grid-template-columns: 1fr;
+  }
+
+  .eeg-wave-list {
+    max-height: 320px;
+  }
+}

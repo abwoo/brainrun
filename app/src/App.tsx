@@ -12,6 +12,7 @@ import BrainScene from './components/BrainScene';
 import ActivityChart from './components/ActivityChart';
 import ParamControl from './components/ParamControl';
 import DipoleLab from './components/DipoleLab';
+import EegAnalysisLab from './components/EegAnalysisLab';
 import HeadSphereLab from './components/HeadSphereLab';
 import LocalBEMLab from './components/LocalBEMLab';
 import type { BrainData } from './lib/brainData';
@@ -168,6 +169,7 @@ export default function App() {
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showDipoleLab, setShowDipoleLab] = useState(false);
   const [showHeadSphereLab, setShowHeadSphereLab] = useState(false);
+  const [showEegLab, setShowEegLab] = useState(false);
   const [showLocalBEM, setShowLocalBEM] = useState(false);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -679,6 +681,10 @@ export default function App() {
           <button type="button" className="chip" onClick={() => setShowHeadSphereLab(true)}
             title="MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位">
             HEAD EEG
+          </button>
+          <button type="button" className="chip" onClick={() => setShowEegLab(true)}
+            title="多导 EEG 实验：柱模型 → 球形正向模型 → 噪声，频谱 / ERP / 时频 / 地形 / 源定位共用同一份记录">
+            EEG 分析
           </button>
           <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}
             title="独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG">
@@ -1394,6 +1400,7 @@ export default function App() {
         setShowHeadSphereLab(false);
         setShowLocalBEM(true);
       }} />}
+      {showEegLab && <EegAnalysisLab onClose={() => setShowEegLab(false)} />}
       {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
       {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
       {showModelInfo && (

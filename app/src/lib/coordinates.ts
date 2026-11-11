@@ -15,9 +15,48 @@ export type CoordinateSpace =
   | 'head-ras-mm'
   | 'head-sphere-centered-mm'
   | 'mri-ras-mm'
-  | 'mni152-mm'
-  | 'talairach-mm'
   | 'tvb-demo-mm';
+// NOTE (PR6 R6): 'mni152-mm' and 'talairach-mm' are deliberately NOT
+// members of this union any more — there is no validated MNI152 or true
+// Talairach registration in this codebase, so they must not be
+// constructible as a CoordinateSpace at all.  Raw strings naming them
+// are rejected by parseCoordinateSpace below (with the reason), and any
+// untyped string that still reaches validateTransform is rejected there
+// too (DISABLED_SPACES is a runtime set, not a type-level one).
+
+/**
+ * Parse a raw string into a CoordinateSpace (PR6 R6).  This is the
+ * only sanctioned way to turn an untrusted string (user input, JSON,
+ * a fixture field) into a CoordinateSpace value.  Disabled spaces
+ * throw a RangeError that states WHY they are refused, instead of
+ * silently mapping to a neighbouring template:
+ * - 'mni152-mm' / 'talairach-mm': no validated MNI152 or true
+ *   Talairach registration exists (only FreeSurfer/MNE MNI305 via
+ *   mni_tal, which is a different template).  Any transform touching
+ *   them would be a fabrication, not a conversion.
+ * - anything else unknown: no such space is defined here.
+ * 'tvb-demo-mm' parses fine as a label (the demo rendering
+ * coordinate) — transforms into/out of it are still refused by
+ * validateTransform, which is a separate, transform-level rule.
+ */
+export function parseCoordinateSpace(s: string): CoordinateSpace {
+  switch (s) {
+    case 'head-ras-mm':
+    case 'head-sphere-centered-mm':
+    case 'mri-ras-mm':
+    case 'tvb-demo-mm':
+      return s;
+    case 'mni152-mm':
+    case 'talairach-mm':
+      throw new RangeError(
+        `Coordinate space '${s}' is disabled: no validated registration exists ` +
+        `(only MNI305 via FreeSurfer/MNE mni_tal, which is not MNI152 and not true Talairach); ` +
+        `refusing to treat it as a usable CoordinateSpace`,
+      );
+    default:
+      throw new RangeError(`Unknown coordinate space '${s}'`);
+  }
+}
 
 export interface SpatialTransform {
   from: CoordinateSpace;
@@ -35,6 +74,12 @@ export interface SpatialTransform {
  * - 'mni152-mm' / 'talairach-mm': no validated MNI152 or true Talairach
  *   registration exists in PR5 (only FreeSurfer/MNE MNI305 via mni_tal).
  *   Any transform touching them is a fabrication, not a conversion.
+ *   Since PR6 R6 they are not even members of CoordinateSpace any
+ *   more (see parseCoordinateSpace); they stay in this RUNTIME set so
+ *   that an untyped string (JSON, JS caller, test fixture) that still
+ *   names them is rejected by validateTransform instead of slipping
+ *   through as a cast.  The set is therefore typed as strings, not
+ *   as CoordinateSpace.
  * - 'tvb-demo-mm': the 76-node TVB demo connectome is a cross-species
  *   example network with no validated registration to any human template
  *   (fsaverage or otherwise). No TVB <-> human-template mapping exists.
@@ -43,7 +88,7 @@ export interface SpatialTransform {
  * goes through, so a plausible-looking matrix can never silently produce
  * numbers in a disabled space.
  */
-const DISABLED_SPACES: ReadonlySet<CoordinateSpace> = new Set([
+const DISABLED_SPACES: ReadonlySet<string> = new Set([
   'mni152-mm',
   'talairach-mm',
   'tvb-demo-mm',
