@@ -78,8 +78,14 @@ try{
   const beforeMoment=await momentText();
   assert.ok(beforeMoment?.includes('0.0000 nA·m'),'column starts at equilibrium');
   await dialog.getByRole('button',{name:'施加局部刺激'}).click();
-  await page.waitForTimeout(120);
+  // Wall time is not physical model time under SwiftShader/CI CPU load.
+  // Wait until the *actual ODE clock* advances by at least 80 simulated ms.
+  await page.waitForFunction(() => {
+    const found=document.body.innerText.match(/模拟时钟\s+(\d+)\s+ms/);
+    return Boolean(found && Number(found[1])>=80);
+  },null,{timeout:60000});
   const duringMoment=await momentText();
+  console.log('PR5 E/I→nA.m browser physics:',duringMoment);
   const match=duringMoment?.match(/(-?[0-9]+(?:[.][0-9]+)?) nA·m/);
   assert.ok(match,'source must expose numerical physical units');
   assert.ok(Math.abs(Number(match[1]))>.005,
@@ -87,6 +93,7 @@ try{
   const observed=await dialog.getByText('电位：',{exact:false}).textContent();
   assert.match(observed??'',/µV/,'dipole projects through EEG BEM');
   await dialog.getByRole('button',{name:'暂停神经动力学'}).click();
+  await page.waitForTimeout(60); // allow the pause effect to cancel its queued RAF
   const paused=await dialog.getByText('模拟时钟',{exact:false}).textContent();
   await page.waitForTimeout(130);
   const pausedAgain=await dialog.getByText('模拟时钟',{exact:false}).textContent();
