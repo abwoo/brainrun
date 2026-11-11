@@ -19,6 +19,8 @@ test('every high-density cortex node is finite, labeled, and in a real hemispher
   for(const s of model.source_positions){
     assert.ok(['lh','rh'].includes(s.hemisphere));
     assert.equal(s.head_mm.length,3);
+    assert.equal(s.normal_head_unit.length,3);
+    assert.ok(Math.abs(Math.hypot(...s.normal_head_unit)-1)<1e-5);
     assert.equal(s.mni305_mm.length,3);
     assert.ok(s.head_mm.every(Number.isFinite));
     assert.ok(s.mni305_mm.every(Number.isFinite));
