@@ -139,6 +139,73 @@ try {
   assert.ok(Math.abs(postDrag-preDrag) > 0.0005,
     '3D source drag must change actual MNE-derived electrode voltage');
   await page.screenshot({ path: '../tests/pr5/shots/mne-head-sphere.png', fullPage: true });
+  // Local-only real MRI/BEM UI: verify browser file loading, source selection,
+  // current dipole parameter causality and source reset WITHOUT shipping
+  // any FreeSurfer-derived asset. This test uses a tiny synthetic fixture;
+  // real BEM correctness is independently checked by the MNE live job.
+  await head.getByRole('button', {name:'打开本地真实 MRI BEM'}).click();
+  const real = page.getByRole('dialog', {name:'真实模板 MRI BEM 实验'});
+  const tetra = {
+    vertices_head_mm:[[0,0,0],[1,0,0],[0,1,0],[0,0,1]],
+    triangles:[[0,1,2],[0,1,3],[1,2,3],[0,2,3]],
+  };
+  const localFixture = {
+    model_id:'fsaverage-mne-three-layer-bem-v1',
+    subject:'fsaverage',
+    subject_type:'SYNTHETIC_BROWSER_TEST_ONLY',
+    montage:'10-20',
+    frame:'HEAD_RAS_MM',
+    gain_unit:'uV_per_nA_m',source_moment_unit:'nA_m',
+    interpolation:'none; synthetic sample, never redistributed',
+    license_status:'REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET',
+    transform_mri_to_head_rowmajor:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+    source_positions:[
+      {hemisphere:'lh',vertex:0,head_mm:[-30,0,0],atlas:'aparc',region:'test-left'},
+      {hemisphere:'rh',vertex:1,head_mm:[30,0,0],atlas:'aparc',region:'test-right'},
+    ],
+    electrodes:[
+      {label:'Cz',head_mm:[0,0,100]},
+      {label:'Pz',head_mm:[0,-50,90]},
+      {label:'Fz',head_mm:[0,50,90]},
+    ],
+    gains_uV_per_nAm:[
+      [1,2,3,4,5,6],[-1,0,2,3,0,-2],[0,1,2,3,4,5],
+    ],
+    meshes:{brain:tetra,skull:tetra,scalp:tetra,
+      cortex:{lh:tetra,rh:tetra}},
+  };
+  await real.getByLabel('导入本地 BEM 模型').setInputFiles({
+    name:'SYNTHETIC-NOT-REAL-BEM.json',
+    mimeType:'application/json',
+    buffer:Buffer.from(JSON.stringify(localFixture),'utf8'),
+  });
+  await real.getByText('test-left', {exact:false}).first().waitFor();
+  const sourceMenu = real.getByLabel('皮层源位置');
+  assert.equal(await sourceMenu.locator('option').count(),2);
+  const localVoltage = async () => {
+    const text = await real.getByText('电位：', {exact:false}).textContent();
+    const m = text?.match(/(-?[0-9]+(?:[.][0-9]+)?)[ ]*µV/);
+    assert.ok(m,'MRI BEM display voltage must be finite µV: '+text);
+    return Number(m[1]);
+  };
+  const localBase = await localVoltage();
+  await sourceMenu.selectOption('1');
+  const localMoved = await localVoltage();
+  assert.ok(Math.abs(localMoved-localBase)>.001,
+    'switching precomputed cortex source must change gain matrix column');
+  await real.getByLabel('MRI BEM源方向').selectOption('Z');
+  const localRotated=await localVoltage();
+  assert.ok(Math.abs(localRotated-localMoved)>.001,
+    'rotating dipole moment must change the displayed voltage');
+  await real.getByRole('button',{name:'重置模板实验'}).click();
+  const localReset=await localVoltage();
+  assert.ok(Math.abs(localReset-localBase)<.001,
+    'reset must recover selected source and physical dipole parameters');
+  const localCanvas=real.locator('canvas').first();
+  await localCanvas.waitFor();
+  assert.ok((await localCanvas.boundingBox())?.width>200,
+    'loaded BEM human anatomy uses real Three.js renderer');
+  await page.screenshot({path:'../tests/pr5/shots/mri-bem-local-synthetic.png',fullPage:true});
   assert.deepEqual(errors, [], 'no JavaScript runtime exceptions');
   console.log('PR5 browser smoke PASS: 12 voltages, moment, orientation, reset, 3D drag, screenshot, no pageerror');
 } finally {
