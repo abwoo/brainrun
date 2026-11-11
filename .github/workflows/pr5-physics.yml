@@ -39,9 +39,31 @@ jobs:
         run: node --experimental-strip-types --test tests/pr5/sphere-forward.test.mjs
       - name: Verify infinite-conductor analytical model (12 cases)
         run: node --experimental-strip-types --test tests/pr5/volume-conduction.test.mjs
+      - name: Setup Rust toolchain and WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Regression test original Wilson-Cowan Rust engine
+        run: cargo test --manifest-path crates/brain-core/Cargo.toml
+      - name: Test existing Python neural reference models
+        run: |
+          python reference/python-model/test_wilson_cowan.py
+          python reference/python-model/test_pr3.py
+          python reference/python-model/test_pr4.py
+      - name: Install WASM packager
+        run: cargo install wasm-pack
+      - name: Compile original BrainRun WASM engine for browser
+        run: bash scripts/build-wasm.sh
+      - name: Fetch and verify existing TVB demo assets
+        run: |
+          python scripts/prepare-brain-data/fetch.py
+          python scripts/prepare-brain-data/prepare.py
       - name: Type-check frontend
         working-directory: app
         run: npx tsc -b
+      - name: Build production frontend with both physics labs
+        working-directory: app
+        run: npm run build
       - name: Lint frontend
         working-directory: app
         run: npm run lint
