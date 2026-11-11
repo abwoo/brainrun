@@ -47,15 +47,20 @@ class TestMriHeadRegistration(unittest.TestCase):
         tx=mne.transforms.Transform("mri","head",np.eye(4))
         left={"coord_frame":FIFF.FIFFV_COORD_MRI,
               "vertno":np.array([0,2,4,6]),
+              "nn":np.tile([0,0,1],(7,1)),
               "rr":np.array([[-.02,0,.02],[0,0,0],[-.03,.01,.02],[0,0,0],
                              [-.03,-.01,.03],[0,0,0],[-.04,.01,.025]])}
         right={"coord_frame":FIFF.FIFFV_COORD_MRI,
               "vertno":np.array([0,2,4,6]),
+              "nn":np.tile([0,0,1],(7,1)),
               "rr":np.array([[.02,0,.02],[0,0,0],[.03,.01,.02],[0,0,0],
                             [.03,-.01,.03],[0,0,0],[.04,.01,.025]])}
         points,pos=mod.sources_from_src([left,right],tx,per_hemisphere=2)
         self.assertEqual(len(points),4)
         self.assertEqual(pos.shape,(4,3))
+        for point in points:
+            self.assertEqual(len(point['normal_head_unit']),3)
+            self.assertAlmostEqual(np.linalg.norm(point['normal_head_unit']),1.,places=6)
         self.assertTrue(all(p["head_mm"][0]<0 for p in points[:2]))
         self.assertTrue(all(p["head_mm"][0]>0 for p in points[2:]))
         np.testing.assert_allclose(np.asarray(points[0]["head_mm"])/1000,pos[0],atol=1e-8)
