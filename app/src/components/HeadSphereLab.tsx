@@ -153,7 +153,7 @@ export default function HeadSphereLab({onClose}:{onClose:()=>void}) {
     <div className="modal screen" role="dialog" aria-modal="true"
       aria-label="分层球形头EEG物理实验" onClick={e=>e.stopPropagation()}
       style={{width:'min(1190px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
-      <div className="screen-title" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <div className="screen-title" style={{display:'flex',justifyContent:'space-between',alignItems:'center',right:0,pointerEvents:'auto'}}>
         FOUR-LAYER SPHERE · PHYSICS EEG
         <button type="button" className="chip chip-small" onClick={onClose}>关闭</button>
       </div>
