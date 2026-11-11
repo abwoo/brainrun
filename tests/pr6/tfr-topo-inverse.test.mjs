@@ -283,14 +283,17 @@ test('PR-12 盲测无噪声配置：与 Python fixture 逐项对照（偶极子�
     assertCloseArray(r.dipole.estimatedMomentNAm, cfg.dipole.estimated_moment_nAm, 0, 1e-6, `${cfg.montage} dipole moment`);
     assert.ok(r.dipole.residualRmsUv < 1e-9, `${cfg.montage} dipole residual ${r.dipole.residualRmsUv}`);
     assert.equal(r.dipole.localizationErrorMm, 0, `${cfg.montage} dipole error`);
-    // MNE：峰值位置精确相等、峰值与分布范围相对 1e-5（不是 1e-6：
-    // CI 现场重算的球形正向模型在不同 CPU 上的增益差异约 3e-6
-    // 相对，实测本机扰动 3.2e-6 后峰值相对误差 3.08e-6；1e-5 仍
-    // 比盲测的科学量级——峰值网格点相等、相关 > 0.98——严得多，
-    // 位置断言仍精确相等，真实回归会被位置断言抓住）。
+    // MNE：峰值位置精确相等、峰值相对 1e-4、分布范围相对 1e-5
+    // （2026-11-12 PR7 CI 再修：峰值原 1e-5 不够。CI 现场重算的
+    // 球形正向模型在不同 CPU 上的增益差异是非均匀的，约 3e-6
+    // 相对；8 种子非均匀扰动实测峰值相对误差最大 1.92e-5，6/8
+    // 种子超 1e-5；先前均匀扰动只测到 3.08e-6，低估约 6 倍。
+    // 1e-4 留约 5 倍余量，仍比盲测的科学量级——峰值网格点相等、
+    // 相关 > 0.98——严得多，位置断言仍精确相等，真实回归会被
+    // 位置断言抓住）。
     assert.deepEqual(r.mne.estimatedPositionMm, cfg.mne.estimated_position_mm, `${cfg.montage} MNE position`);
     const peakErr = Math.abs(r.mne.peakValue - cfg.mne.peak_value) / Math.max(1e-12, Math.abs(cfg.mne.peak_value));
-    assert.ok(peakErr <= 1e-5, `${cfg.montage} MNE peak rel err ${peakErr}`);
+    assert.ok(peakErr <= 1e-4, `${cfg.montage} MNE peak rel err ${peakErr}`);
     const spreadErr = Math.abs(r.mne.spreadMm - cfg.mne.spread_mm) / Math.max(1e-12, cfg.mne.spread_mm);
     assert.ok(spreadErr <= 1e-5, `${cfg.montage} MNE spread rel err ${spreadErr}`);
     assert.equal(r.mne.localizationErrorMm, cfg.mne.localization_error_mm, `${cfg.montage} MNE error`);

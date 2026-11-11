@@ -229,3 +229,42 @@ python3 scripts/push-to-pr6-branch.py
   Checks + run 43082978017 PR5 Physics Baseline Checks（2026-11-12
   约 02:35），eeg-analysis job 全步骤 success。合并门槛已达到，PR
   正文已更新；PR 仍为 Draft，未合并、未标 Ready，等把关人合并。
+
+## 2026-11-12 PR7 CI 再修：盲测 MNE 峰值容差 1e-5 → 1e-4（总协调）
+- 现象：PR7 分支 pr7-multiscale 首个提交 fb50bca 的 CI（PR #8），
+  eeg-analysis 第 8 步 PR6 Python 方法学测试失败（exit code 1；
+  日志下载接口持续 502，无法直接取 CI 日志——改由本地复现定位）。
+- 本地复现：同一命令在本机 45/45 全绿；球形增益做 CI 量级的
+  非均匀扰动（每元素独立 ×(1+N(0,3.2e-6))）后，
+  test_blind_table_freshness 在峰值断言上失败：1.29e-05 > 1e-5。
+- 根因：PR6 修补时用的模拟是均匀扰动（全矩阵同乘 (1+3.2e-6)，
+  峰值只漂 3.08e-6），但 CI 现场重算的增益漂移是非均匀的——
+  每元素独立漂移经 MNE 白化/逆解放大后，峰值相对误差可达
+  1.92e-5。均匀扰动低估了约 6 倍，1e-5 容差在 CI 量级漂移下
+  8 种子里 6 个会失败（峰值误差 5.3e-06…1.92e-05），是系统性
+  脆弱，不是偶发抖动。
+- 误差底实测（8 种子，非均匀 σ=3.2e-6 扰动，逐项最大值）：
+  峰值相对 5.3e-06…1.92e-05；spread 相对 1.25e-06…4.40e-06；
+  偶极子矩绝对 ~2e-14（容差 1e-9 内 5 个量级余量，靠正向/逆向
+  同增益自洽抵消）；残差 ~3e-16。未扰动基线峰值/spread 误差
+  均为 0。
+- 改了什么（只改测试容差与注释，未动任何产品代码、fixture、
+  科学门槛）：峰值相对容差 1e-5 → 1e-4（Python
+  test_tfr_topo_inverse.py 与 TS tfr-topo-inverse.test.mjs 同步
+  改）；spread 保持 1e-5（实测最大 4.4e-6，2.3 倍余量，证据
+  支持不动）。1e-4 留约 5 倍余量，仍比峰值科学量级（O(1) nA·m）
+  严 4 个量级；位置分量精确相等、偶极子矩 1e-9、残差 places=9
+  等其余断言一字未动，真实回归仍会被位置断言抓住。
+- 验证（本地，eeg-venv / node）：
+  - 干净基线：Python 45/45、TS pr6 59/59 全绿。
+  - CI 模拟（8 种子非均匀 3.2e-6 扰动）：Python 盲测 8/8 通过；
+    TS 盲测取最差两种子（0、7）16/16 通过。
+  - 每次模拟后 sphere-model.json 均从备份恢复（与分支存量逐位相同）。
+- 推送：修补随 PR7 第二个提交推到同一分支 pr7-multiscale，重新
+  触发 CI（SHA 与新 CI 结果见 tests/pr7/debug-rounds.md）。
+- 附记：此次 eeg-analysis 失败的重新运行请求被接受后，run
+  43094678195 以 startup_failure 告终（未起步，非产品问题）；
+  同批 physics job 第 28 步“Upload PR5 browser screenshot”也
+  失败、job 长时间停在 in_progress（27 个测试步骤全 success）——
+  与日志下载 502 同期，疑似 GitHub Actions 基础设施抖动，待
+  后续复核。

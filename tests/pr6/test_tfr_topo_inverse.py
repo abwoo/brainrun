@@ -141,12 +141,16 @@ class TestBlindInverse(unittest.TestCase):
                                    b_s["dipole"]["residual_rms_uv"], places=9)
             self.assertEqual(b_f["mne"]["estimated_position_mm"],
                              b_s["mne"]["estimated_position_mm"])
-            # peak_value 相对 1e-5（原 places=6）：同 spread，CI 现场
-            # 重算的增益差异会让峰值漂 ~3e-6 相对；位置分量仍要求
-            # 精确相等，真实回归会被位置断言抓住。
+            # peak_value 相对 1e-4（2026-11-12 PR7 CI 再修：原 1e-5 不够）：
+            # CI 现场重算的增益差异是非均匀的（每元素独立漂 ~3.2e-6
+            # 相对），经 MNE 白化/逆解放大后峰值相对误差可达 1.92e-5
+            # （8 种子非均匀扰动实测，最大值 1.92e-5，6/8 种子超 1e-5；
+            # 先前均匀扰动只测到 3.08e-6，低估约 6 倍）。1e-4 留约
+            # 5 倍余量，仍比峰值的科学量级（O(1) nA·m）严 4 个量级；
+            # 位置分量仍要求精确相等，真实回归会被位置断言抓住。
             peak_err = abs(b_f["mne"]["peak_value"] - b_s["mne"]["peak_value"]) / max(
                 1e-12, abs(b_s["mne"]["peak_value"]))
-            self.assertLess(peak_err, 1e-5, f"mne peak rel err {peak_err:.3g}")
+            self.assertLess(peak_err, 1e-4, f"mne peak rel err {peak_err:.3g}")
             # spread 相对 1e-5：CI 漂移 6.96e-6 mm（78.1 mm 的 8.9e-8
             # 相对），来自增益矩阵的跨 CPU 差异经 MNE 逆解放大；1e-5
             # 相对仍比盲测的科学量级（分布范围几十 mm）严 6 个量级，

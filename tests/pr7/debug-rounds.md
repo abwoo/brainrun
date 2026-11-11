@@ -74,5 +74,32 @@ C=PR-15 双脑/时间机器/闭环（~/workspace/brainrun-pr7-c）。三方只�
   55.43 mm、有噪声深源 depth 96.00 mm 更差，没有一种方法同时修好深浅两端，
   残留仍在（见契约 §1.11 诚实边界）；基线 RMS 仍 0、alpha 占比 99.8% 未动，留给 PR8。
 
-## 推送与 PR（待填）
+## 推送与 PR（总协调，2026-11-12）
+- 推送：分支 pr7-multiscale 在 GitHub 上新建（POST /git/refs，指向 main
+  d845c1a1），首个提交 fb50bca 由 scripts/push-to-pr7-branch.py --yes 推上
+  （API 方式，约 10.6 分钟逐文件建 blob；main 未动；脚本尾部打印的
+  pull/7 链接是模板残留，实际 PR 号是 #8）。
+- PR #8 已开：https://github.com/abwoo/brainrun/pull/8 ，Draft，标题
+  “PR7: 多尺度与高级实验（细胞级模型 / TES·TMS·感觉输入 / 双脑·时间机器·闭环）”，
+  head pr7-multiscale fb50bca，base main d845c1a1，42 个文件 +14529/−2，
+  mergeable True；正文见 ~/workspace/pr7-body.md（诚实写清已验证/未验证/残留项）。
+- CI：physics-and-types 与 eeg-analysis 两路检查进行中（开 PR 时状态）。
+  首轮结果（fb50bca）：**eeg-analysis 失败**——第 8 步 PR6 Python 方法学测试
+  exit code 1；physics-and-types 27 个测试步骤全 success，第 28 步
+  “Upload PR5 browser screenshot”失败、job 长时间停在 in_progress
+  （疑似 GitHub Actions 基础设施抖动，与日志下载 502 同期）。
+- CI 失败诊断（总协调，2026-11-12）：本地同一命令 45/45 全绿；球形增益做
+  CI 量级的非均匀扰动（每元素独立 ×(1+N(0,3.2e-6))）后复现——
+  test_blind_table_freshness 峰值断言 1.29e-05 > 1e-5。根因是 PR6 修补时
+  用的均匀扰动模拟低估了约 6 倍：CI 现场重算的增益漂移是非均匀的，
+  经 MNE 白化/逆解放大后峰值相对误差可达 1.92e-5（8 种子实测
+  5.3e-06…1.92e-05，6/8 种子超 1e-5）。修法（只改测试容差与注释，
+  未动产品代码/fixture/科学门槛）：峰值相对容差 1e-5 → 1e-4（Python
+  test_tfr_topo_inverse.py 与 TS tfr-topo-inverse.test.mjs 同步改），
+  spread 保持 1e-5（实测最大 4.4e-6）。验证：干净基线 Python 45/45、
+  TS pr6 59/59；8 种子非均匀扰动下 Python 盲测 8/8、TS 盲测（最差两种子）
+  16/16 通过；sphere-model.json 每次模拟后均恢复逐位相同。详见
+  tests/pr6/debug-rounds.md 末节。修补随第二个提交推到同一分支，CI 结果待补。
+- eeg-analysis 重跑尝试：rerun-failed-jobs 被接受后 run 43094678195 以
+  startup_failure 告终（未起步，非产品问题）；以第二个提交重新触发为准。
 
