@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Run deterministic engine unit tests
-        run: cargo test --manifest-path crates/brain-core/Cargo.toml --locked
+        run: cargo test --manifest-path crates/brain-core/Cargo.toml
 
   frontend:
     name: Frontend static checks
