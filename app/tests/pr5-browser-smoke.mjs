@@ -208,6 +208,31 @@ try {
   assert.ok((await localCanvas.boundingBox())?.width>200,
     'loaded BEM human anatomy uses real Three.js renderer');
   await page.screenshot({path:'../tests/pr5/shots/mri-bem-local-synthetic.png',fullPage:true});
+  // PR5 independent local cortical ODE -> assumed synaptic current -> MRI
+  // cortical normal -> MNE/BEM electrode projection (no pre-authored trace).
+  await real.getByLabel('BEM物理源模式').selectOption('local-column');
+  await real.getByText('等效偶极矩：', {exact:false}).waitFor();
+  const momentText=()=>real.getByText('等效偶极矩：',{exact:false}).textContent();
+  const beforeMoment=await momentText();
+  assert.ok(beforeMoment?.includes('0.0000 nA·m'),'column starts at equilibrium');
+  await real.getByRole('button',{name:'施加局部刺激'}).click();
+  await page.waitForTimeout(120);
+  const duringMoment=await momentText();
+  const match=duringMoment?.match(/(-?[0-9]+(?:[.][0-9]+)?) nA·m/);
+  assert.ok(match,'source must expose numerical physical units');
+  assert.ok(Math.abs(Number(match[1]))>.005,
+    'stimulus must change ODE-driven equivalent current dipole');
+  const observed=await real.getByText('电位：',{exact:false}).textContent();
+  assert.match(observed??'',/µV/,'dipole projects through EEG BEM');
+  await real.getByRole('button',{name:'暂停神经动力学'}).click();
+  const paused=await real.getByText('模拟时钟',{exact:false}).textContent();
+  await page.waitForTimeout(130);
+  const pausedAgain=await real.getByText('模拟时钟',{exact:false}).textContent();
+  assert.equal(pausedAgain,paused,'pause must freeze model clock');
+  await real.getByRole('button',{name:'重置神经动力学'}).click();
+  const baseline=await momentText();
+  assert.ok(baseline?.includes('0.0000 nA·m'),'reset must restore equilibrium');
+  await real.getByLabel('BEM物理源模式').selectOption('manual');
   assert.deepEqual(errors, [], 'no JavaScript runtime exceptions');
   console.log('PR5 browser smoke PASS: 12 voltages, moment, orientation, reset, 3D drag, screenshot, no pageerror');
 } finally {
