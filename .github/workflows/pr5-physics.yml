@@ -37,6 +37,8 @@ jobs:
         run: python -m unittest discover -s tests/pr5 -p 'test_sphere_model.py' -v
       - name: Validate coordinate frame transforms and refuse unregistered atlases
         run: node --experimental-strip-types --test tests/pr5/coordinates.test.mjs
+      - name: Validate template MRI BEM browser runtime (synthetic fixture only)
+        run: node --experimental-strip-types --test tests/pr5/fsaverage-bem-runtime.test.mjs
       - name: Test browser spherical leadfield runtime
         run: node --experimental-strip-types --test tests/pr5/sphere-forward.test.mjs
       - name: Verify infinite-conductor analytical model (12 cases)
