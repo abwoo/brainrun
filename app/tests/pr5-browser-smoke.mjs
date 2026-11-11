@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import * as THREE from 'three';
 
 const server = await createServer({
   server: { port: 0, host: '127.0.0.1', strictPort: false },
@@ -94,6 +95,30 @@ try {
   const resetHead = await measure();
   assert.ok(Math.abs(resetHead-base) < 0.001,
     'reset must recover original MNE sphere EEG voltage');
+  // Real pointer drag on the 3D source, not just a model setter.
+  // Independent geometric projection to the canvas from the actual documented camera.
+  const headCanvas = head.locator('canvas').first();
+  const bbox = await headCanvas.boundingBox();
+  assert.ok(bbox?.width > 300, 'head canvas visible');
+  const camera = new THREE.PerspectiveCamera(42, bbox.width/bbox.height, 1, 1000);
+  camera.up.set(0, 0, 1);
+  camera.position.set(175, 165, 230);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  const ndc = new THREE.Vector3(0,0,16).project(camera);
+  const sx = bbox.x + bbox.width*(ndc.x+1)/2;
+  const sy = bbox.y + bbox.height*(1-ndc.y)/2;
+  const preDrag = await measure();
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  await page.mouse.move(sx+32, sy+14, {steps:8});
+  await page.mouse.up();
+  const dragLocation = await head.getByText('源位置 mm：', {exact:false}).textContent();
+  assert.ok(dragLocation && !dragLocation.includes('0.0, 0.0, 16.0'),
+    'MNE spherical source must move when dragged in 3D');
+  const postDrag = await measure();
+  assert.ok(Math.abs(postDrag-preDrag) > 0.0005,
+    '3D source drag must change actual MNE-derived electrode voltage');
   await page.screenshot({ path: '../tests/pr5/shots/mne-head-sphere.png', fullPage: true });
   assert.deepEqual(errors, [], 'no JavaScript runtime exceptions');
   console.log('PR5 browser smoke PASS: 12 voltages, moment, orientation, reset, 3D drag, screenshot, no pageerror');
