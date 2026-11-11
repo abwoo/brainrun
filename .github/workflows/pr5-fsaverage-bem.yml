@@ -1,0 +1,112 @@
+name: PR5 MRI Template BEM Scientific Validation (no asset redistribution)
+
+on:
+  push:
+    branches: [feat/pr5-physics-core]
+    paths:
+      - scientific/forward/generate_fsaverage_bem.py
+      - app/tests/pr5-real-bem-browser.mjs
+      - app/pr5-real-bem.html
+      - app/src/pr5RealBEMHarness.tsx
+      - tests/pr5/test_fsaverage_bem_live.py
+      - tests/pr5/fsaverage-bem-dense.test.mjs
+      - tests/pr5/local-column-real-bem.test.mjs
+      - scientific/forward/local_column_scipy_reference.py
+      - app/src/lib/localCorticalColumn.ts
+      - app/src/lib/fsaverageBEM.ts
+      - app/src/components/LocalBEMLab.tsx
+      - .github/workflows/pr5-fsaverage-bem.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fsaverage-bem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Python scientific environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned MNE scientific solver
+        run: python -m pip install 'mne==1.11.0' 'nibabel>=5,<6' 'trimesh>=4,<5' 'fast-simplification>=0.1,<1'
+      - name: Explicitly fetch fsaverage and compute true MRI BEM
+        run: |
+          python scientific/forward/generate_fsaverage_bem.py \
+            --download --sources-per-hemisphere 8 --montage 10-20 \
+            --output .local-assets/pr5/fsaverage-bem.json
+      - name: Independently validate real BEM, MRI/HEAD registration and template scalp coordinates
+        run: python -m unittest discover -s tests/pr5 -p 'test_fsaverage_bem_live.py' -v
+      - name: Produce independent SciPy reference for the local neural column
+        run: python scientific/forward/local_column_scipy_reference.py
+      - name: Setup Node.js for real-BEM browser verification
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install frontend dependencies and local-only browser harness
+        working-directory: app
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install Chromium in isolated test runner
+        working-directory: app
+        # 2026-11-11: run 43049425432 failed ONLY here (step 10); run
+        # 43049437545 (physics workflow, same command) then failed the same
+        # way after 3 retries. Root cause (job log): the runner cannot
+        # resolve `azure.archive.ubuntu.com` — every `apt-get` inside
+        # `--with-deps` fails with "Temporary failure resolving
+        # 'azure.archive.ubuntu.com'". Fix: drop `--with-deps`, install only
+        # the browser binaries from the Playwright CDN; the ubuntu-24.04
+        # runner image already ships Google Chrome, so the shared libraries
+        # headless Chromium needs are present. Keep the 3-attempt retry.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright Chromium install, attempt $attempt/3"
+            if npx playwright install chromium; then
+              echo "Playwright Chromium install succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Playwright Chromium install failed after 3 attempts" >&2
+          exit 1
+      - name: Cross-check local E/I→physical dipole→19-electrode real BEM
+        run: node --experimental-strip-types --test tests/pr5/local-column-real-bem.test.mjs
+      - name: Test REAL fsaverage anatomy and MNE BEM field in Chromium
+        working-directory: app
+        run: node tests/pr5-real-bem-browser.mjs
+      - name: Generate a denser 128-source / 343-electrode MRI/BEM validation model
+        run: |
+          python scientific/forward/generate_fsaverage_bem.py \
+            --sources-per-hemisphere 64 --montage 10-05 \
+            --output .local-assets/pr5/fsaverage-bem-dense.json
+      - name: Validate dense source-space and montage EEG runtime (no interpolation)
+        run: node --experimental-strip-types --test tests/pr5/fsaverage-bem-dense.test.mjs
+      - name: Cross-check local E/I→physical dipole→343-electrode real BEM
+        env:
+          PR5_MODEL_FILE: .local-assets/pr5/fsaverage-bem-dense.json
+        run: node --experimental-strip-types --test tests/pr5/local-column-real-bem.test.mjs
+      - name: Validate dense real MRI/BEM in Chromium without distributing data
+        working-directory: app
+        env:
+          PR5_MODEL_FILE: ../.local-assets/pr5/fsaverage-bem-dense.json
+          PR5_EXPECTED_SOURCES: '128'
+          PR5_EXPECTED_ELECTRODES: '343'
+        run: node tests/pr5-real-bem-browser.mjs
+      - name: Ensure fsaverage-derived artifacts are excluded from the git repository
+        run: |
+          if git ls-files | grep -E '^(\.local-assets/|app/public/fsaverage/|app/public/real-bem/)'; then
+            echo 'ERROR: FreeSurfer-derived assets tracked in git.' >&2
+            exit 1
+          fi
+          git status --short
+      # Intentional: DO NOT upload geometry, MRI surfaces, BEM solutions,
+      # or generated JSON as publicly downloadable workflow artifacts.
+      # FreeSurfer license review is required before any public distribution.

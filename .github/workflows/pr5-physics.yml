@@ -1,0 +1,116 @@
+name: PR5 Physics Baseline Checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physics-and-types:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+      - name: Setup MNE reference Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific validation dependencies
+        run: python -m pip install mne==1.11.0
+      - name: Generate MNE multilayer spherical head forward model
+        run: python scientific/forward/generate_sphere_model.py
+      - name: Unit-test fsaverage coregistration helpers (no dataset download)
+        run: python -m unittest discover -s tests/pr5 -p 'test_fsaverage_bem_helpers.py' -v
+      - name: Validate direct MNE physics and off-grid interpolation
+        run: python -m unittest discover -s tests/pr5 -p 'test_sphere_model.py' -v
+      - name: Validate coordinate frame transforms and refuse unregistered atlases
+        run: node --experimental-strip-types --test tests/pr5/coordinates.test.mjs
+      - name: Validate template MRI BEM browser runtime (synthetic fixture only)
+        run: node --experimental-strip-types --test tests/pr5/fsaverage-bem-runtime.test.mjs
+      - name: Generate independent SciPy DOP853 E/I column→physical dipole reference
+        run: python scientific/forward/local_column_scipy_reference.py
+      - name: Test dimensional cortical population→dipole→EEG model vs SciPy
+        run: node --experimental-strip-types --test tests/pr5/local-column-coupling.test.mjs
+      - name: Test browser spherical leadfield runtime
+        run: node --experimental-strip-types --test tests/pr5/sphere-forward.test.mjs
+      - name: Verify infinite-conductor analytical model (12 cases)
+        run: node --experimental-strip-types --test tests/pr5/volume-conduction.test.mjs
+      - name: Setup Rust toolchain and WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Regression test original Wilson-Cowan Rust engine
+        run: cargo test --manifest-path crates/brain-core/Cargo.toml
+      - name: Install WASM packager
+        run: cargo install wasm-pack
+      - name: Compile original BrainRun WASM engine for browser
+        run: bash scripts/build-wasm.sh
+      - name: Fetch and verify existing TVB demo assets
+        run: |
+          python scripts/prepare-brain-data/fetch.py
+          python scripts/prepare-brain-data/prepare.py
+      - name: Test existing Python neural reference models
+        run: |
+          python reference/python-model/test_wilson_cowan.py
+          python reference/python-model/test_pr3.py
+          python reference/python-model/test_pr4.py
+      - name: Type-check frontend
+        working-directory: app
+        run: npx tsc -b
+      - name: Build production frontend with both physics labs
+        working-directory: app
+        run: npm run build
+      - name: Lint frontend
+        working-directory: app
+        run: npm run lint
+      - name: Install browser test runner
+        working-directory: app
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install Playwright Chromium
+        working-directory: app
+        # 2026-11-11: run 43032235876 failed ONLY here (step 26) while steps
+        # 1-25 passed; run 43049437545 then failed here AGAIN after 3 retries.
+        # Root cause (from the job log): the runner cannot resolve
+        # `azure.archive.ubuntu.com` — every `apt-get` inside
+        # `--with-deps` fails with "Temporary failure resolving
+        # 'azure.archive.ubuntu.com'" and each attempt burns ~10 min.
+        # Retrying cannot fix a broken apt mirror DNS. Fix: drop
+        # `--with-deps` entirely — install only the browser binaries from
+        # the Playwright CDN (which the runner reaches fine; npm/pip/MNE
+        # downloads all worked). The ubuntu-24.04 runner image already
+        # ships Google Chrome, so the shared libraries headless Chromium
+        # needs are present. Keep the 3-attempt retry for CDN flakes.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright Chromium install, attempt $attempt/3"
+            if npx playwright install chromium; then
+              echo "Playwright Chromium install succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Playwright Chromium install failed after 3 attempts" >&2
+          exit 1
+      - name: Browser smoke test of 3D physical causality
+        working-directory: app
+        run: node tests/pr5-browser-smoke.mjs
+      - name: Upload PR5 browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr5-dipole-lab-screenshot
+          path: tests/pr5/shots/
+          if-no-files-found: ignore

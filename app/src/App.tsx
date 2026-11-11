@@ -11,6 +11,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrainScene from './components/BrainScene';
 import ActivityChart from './components/ActivityChart';
 import ParamControl from './components/ParamControl';
+import DipoleLab from './components/DipoleLab';
+import HeadSphereLab from './components/HeadSphereLab';
+import LocalBEMLab from './components/LocalBEMLab';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData, topConnections } from './lib/brainData';
 import { DEFAULT_PARAMS, DELTA_FULL, KNOB_MAP, RESPONSE_THRESHOLD, SimClient } from './lib/simClient';
@@ -163,6 +166,9 @@ export default function App() {
   const [simReady, setSimReady] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
   const [showModelInfo, setShowModelInfo] = useState(false);
+  const [showDipoleLab, setShowDipoleLab] = useState(false);
+  const [showHeadSphereLab, setShowHeadSphereLab] = useState(false);
+  const [showLocalBEM, setShowLocalBEM] = useState(false);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [holdMs, setHoldMs] = useState<number | null>(null);
@@ -669,6 +675,14 @@ export default function App() {
           </button>
           <button type="button" className="chip" onClick={handleReset} title="恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）">
             RESET
+          </button>
+          <button type="button" className="chip" onClick={() => setShowHeadSphereLab(true)}
+            title="MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位">
+            HEAD EEG
+          </button>
+          <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}
+            title="独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG">
+            DIPOLE LAB
           </button>
           <button
             type="button"
@@ -1376,6 +1390,12 @@ export default function App() {
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
 
+      {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} onOpenReal={() => {
+        setShowHeadSphereLab(false);
+        setShowLocalBEM(true);
+      }} />}
+      {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
+      {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
       {showModelInfo && (
         <div className="modal-backdrop" onClick={() => setShowModelInfo(false)}>
           <div

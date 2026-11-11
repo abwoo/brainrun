@@ -14,6 +14,10 @@ scripts/prepare-brain-data/raw/
 # Generated brain assets (build-time: fetch.py + prepare.py in CI;
 # never committed — see docs/data-license.md)
 app/public/brain-assets/
+# PR5 local BEM template derivatives: never commit or distribute without license review
+.local-assets/
+# PR5 MNE-generated lead field; build-time only, never commit binary/JSON model assets
+app/public/forward-assets/
 # Logs
 *.log
 # Python bytecode
