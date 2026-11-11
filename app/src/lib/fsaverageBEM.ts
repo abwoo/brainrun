@@ -22,6 +22,8 @@ export interface CorticalNode {
   hemisphere: 'lh' | 'rh';
   vertex: number;
   head_mm: Vec3Mm;
+  /** MNE/FreeSurfer mni_tal (MNI305), NOT MNI152 or true Talairach. */
+  mni305_mm: Vec3Mm;
   atlas: string;
   region: string;
 }
@@ -40,6 +42,8 @@ export interface LocalFsaverageBEM {
   interpolation: string;
   license_status: string;
   transform_mri_to_head_rowmajor: number[][];
+  transform_mri_to_mni305_rowmajor: number[][];
+  standard_coordinate_definition: string;
   source_positions: CorticalNode[];
   electrodes: RegisteredElectrode[];
   gains_uV_per_nAm: number[][];
@@ -89,6 +93,14 @@ export function validateFsaverageBEM(f:LocalFsaverageBEM):void {
         !Array.isArray(row)||row.length!==4||!row.every(Number.isFinite))) {
     throw new Error('Missing explicit MRI to HEAD transform');
   }
+  if (!Array.isArray(f.transform_mri_to_mni305_rowmajor) ||
+      f.transform_mri_to_mni305_rowmajor.length!==4 ||
+      f.transform_mri_to_mni305_rowmajor.some(row=>
+        !Array.isArray(row)||row.length!==4||!row.every(Number.isFinite)) ||
+      !f.standard_coordinate_definition.includes('MNI305') ||
+      !f.standard_coordinate_definition.includes('not MNI152')) {
+    throw new Error('MNI305 transform must be sourced and must not masquerade as MNI152/Talairach');
+  }
   if (!Array.isArray(f.source_positions) || !f.source_positions.length ||
       !Array.isArray(f.electrodes) || !f.electrodes.length ||
       !Array.isArray(f.gains_uV_per_nAm) ||
@@ -97,6 +109,7 @@ export function validateFsaverageBEM(f:LocalFsaverageBEM):void {
   }
   for (const source of f.source_positions) {
     xyz(source.head_mm,'cortical source');
+    xyz(source.mni305_mm,'FreeSurfer MNI305 coordinate');
     if (!['lh','rh'].includes(source.hemisphere) ||
         !Number.isInteger(source.vertex) || source.vertex<0 ||
         typeof source.region!=='string' || typeof source.atlas!=='string') {
