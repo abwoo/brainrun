@@ -13,6 +13,7 @@ import ActivityChart from './components/ActivityChart';
 import ParamControl from './components/ParamControl';
 import DipoleLab from './components/DipoleLab';
 import HeadSphereLab from './components/HeadSphereLab';
+import LocalBEMLab from './components/LocalBEMLab';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData, topConnections } from './lib/brainData';
 import { DEFAULT_PARAMS, DELTA_FULL, KNOB_MAP, RESPONSE_THRESHOLD, SimClient } from './lib/simClient';
@@ -167,6 +168,7 @@ export default function App() {
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showDipoleLab, setShowDipoleLab] = useState(false);
   const [showHeadSphereLab, setShowHeadSphereLab] = useState(false);
+  const [showLocalBEM, setShowLocalBEM] = useState(false);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [holdMs, setHoldMs] = useState<number | null>(null);
@@ -1388,7 +1390,11 @@ export default function App() {
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
 
-      {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} />}
+      {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} onOpenReal={() => {
+        setShowHeadSphereLab(false);
+        setShowLocalBEM(true);
+      }} />}
+      {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
       {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
       {showModelInfo && (
         <div className="modal-backdrop" onClick={() => setShowModelInfo(false)}>
