@@ -508,6 +508,9 @@ export default function BrainScene({
     /** 启动按住：只在计时器到时调用（见 HOLD_DELAY_MS 说明）。 */
     const startHold = () => {
       if (downRegion === null) return;
+      // PR1 小修：引擎未就绪时不画确认标记、不发持续输入。之前这里会
+      // 先画圆环再由 App 侧丢掉刺激，造成“点了却没反应”的假反馈。
+      if (!simRef.current?.isReady()) return;
       holding = true;
       holdStartPerf = performance.now();
       spawnMarker(downRegion);
@@ -615,6 +618,8 @@ export default function BrainScene({
       // 持续输入必须在按住期间施加，松开后补发已无意义；一次脉冲是
       // 唯一诚实的反馈。长按的启动若被卡顿丢掉，脉冲即为全部反馈，
       // 不制造虚假的持续输入与锁定。
+      // PR1 小修：引擎未就绪时不画确认标记、不发脉冲（同 startHold）。
+      if (!simRef.current?.isReady()) return;
       spawnMarker(id);
       onPulseRef.current(id);
     };

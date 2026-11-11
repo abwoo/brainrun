@@ -11,6 +11,9 @@ tests/phase3/wasm-node/
 .venv/
 # TVB raw data (build-time download only, never committed)
 scripts/prepare-brain-data/raw/
+# Generated brain assets (build-time: fetch.py + prepare.py in CI;
+# never committed — see docs/data-license.md)
+app/public/brain-assets/
 # Logs
 *.log
 # Python bytecode
@@ -29,5 +32,5 @@ crates/*/target/
 # Kept in the repo on purpose (do NOT ignore):
 # - tests/*/shots/ and tests/*/report.json (acceptance evidence)
 # - docs/ (specs, validation, acceptance report)
-# - app/public/brain-assets/ (processed TVB assets: vertices, mapping,
-#   connectivity with diagonal zeroed; raw TVB files stay out, see above)
+# NOTE: app/public/brain-assets/ is NOT kept in the repo since PR1 —
+# it is generated at build time (see docs/data-license.md).

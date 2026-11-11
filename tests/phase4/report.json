@@ -7,7 +7,7 @@
   {
     "check": "simulation clock advances",
     "ok": true,
-    "detail": "TIME 1.7 -> 3.0 s"
+    "detail": "TIME 2.6 -> 3.9 s"
   },
   {
     "check": "click selects a region",
@@ -17,7 +17,7 @@
   {
     "check": "click raises selected E (Phase 3 regression)",
     "ok": true,
-    "detail": "max E[47] (peak tracker) = 0.492"
+    "detail": "max E[47] (peak tracker) = 0.494"
   },
   {
     "check": "knob wheel decreases value",
@@ -57,12 +57,12 @@
   {
     "check": "TIME display matches snapshot clock",
     "ok": true,
-    "detail": "snapshot 70.7 s vs display 70.6 s"
+    "detail": "snapshot 66.5 s vs display 66.5 s"
   },
   {
     "check": "fly-to is gradual, not a snap",
     "ok": true,
-    "detail": "moved 412.7 from default; fly progress samples = [0.5]"
+    "detail": "moved 408.5 from default; fly progress samples = [0.81, 0.86, 1]"
   },
   {
     "check": "fly-to lands on default view",
@@ -92,7 +92,7 @@
   {
     "check": "pause freezes simulation time",
     "ok": true,
-    "detail": "TIME 6.7 -> 6.7 s"
+    "detail": "TIME 6.3 -> 6.3 s"
   },
   {
     "check": "reset restores t=0",
