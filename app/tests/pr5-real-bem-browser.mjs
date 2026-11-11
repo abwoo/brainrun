@@ -40,7 +40,7 @@ try{
   const menu=dialog.getByLabel('皮层源位置');
   await menu.waitFor();
   assert.equal(await menu.locator('option').count(),16);
-  await dialog.getByText('aparc', {exact:false}).first().waitFor();
+  await dialog.getByText('模板 fsaverage', {exact:false}).waitFor();
   assert.ok((await dialog.getByText('MNI305 (mm)',{exact:false}).textContent())?.includes(','),
     'real MRI-derived MNI305 coordinate displayed');
   const canvas=dialog.locator('canvas').first();
