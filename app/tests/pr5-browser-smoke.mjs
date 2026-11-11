@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { preview } from 'vite';
 import * as THREE from 'three';
 
-const server = await createServer({
-  server: { port: 0, host: '127.0.0.1', strictPort: false },
+// Production Vite preview is required: the original wasm-bindgen module
+// is an ES module copied to /public/wasm, and Vite DEV disallows importing
+// directly from /public. Preview serves the real build, like GitHub Pages.
+const server = await preview({
+  preview: { port: 0, host: '127.0.0.1', strictPort: false },
   logLevel: 'error',
 });
 let browser;
 try {
-  await server.listen();
   const url = server.resolvedUrls?.local?.[0];
   assert.ok(url, 'Vite did not provide a local URL');
   browser = await chromium.launch({
@@ -141,5 +143,5 @@ try {
   console.log('PR5 browser smoke PASS: 12 voltages, moment, orientation, reset, 3D drag, screenshot, no pageerror');
 } finally {
   await browser?.close();
-  await server.close();
+  await new Promise((resolve, reject) => server.httpServer.close(err => err ? reject(err) : resolve()));
 }
