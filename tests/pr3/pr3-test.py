@@ -62,6 +62,16 @@ def main():
         page.wait_for_function("window.__brainSim && window.__brainSim.isReady()", timeout=30000)
         page.wait_for_function("window.__brainScene", timeout=10000)
         page.wait_for_timeout(1500)
+        # PR4: the default background mode is now Spontaneous (OU drive on
+        # every node).  These causal-isolation measurements need zero
+        # background: the OU noise floor alone (~0.007 max|dE| on node 54
+        # over 2.5 s with no pulse) swamps the zeroed-edge signal (0.0013
+        # in Quiet), and a pulse on node 69 flips the network under
+        # Spontaneous (6/12) while it recovers in Quiet — so the edge
+        # causality numbers are only meaningful in Quiet.  Background
+        # behaviour itself is covered by the PR4 test.
+        page.evaluate("window.__brainSim.setBackgroundMode('quiet')")
+        page.wait_for_timeout(300)
         rot_btn = page.locator("button:has-text('旋转')")
         if "开" in rot_btn.inner_text():
             rot_btn.click()

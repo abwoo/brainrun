@@ -25,6 +25,12 @@ export type WorkerInMessage =
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'reset' }
+  // reset_paused: atomic reset + pause in one message.  Sending reset
+  // then pause as two messages leaves a race window where live ticks
+  // run between them and consume RNG draws, so same-seed reruns would
+  // differ (measured: t_ms up to 50 ms within 120 ms of a reset).
+  // Deterministic stepping (advance_ms) must use this, never reset+pause.
+  | { type: 'reset_paused' }
   | { type: 'set_snapshot_hz'; hz: number }
   // PR3 — direct manipulation.  Weights are structural edits: they take
   // effect from the next step and SURVIVE reset (only the reset_weight /
@@ -35,7 +41,35 @@ export type WorkerInMessage =
   | { type: 'reset_all_weights' }
   | { type: 'set_bias'; node: number; value: number }
   | { type: 'clear_bias'; node: number }
-  | { type: 'clear_all_bias' };
+  | { type: 'clear_all_bias' }
+  // PR4 — background activity, deterministic stepping, snapshots.
+  // set_background_mode only changes bg_mode (+ the sine parameters for
+  // Oscillatory); local Wilson–Cowan parameters and knob values are
+  // untouched.  advance_ms steps the engine exactly N ms and only
+  // works while paused (deterministic test / replay stepping).
+  // save_snapshot stores a complete experiment snapshot in the Worker
+  // and reports it to the main thread (which persists manual snapshots
+  // in localStorage); restore_snapshot restores one by id + JSON.
+  // The 'auto' snapshot is taken by the Worker itself at hold start,
+  // before the hold event is added, and never overwrites 'manual'.
+  | { type: 'set_background_mode'; mode: 'quiet' | 'spontaneous' | 'oscillatory' }
+  | { type: 'set_seed'; seed: number }
+  | { type: 'advance_ms'; ms: number }
+  | { type: 'save_snapshot'; id: string }
+  | { type: 'restore_snapshot'; id: string; json: string };
+
+/** Background mode as reported back after a mode change. */
+export interface ModeParams {
+  mode: 'quiet' | 'spontaneous' | 'oscillatory';
+  /** OU correlation time (ms) — Spontaneous mode. */
+  ou_tau_ms: number;
+  /** OU stationary std (model units of P) — Spontaneous mode. */
+  ou_sigma: number;
+  /** External sine amplitude (model units of P) — Oscillatory mode. */
+  ext_sine_amp: number;
+  /** External sine frequency (Hz) — Oscillatory mode. */
+  ext_sine_freq_hz: number;
+}
 
 export interface Snapshot {
   type: 'snapshot';
@@ -55,6 +89,18 @@ export interface Snapshot {
    * 阈值 0.15 夹在两者之间；瞬态响应（<500 ms）不会误报。
    */
   locked: boolean;
+  /**
+   * PR4 — 长按预警：当前有按住输入在进行中（hold_active），且全网
+   * 平均 E 已明显高于基线（> 0.05）但尚未锁定（approaching_lock）。
+   * lock_progress = mean_e / 0.15（0–1），即“离锁定还有多远”；
+   * hold_ms 是当前按住已持续的仿真毫秒数。锁定本身是网络进入了
+   * 新的稳定状态，不是软件卡住；松开即停输入，一键可恢复到按住前。
+   */
+  hold_active: boolean;
+  hold_node: number | null;
+  hold_ms: number;
+  lock_progress: number;
+  approaching_lock: boolean;
   diverged: boolean;
   divergence_detail: string;
   paused: boolean;
@@ -63,4 +109,7 @@ export interface Snapshot {
 export type WorkerOutMessage =
   | { type: 'ready'; n_nodes: number; dt_ms: number }
   | Snapshot
+  | { type: 'mode_applied'; params: ModeParams }
+  | { type: 'snapshot_saved'; id: string; t_ms: number; json: string }
+  | { type: 'snapshot_restored'; id: string; t_ms: number }
   | { type: 'error'; message: string };

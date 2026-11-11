@@ -73,6 +73,13 @@ def main():
         page.wait_for_function("window.__brainScene", timeout=10000)
         page.wait_for_timeout(1500)
 
+        # PR4: the default background mode is now Spontaneous (OU drive on
+        # every node).  The G=0 isolation regression below measures the
+        # pulse mechanism with zero background, so run this suite in Quiet;
+        # the background itself is covered by the PR4 test.
+        page.evaluate("window.__brainSim.setBackgroundMode('quiet')")
+        page.wait_for_timeout(300)
+
         check("sim ready, PLAY running",
               "运行中" in page.locator("button:has-text('PLAY')").inner_text())
         t1 = sim_time(page)
@@ -109,6 +116,12 @@ def main():
         # 滚轮、拖动、双击恢复默认的行为保留，等价检查改到滑杆上；
         # 与旋钮无关的其余检查一字未动。
         slider = page.locator(".param-slider").first
+        # PR4: the Background panel made the right column taller, so after
+        # a region is selected the sliders sit below the fold (page
+        # scrollHeight ~1757 at 1080p).  Scroll the slider into view and
+        # re-read its box — the wheel/drag must hit the slider itself.
+        slider.scroll_into_view_if_needed()
+        page.wait_for_timeout(300)
         slider_box = slider.bounding_box()
         v0 = param_value(page, 0)
         page.mouse.move(slider_box["x"] + slider_box["width"] / 2,
@@ -279,7 +292,9 @@ def main():
         check("pause freezes simulation time", tp1 == tp2, f"TIME {tp1} -> {tp2} s")
         page.locator("button:has-text('PLAY')").click()
         page.wait_for_timeout(1000)
-        page.locator("button:has-text('RESET')").click()
+        # PR4: scope to the topbar — the locked banner (PR4) also has a
+        # RESET button, so the bare locator is ambiguous when locked.
+        page.locator(".topbar button:has-text('RESET')").click()
         page.wait_for_timeout(400)
         tr = sim_time(page)
         check("reset restores t=0", tr < 1.0, f"TIME 400 ms after reset = {tr} s")

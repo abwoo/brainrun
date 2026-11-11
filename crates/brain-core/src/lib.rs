@@ -36,16 +36,55 @@
 //!   `reset_weight` / `reset_all_weights` change them back.  The UI
 //!   states this RESET semantics explicitly.
 //!
-//! The library has no dependencies; `serde` is only used by the
-//! `brain-core-run` binary.
+//! PR4 — living default (review §5 problem 1 + problem 4, §7 PR4):
+//! * Background activity modes (`BgMode`, `Params::bg_mode`):
+//!   Quiet = the old silent baseline (no background drive, behaviour
+//!   identical to before); Spontaneous = a per-node Ornstein–Uhlenbeck
+//!   process added to P (see `Params::ou_tau_ms` / `ou_sigma`);
+//!   Oscillatory = a parameter preset (`Params::oscillatory()`) whose
+//!   rhythm comes from the Wilson–Cowan dynamics themselves (or, if no
+//!   stable limit cycle exists in this parameter family, an explicitly
+//!   labelled external drive — never a fake spontaneous rhythm).
+//! * The OU state lives in the engine and is advanced EXACTLY ONCE per
+//!   step, in `step_one` — never inside `deriv`, which Heun calls twice
+//!   per step (predictor + corrector).  The OU draws come from the same
+//!   SplitMix64 RNG as the white noise, in node order, two uniforms per
+//!   node (Box–Muller, cosine branch); with `noise_amp == 0` the OU
+//!   draws are the only RNG use, so same seed + same parameters gives a
+//!   bit-identical activity sequence.
+//! * Snapshots (`StateSnapshot`): the full experiment state — params,
+//!   live weights, bias, step count, RNG state, OU state, E/I, and the
+//!   delayed-coupling history (`e_hist` + `hist_base`) — so restoring
+//!   reproduces not just the instant state but the subsequent
+//!   trajectory bit-for-bit.
+//
+//! The library uses `serde` only for the `StateSnapshot` / `Params` JSON
+//! encoding (snapshots) and the `brain-core-run` binary.
 
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
+// ---------------------------------------------------------------------------
+// Background activity mode (PR4)
+// ---------------------------------------------------------------------------
+
+/// Background activity mode.  Quiet is the pre-PR4 silent baseline;
+/// Spontaneous adds a per-node Ornstein–Uhlenbeck drive to P;
+/// Oscillatory selects the `Params::oscillatory()` parameter preset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum BgMode {
+    #[default]
+    Quiet,
+    Spontaneous,
+    Oscillatory,
+}
 
 // ---------------------------------------------------------------------------
 // Parameters (A-set: TVB code defaults, Sanz-Leon et al. 2015 Table 11a)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Params {
     pub c_ee: f64,
     pub c_ei: f64,
@@ -79,6 +118,33 @@ pub struct Params {
     /// Uniform white-noise amplitude on P (model units); 0 = deterministic.
     pub noise_amp: f64,
     pub seed: u64,
+    /// PR4: background activity mode (Quiet = pre-PR4 silent baseline).
+    pub bg_mode: BgMode,
+    /// PR4: OU correlation time (ms).  The OU process is
+    /// `dx = -(x/tau) dt + sigma * sqrt(2 dt / tau) * N(0,1)`,
+    /// Euler–Maruyama, advanced once per step in `step_one`.
+    pub ou_tau_ms: f64,
+    /// PR4: OU stationary standard deviation (model units of P).
+    /// The drive added to P_i is the OU state x_i itself, so the
+    /// stationary distribution of the background input is N(0, sigma²).
+    pub ou_sigma: f64,
+    /// PR4: constant background input added to P on every node, every
+    /// step (model units of P; 0 = none).  Part of the parameter set,
+    /// so it is stored in snapshots and survives `reset()` — unlike
+    /// the PR3 bias, which is a user-applied input cleared by reset.
+    pub drive_const: f64,
+    /// PR4: external sinusoidal drive (Oscillatory mode only): the same
+    /// in-phase sine is added to P on every node,
+    /// `P_sine(t) = ext_sine_amp * sin(2*pi*ext_sine_freq_hz*t)`,
+    /// with t the ABSOLUTE simulation time.  This is an EXTERNAL drive
+    /// signal, explicitly labelled as such in the UI and docs — it is
+    /// NOT a spontaneous rhythm (no stable limit cycle exists in this
+    /// Wilson–Cowan parameter family; see reference/python-model/
+    /// pr4_scan*.py).  No RNG is involved, so it is deterministic
+    /// regardless of seed.
+    pub ext_sine_amp: f64,
+    /// PR4: frequency (Hz) of the external sinusoidal drive.
+    pub ext_sine_freq_hz: f64,
 }
 
 impl Default for Params {
@@ -115,6 +181,12 @@ impl Default for Params {
             stim_duration_ms: 100.0,
             noise_amp: 0.0,
             seed: 0,
+            bg_mode: BgMode::Quiet,
+            ou_tau_ms: 100.0,
+            ou_sigma: 0.10,
+            drive_const: 0.0,
+            ext_sine_amp: 0.0,
+            ext_sine_freq_hz: 10.0,
         }
     }
 }
@@ -132,6 +204,39 @@ impl Params {
             ..Params::default()
         }
     }
+
+    /// Oscillatory preset (PR4): demo parameters + an explicitly
+    /// labelled external sinusoidal drive.
+    ///
+    /// The parameter scans (reference/python-model/pr4_scan.py,
+    /// pr4_scan2.py, pr4_scan3.py) found NO stable limit cycle in this
+    /// Wilson–Cowan parameter family — every candidate (including the
+    /// TVB Table 1 set, with and without constant drive P in
+    /// {0.2, 0.5, 1.0}, from every initial condition) settles to a
+    /// fixed point, single node and 76-node network alike.  The
+    /// Table 1 set itself settles at a HIGH fixed point (single node
+    /// E*=0.32, network mean E*=0.49), i.e. next to the locked state,
+    /// so it is rejected as a preset.  This preset therefore does NOT
+    /// claim a spontaneous rhythm: it drives the demo network with a
+    /// documented 10 Hz sine of amplitude 0.30 (model units of P), in
+    /// phase on all nodes.  Measured on the 76-node network (G=0.35):
+    /// mean E oscillates in [0.0113, 0.0211] (peak-to-peak 0.0099, max
+    /// single-node peak-to-peak 0.0125) at 10.00 Hz (FFT peak), max mean
+    /// E 0.021 over 60 s — far below the 0.15 lock threshold — and a
+    /// pulse on top still gives its full transient response (peak
+    /// |ΔE[40]| = 0.483, and the network returns to baseline afterwards:
+    /// a 0.50 amplitude would NOT return — see
+    /// reference/python-model/pr4_pulse_safety.py).  Numbers verified by
+    /// reference/python-model/pr4_sine_scan.py; see docs/model-spec.md §9.
+    pub fn oscillatory() -> Self {
+        Params {
+            theta_e: 1.0,
+            bg_mode: BgMode::Oscillatory,
+            ext_sine_amp: 0.30,
+            ext_sine_freq_hz: 10.0,
+            ..Params::default()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +251,28 @@ pub struct SplitMix64 {
 impl SplitMix64 {
     pub fn new(seed: u64) -> Self {
         SplitMix64 { state: seed }
+    }
+
+    /// Raw internal state (PR4: snapshots store it so a restored run
+    /// continues the exact same random sequence).
+    pub fn state(&self) -> u64 {
+        self.state
+    }
+
+    /// Restore a state previously read with `state()`.
+    pub fn from_state(state: u64) -> Self {
+        SplitMix64 { state }
+    }
+
+    /// Standard normal draw (Box–Muller, cosine branch) — PR4 OU drive.
+    /// Consumes exactly two uniforms, in order.  `u1` is mapped to
+    /// (0, 1] so `ln(u1)` is never evaluated at 0.  The Python mirror
+    /// uses the identical formula (`math.log` / `math.cos`); the two
+    /// implementations are cross-checked bit-for-bit in tests/pr4.
+    pub fn next_gaussian(&mut self) -> f64 {
+        let u1 = 1.0 - self.next_f64();
+        let u2 = self.next_f64();
+        (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
     }
 
     pub fn next_u64(&mut self) -> u64 {
@@ -254,8 +381,36 @@ pub struct Simulator {
     hist_base: usize,
     step_count: usize,
     rng: SplitMix64,
+    /// PR4: per-node Ornstein–Uhlenbeck background-drive state (model
+    /// units of P).  Zero at reset; advanced once per step in
+    /// `step_one` when `bg_mode == Spontaneous`; part of snapshots.
+    ou: Vec<f64>,
     e0: f64,
     i0: f64,
+}
+
+/// PR4: a complete, restorable experiment state.  Everything needed to
+/// resume the exact trajectory: params, live weights, bias, step count,
+/// RNG state, OU state, E/I, and the delayed-coupling history
+/// (`e_hist` rows are the states at absolute steps
+/// `hist_base .. hist_base + len`).  `weights_orig` is deliberately NOT
+/// stored: it never changes after construction, so a restore cannot
+/// corrupt the TVB-original reference.  Serialised as JSON for the
+/// WASM / localStorage snapshot path.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StateSnapshot {
+    pub params: Params,
+    pub weights: Vec<Vec<f64>>,
+    pub bias: Vec<f64>,
+    pub step_count: usize,
+    pub rng_state: u64,
+    pub ou: Vec<f64>,
+    pub e: Vec<f64>,
+    pub i: Vec<f64>,
+    pub e_hist: Vec<Vec<f64>>,
+    pub hist_base: usize,
+    pub e0: f64,
+    pub i0: f64,
 }
 
 impl Simulator {
@@ -286,6 +441,7 @@ impl Simulator {
             hist_base: 0,
             step_count: 0,
             rng: SplitMix64::new(params.seed),
+            ou: vec![0.0; n],
             e0: 0.0,
             i0: 0.0,
         };
@@ -296,6 +452,8 @@ impl Simulator {
     /// Deterministic initial state: E = e0, I = i0 everywhere, history = IC.
     /// PR3: clears the sustained bias (an applied input) but NEVER the
     /// weights — edited weights survive a reset by design (see module docs).
+    /// PR4: also zeroes the OU state and re-seeds the RNG from
+    /// `params.seed`, so reset + rerun reproduces the first run exactly.
     pub fn reset(&mut self) {
         self.e = vec![self.e0; self.n];
         self.i = vec![self.i0; self.n];
@@ -304,6 +462,87 @@ impl Simulator {
         self.step_count = 0;
         self.rng = SplitMix64::new(self.params.seed);
         self.bias = vec![0.0; self.n];
+        self.ou = vec![0.0; self.n];
+    }
+
+    // -- PR4: background activity + snapshots ---------------------------
+    /// Current OU background-drive state (model units of P; zeros when
+    /// the mode is not Spontaneous or before the first step).
+    pub fn ou_state(&self) -> &[f64] {
+        &self.ou
+    }
+
+    /// Raw RNG state (PR4: snapshots; also lets a seed change take
+    /// effect without resetting E/I — see `reseed`).
+    pub fn rng_state(&self) -> u64 {
+        self.rng.state()
+    }
+
+    /// Change the deterministic seed: future RNG draws (OU and white
+    /// noise) follow the new seed from the next step on.  E/I, OU state,
+    /// weights and bias are NOT touched — this is not a reset.  To
+    /// replay a run from the start with the new seed, call `reset()`
+    /// afterwards (which re-seeds from `params.seed`).
+    pub fn reseed(&mut self, seed: u64) {
+        self.params.seed = seed;
+        self.rng = SplitMix64::new(seed);
+    }
+
+    /// Take a complete snapshot of the experiment state (PR4).  Cheap
+    /// to take (a few clones of small vectors); the history is already
+    /// trimmed to `max_idelay + 8` rows.
+    pub fn take_snapshot(&self) -> StateSnapshot {
+        StateSnapshot {
+            params: self.params,
+            weights: self.weights.clone(),
+            bias: self.bias.clone(),
+            step_count: self.step_count,
+            rng_state: self.rng.state(),
+            ou: self.ou.clone(),
+            e: self.e.clone(),
+            i: self.i.clone(),
+            e_hist: self.e_hist.clone(),
+            hist_base: self.hist_base,
+            e0: self.e0,
+            i0: self.i0,
+        }
+    }
+
+    /// Restore a snapshot taken with `take_snapshot` (PR4).  After this
+    /// call the simulator is bit-identical to the moment the snapshot
+    /// was taken — same E/I, same history window, same RNG state, same
+    /// OU state — so continuing to run reproduces the uninterrupted
+    /// trajectory exactly.  Fails (without mutating anything) if the
+    /// snapshot's node count differs from this simulator's.
+    pub fn restore_snapshot(&mut self, snap: &StateSnapshot) -> Result<(), String> {
+        if snap.e.len() != self.n
+            || snap.i.len() != self.n
+            || snap.ou.len() != self.n
+            || snap.weights.len() != self.n
+            || snap.bias.len() != self.n
+        {
+            return Err(format!(
+                "snapshot has n={} but this simulator has n={}",
+                snap.e.len(),
+                self.n
+            ));
+        }
+        if snap.e_hist.iter().any(|row| row.len() != self.n) {
+            return Err("snapshot history rows have the wrong width".to_string());
+        }
+        self.params = snap.params;
+        self.weights = snap.weights.clone();
+        self.bias = snap.bias.clone();
+        self.step_count = snap.step_count;
+        self.rng = SplitMix64::from_state(snap.rng_state);
+        self.ou = snap.ou.clone();
+        self.e = snap.e.clone();
+        self.i = snap.i.clone();
+        self.e_hist = snap.e_hist.clone();
+        self.hist_base = snap.hist_base;
+        self.e0 = snap.e0;
+        self.i0 = snap.i0;
+        Ok(())
     }
 
     // -- PR3: runtime weight editing (single-sided, range 0–3) ---------
@@ -465,9 +704,23 @@ impl Simulator {
     pub fn step_one(&mut self, t_ms: f64, events: &[StimulusEvent]) -> Result<Vec<f64>, DivergenceError> {
         let dt = self.params.dt;
         let step = self.step_count as i64;
+        // PR4: advance the OU background drive EXACTLY ONCE per step,
+        // here — never inside `deriv`, which Heun calls twice per step.
+        // Euler–Maruyama for dx = -(x/tau) dt + sigma*sqrt(2 dt/tau) dW.
+        if self.params.bg_mode == BgMode::Spontaneous {
+            let tau = self.params.ou_tau_ms;
+            let sigma = self.params.ou_sigma;
+            let decay = dt / tau;
+            let diff = sigma * (2.0 * dt / tau).sqrt();
+            for k in 0..self.n {
+                let g = self.rng.next_gaussian();
+                self.ou[k] += -self.ou[k] * decay + diff * g;
+            }
+        }
         // PR3: applied P = stimulus events + sustained per-node bias.
+        // PR4: + constant drive (if any) + OU state (if Spontaneous).
         // The bias enters the predictor AND the corrector identically.
-        let p = self.applied_p(t_ms, events);
+        let p = self.total_p(t_ms, events);
         // Predictor (Euler) using delayed E at this step.
         let (de1, di1) = self.deriv(&self.e.clone(), &self.i.clone(), step, None, &p);
         let e_star: Vec<f64> = self.e.iter().zip(de1.iter()).map(|(e, d)| e + dt * d).collect();
@@ -540,14 +793,45 @@ impl Simulator {
     }
 
     /// External input actually applied during a step: stimulus events
-    /// PLUS the sustained per-node bias (PR3).  This is what `step_one`
-    /// returns and what `run()` records in `RunResult.p`.
+    /// PLUS the sustained per-node bias (PR3) PLUS the constant drive
+    /// (PR4, `drive_const`, if any) PLUS the OU background state (PR4,
+    /// only in Spontaneous mode).  This is what `step_one` returns and
+    /// what `run()` records in `RunResult.p` (see `recorded_p`).
     fn applied_p(&self, t_ms: f64, events: &[StimulusEvent]) -> Vec<f64> {
         let mut p = self.stimulus_vector(t_ms, events);
         for k in 0..self.n {
-            p[k] += self.bias[k];
+            p[k] += self.bias[k] + self.params.drive_const;
         }
         p
+    }
+
+    /// Total P applied during a step: `applied_p` + the OU state when
+    /// Spontaneous mode is on + the external sine drive when
+    /// Oscillatory mode is on (same in-phase sine on every node, a
+    /// function of the ABSOLUTE simulation time, no RNG involved).
+    /// Called in `step_one` AFTER the OU update, so the returned P is
+    /// exactly what both Heun stages saw.
+    fn total_p(&self, t_ms: f64, events: &[StimulusEvent]) -> Vec<f64> {
+        let mut p = self.applied_p(t_ms, events);
+        if self.params.bg_mode == BgMode::Spontaneous {
+            for k in 0..self.n {
+                p[k] += self.ou[k];
+            }
+        } else if self.params.bg_mode == BgMode::Oscillatory && self.params.ext_sine_amp != 0.0 {
+            let sine = self.params.ext_sine_amp
+                * (2.0 * std::f64::consts::PI * self.params.ext_sine_freq_hz * t_ms / 1000.0).sin();
+            for k in 0..self.n {
+                p[k] += sine;
+            }
+        }
+        p
+    }
+
+    /// P recorded in `RunResult.p` at time `t_ms`: stimulus + bias +
+    /// constant drive at that time, plus the OU state as of the step
+    /// that just ended (the OU value that step actually applied).
+    fn recorded_p(&self, t_ms: f64, events: &[StimulusEvent]) -> Vec<f64> {
+        self.total_p(t_ms, events)
     }
 
     fn check(&self) -> Result<(), DivergenceError> {
@@ -586,7 +870,7 @@ impl Simulator {
         t_ms.push(self.step_count as f64 * dt);
         e_out.push(self.e.clone());
         i_out.push(self.i.clone());
-        p_out.push(self.applied_p(self.step_count as f64 * dt, events));
+        p_out.push(self.recorded_p(self.step_count as f64 * dt, events));
 
         for _ in 0..n_steps {
             let t = self.step_count as f64 * dt;
@@ -594,7 +878,7 @@ impl Simulator {
             t_ms.push((self.step_count) as f64 * dt);
             e_out.push(self.e.clone());
             i_out.push(self.i.clone());
-            p_out.push(self.applied_p(self.step_count as f64 * dt, events));
+            p_out.push(self.recorded_p(self.step_count as f64 * dt, events));
         }
 
         Ok(RunResult { t_ms, e: e_out, i: i_out, p: p_out, n_steps })
@@ -855,5 +1139,283 @@ mod tests {
         assert_eq!(sim.state_e(), &[0.0, 0.0, 0.0]);
         sim.reset_all_weights();
         assert_eq!(sim.weight(1, 0), 1.0);
+    }
+
+    // -- PR4: background activity (OU) + snapshots ----------------------
+
+    fn spont_sim() -> Simulator {
+        let params = Params {
+            bg_mode: BgMode::Spontaneous,
+            ..Params::demo()
+        };
+        Simulator::new(vec![vec![0.0]], vec![vec![0.0]], params).unwrap()
+    }
+
+    #[test]
+    fn pr4_ou_deterministic_same_seed_differs_across_seeds() {
+        // Same seed + same parameters = bit-identical trajectories;
+        // reset + rerun reproduces the first run; a different seed
+        // gives a different trajectory.
+        let mut sim = spont_sim();
+        let r1 = sim.run(2000.0, &[]).unwrap();
+        sim.reset();
+        let r2 = sim.run(2000.0, &[]).unwrap();
+        assert_eq!(r1.e, r2.e);
+        assert_eq!(r1.i, r2.i);
+        assert_eq!(r1.p, r2.p);
+        // The OU actually drives the node (not a silent rerun).
+        assert!(
+            sim.ou_state().iter().any(|v| *v != 0.0),
+            "OU state stayed zero after a spontaneous run"
+        );
+        sim.reseed(1);
+        sim.reset();
+        let r3 = sim.run(2000.0, &[]).unwrap();
+        assert_ne!(r1.e, r3.e, "different seed gave an identical trajectory");
+        // Same seed again reproduces the first run.
+        sim.reseed(0);
+        sim.reset();
+        let r4 = sim.run(2000.0, &[]).unwrap();
+        assert_eq!(r1.e, r4.e);
+        assert_eq!(r1.p, r4.p);
+    }
+
+    #[test]
+    fn pr4_ou_single_update_per_step() {
+        // The OU state after ONE step must equal a single Euler–
+        // Maruyama update driven by the FIRST Gaussian draw from a
+        // fresh SplitMix64(seed).  If the OU were (wrongly) advanced
+        // inside `deriv`, it would be updated twice per step — with
+        // different draws — and this would fail.
+        let mut sim = spont_sim();
+        let dt = sim.params.dt;
+        let tau = sim.params.ou_tau_ms;
+        let sigma = sim.params.ou_sigma;
+        sim.step_one(0.0, &[]).unwrap();
+        let mut rng = SplitMix64::new(0);
+        let g0 = rng.next_gaussian();
+        let expected = sigma * (2.0 * dt / tau).sqrt() * g0;
+        assert!(
+            (sim.ou_state()[0] - expected).abs() < 1e-15,
+            "OU after 1 step: got {}, expected {} (g0={})",
+            sim.ou_state()[0],
+            expected,
+            g0
+        );
+        // Second step: one more update, second draw, decay applied.
+        let g1 = rng.next_gaussian();
+        let expected2 = expected * (1.0 - dt / tau) + sigma * (2.0 * dt / tau).sqrt() * g1;
+        sim.step_one(1.0, &[]).unwrap();
+        assert!(
+            (sim.ou_state()[0] - expected2).abs() < 1e-15,
+            "OU after 2 steps: got {}, expected {}",
+            sim.ou_state()[0],
+            expected2
+        );
+        // And the RNG state advanced by exactly 4 uniforms (2 per step).
+        let mut rng_check = SplitMix64::new(0);
+        for _ in 0..4 {
+            rng_check.next_f64();
+        }
+        assert_eq!(sim.rng_state(), rng_check.state());
+    }
+
+    #[test]
+    fn pr4_spontaneous_differs_from_quiet() {
+        let mut quiet = Simulator::new(vec![vec![0.0]], vec![vec![0.0]], Params::demo()).unwrap();
+        let rq = quiet.run(2000.0, &[]).unwrap();
+        let mut spont = spont_sim();
+        let rs = spont.run(2000.0, &[]).unwrap();
+        let diff = rq
+            .e
+            .iter()
+            .zip(rs.e.iter())
+            .map(|(a, b)| (a[0] - b[0]).abs())
+            .fold(0.0f64, f64::max);
+        assert!(diff > 1e-4, "spontaneous run is indistinguishable from quiet: {diff}");
+    }
+
+    #[test]
+    fn pr4_snapshot_roundtrip_exact() {
+        // Run, snapshot, run on, restore: the instant state must match
+        // the snapshot, and continuing after the restore must reproduce
+        // the uninterrupted continuation bit-for-bit (this is what
+        // catches a missing delay history or RNG/OU state).
+        let mut sim = chain_sim(1.0);
+        sim.set_weight(1, 0, 0.5).unwrap();
+        sim.set_bias(0, 0.3).unwrap();
+        sim.run(1500.0, &[]).unwrap();
+        let snap = sim.take_snapshot();
+        let snap_e = sim.state_e().to_vec();
+        let snap_i = sim.state_i().to_vec();
+        let snap_step = sim.step_count();
+        // Continue uninterrupted for 500 steps.
+        let cont = sim.run(500.0, &[]).unwrap();
+        let cont_e = cont.e.last().unwrap().clone();
+        let cont_i = cont.i.last().unwrap().clone();
+        // Disturb everything the snapshot holds, then restore.
+        sim.set_weight(1, 0, 2.5).unwrap();
+        sim.set_bias(0, -0.8).unwrap();
+        sim.run(100.0, &[]).unwrap();
+        sim.restore_snapshot(&snap).unwrap();
+        assert_eq!(sim.state_e(), snap_e.as_slice(), "E after restore != snapshot E");
+        assert_eq!(sim.state_i(), snap_i.as_slice(), "I after restore != snapshot I");
+        assert_eq!(sim.step_count(), snap_step);
+        assert_eq!(sim.weight(1, 0), 0.5, "weight not restored");
+        assert_eq!(sim.bias(0), 0.3, "bias not restored");
+        // Continue after the restore: must match the uninterrupted run.
+        let after = sim.run(500.0, &[]).unwrap();
+        assert_eq!(after.e.last().unwrap(), &cont_e);
+        assert_eq!(after.i.last().unwrap(), &cont_i);
+        assert_eq!(after.e, cont.e);
+        assert_eq!(after.i, cont.i);
+    }
+
+    #[test]
+    fn pr4_snapshot_roundtrip_with_ou_and_noise() {
+        // Same round-trip, but with the OU drive and white noise on:
+        // the RNG state in the snapshot must resume the exact draw
+        // sequence (a missing RNG state would diverge here).
+        let params = Params {
+            bg_mode: BgMode::Spontaneous,
+            noise_amp: 0.1,
+            ..Params::demo()
+        };
+        let w = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.5, 0.0],
+        ];
+        let l = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![30.0, 0.0, 0.0],
+            vec![0.0, 30.0, 0.0],
+        ];
+        let mut sim = Simulator::new(w, l, params).unwrap();
+        sim.run(1500.0, &[]).unwrap();
+        let snap = sim.take_snapshot();
+        let cont = sim.run(500.0, &[]).unwrap();
+        sim.restore_snapshot(&snap).unwrap();
+        let after = sim.run(500.0, &[]).unwrap();
+        assert_eq!(after.e, cont.e, "OU+noise continuation diverged after restore");
+        assert_eq!(after.i, cont.i);
+        assert_eq!(after.p, cont.p);
+    }
+
+    #[test]
+    fn pr4_snapshot_rejects_wrong_size() {
+        let mut small = Simulator::new(vec![vec![0.0]], vec![vec![0.0]], Params::demo()).unwrap();
+        let snap = small.take_snapshot();
+        let mut big = chain_sim(1.0);
+        assert!(big.restore_snapshot(&snap).is_err());
+        // The failed restore must not have mutated the simulator.
+        assert_eq!(big.step_count(), 0);
+        assert_eq!(big.state_e(), &[0.0, 0.0, 0.0]);
+        let _ = &mut small;
+    }
+
+    /// Deterministic synthetic 76-node network with TVB-like density
+    /// (~27% nonzero weights in 0–3, lengths 10–150 mm).  The real
+    /// network's 60 s validation lives in the Python mirror
+    /// (test_pr4.py) and the browser test; this guards the engine
+    /// logic on a network of the same size and shape.
+    fn synthetic_76() -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+        let mut rng = SplitMix64::new(12345);
+        let n = 76;
+        let mut w = vec![vec![0.0; n]; n];
+        let mut l = vec![vec![0.0; n]; n];
+        for i in 0..n {
+            for j in 0..n {
+                if i == j {
+                    continue;
+                }
+                if rng.next_f64() < 0.27 {
+                    w[i][j] = 0.5 + 2.5 * rng.next_f64();
+                    l[i][j] = 10.0 + 140.0 * rng.next_f64();
+                }
+            }
+        }
+        (w, l)
+    }
+
+    #[test]
+    fn pr4_spontaneous_60s_no_lock() {
+        // Default Spontaneous parameters, 60 s of simulation time:
+        // the network must stay far from the lock threshold (mean E
+        // 0.15) and finite, while showing visible ongoing activity.
+        let (w, l) = synthetic_76();
+        for seed in [0u64, 1, 2] {
+            let params = Params {
+                bg_mode: BgMode::Spontaneous,
+                seed,
+                ..Params::demo()
+            };
+            let mut sim = Simulator::new(w.clone(), l.clone(), params).unwrap();
+            let r = sim.run(60000.0, &[]).unwrap();
+            let mut max_mean_e = 0.0f64;
+            let mut node_e_sum = vec![0.0f64; 76];
+            for row in &r.e {
+                let m: f64 = row.iter().sum::<f64>() / 76.0;
+                if m > max_mean_e {
+                    max_mean_e = m;
+                }
+                assert!(row.iter().all(|v| v.is_finite()), "non-finite E at seed {seed}");
+            }
+            // Per-node activity: the last 10 s must actually fluctuate.
+            let tail = &r.e[r.e.len() - 10000..];
+            let mut node_std = vec![0.0f64; 76];
+            for row in tail {
+                for k in 0..76 {
+                    node_e_sum[k] += row[k];
+                }
+            }
+            let means: Vec<f64> = node_e_sum.iter().map(|s| s / tail.len() as f64).collect();
+            for row in tail {
+                for k in 0..76 {
+                    node_std[k] += (row[k] - means[k]).powi(2);
+                }
+            }
+            let median_std = {
+                let mut v: Vec<f64> = node_std
+                    .iter()
+                    .map(|s| (s / tail.len() as f64).sqrt())
+                    .collect();
+                v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                v[38]
+            };
+            assert!(
+                max_mean_e < 0.15,
+                "seed {seed}: spontaneous run approached lock, max mean E = {max_mean_e}"
+            );
+            assert!(
+                median_std > 0.0015,
+                // The real network measures 0.0021 at sigma 0.10 (Python
+                // test_pr4.py); this synthetic stand-in is slightly
+                // quieter (0.00195).  The real-network guard is the
+                // Python/browser test, not this one.
+                "seed {seed}: spontaneous activity invisible, median node E std = {median_std}"
+            );
+        }
+    }
+
+    #[test]
+    fn pr4_oscillatory_60s_no_lock_visible_rhythm() {
+        // Oscillatory preset, 60 s: mean E must oscillate visibly at
+        // the drive rhythm (peak-to-peak well above the quiet baseline
+        // noise) and stay far below the lock threshold.
+        let (w, l) = synthetic_76();
+        let mut sim = Simulator::new(w, l, Params::oscillatory()).unwrap();
+        let r = sim.run(60000.0, &[]).unwrap();
+        let means: Vec<f64> = r.e.iter().map(|row| row.iter().sum::<f64>() / 76.0).collect();
+        let tail = &means[means.len() - 4000..];
+        let ptp = tail.iter().fold(f64::MIN, |a, &b| a.max(b))
+            - tail.iter().fold(f64::MAX, |a, &b| a.min(b));
+        let max_mean_e = means.iter().fold(f64::MIN, |a, &b| a.max(b));
+        assert!(max_mean_e < 0.15, "oscillatory run approached lock: {max_mean_e}");
+        assert!(
+            ptp > 0.005,
+            "oscillatory mean-E swing invisible: peak-to-peak {ptp}"
+        );
+        assert!(ptp < 0.1, "oscillatory mean-E swing implausibly large: {ptp}");
     }
 }

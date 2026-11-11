@@ -15,6 +15,7 @@ name = "brain-wasm"
 version = "0.1.0"
 dependencies = [
  "brain-core",
+ "serde_json",
  "wasm-bindgen",
 ]
 

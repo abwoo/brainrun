@@ -1,9 +1,9 @@
 {
-  "peak54_baseline": 0.026994128027422973,
-  "peak54_zeroed": 0.0012502632558753675,
-  "peak54_restored": 0.025376005304522574,
-  "peak40_baseline": 0.0037999331294253976,
-  "peak40_doubled": 0.008461057222010826,
+  "peak54_baseline": 0.026288338854993223,
+  "peak54_zeroed": 0.0011229268249904646,
+  "peak54_restored": 0.026783481446170945,
+  "peak40_baseline": 0.0038472966406729644,
+  "peak40_doubled": 0.008418707450286346,
   "bias_E40": {
     "baseline": 0.011780297409637671,
     "pos": 0.024963999442603295,
@@ -26,12 +26,12 @@
     {
       "check": "W1 pulse 73 -> downstream peak dE[54] measurable at baseline",
       "ok": true,
-      "detail": "peak dE[54]=0.026994128027422973"
+      "detail": "peak dE[54]=0.026288338854993223"
     },
     {
       "check": "W2 zeroed edge kills downstream response (<30% and <0.01)",
       "ok": true,
-      "detail": "zeroed=0.0012502632558753675 baseline=0.026994128027422973 ratio=0.046"
+      "detail": "zeroed=0.0011229268249904646 baseline=0.026288338854993223 ratio=0.043"
     },
     {
       "check": "W3 zeroing is single-sided: reverse edge W[73][54] untouched",
@@ -41,12 +41,12 @@
     {
       "check": "W4 restoring the edge restores the downstream response",
       "ok": true,
-      "detail": "restored=0.025376005304522574 baseline=0.026994128027422973"
+      "detail": "restored=0.026783481446170945 baseline=0.026288338854993223"
     },
     {
       "check": "W5 doubled edge enhances downstream response (>1.5x)",
       "ok": true,
-      "detail": "doubled=0.008461057222010826 baseline=0.0037999331294253976 ratio=2.23x"
+      "detail": "doubled=0.008418707450286346 baseline=0.0038472966406729644 ratio=2.19x"
     },
     {
       "check": "W6 doubling is single-sided: reverse edge W[69][40] stays 1.0",

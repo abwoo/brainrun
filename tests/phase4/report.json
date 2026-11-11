@@ -7,7 +7,7 @@
   {
     "check": "simulation clock advances",
     "ok": true,
-    "detail": "TIME 2.7 -> 4.0 s"
+    "detail": "TIME 4.4 -> 5.5 s"
   },
   {
     "check": "click selects a region",
@@ -57,12 +57,12 @@
   {
     "check": "TIME display matches snapshot clock",
     "ok": true,
-    "detail": "snapshot 66.7 s vs display 66.8 s"
+    "detail": "snapshot 72.8 s vs display 72.7 s"
   },
   {
     "check": "fly-to is gradual, not a snap",
     "ok": true,
-    "detail": "moved 411.8 from default; fly progress samples = [0.16, 1]"
+    "detail": "moved 409.5 from default; fly progress samples = [0.43, 1]"
   },
   {
     "check": "fly-to lands on default view",
@@ -92,7 +92,7 @@
   {
     "check": "pause freezes simulation time",
     "ok": true,
-    "detail": "TIME 7.9 -> 7.9 s"
+    "detail": "TIME 8.8 -> 8.8 s"
   },
   {
     "check": "reset restores t=0",

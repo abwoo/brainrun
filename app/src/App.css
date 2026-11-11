@@ -419,9 +419,11 @@ body {
 .locked-banner {
   position: absolute;
   top: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 8px;
   z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   background: var(--bg);
   border: 1px solid #ffb340;
   color: #ffb340;
@@ -429,6 +431,60 @@ body {
   letter-spacing: 0.08em;
   padding: 5px 12px;
   white-space: nowrap;
+}
+
+.locked-banner .chip {
+  flex: 0 0 auto;
+}
+
+/* ---- PR4：按住预警横幅（锁定发生前） ---- */
+.hold-warning {
+  position: absolute;
+  top: 40px;
+  left: 8px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid #ffb340;
+  color: #ffb340;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.hold-warning .chip {
+  flex: 0 0 auto;
+}
+
+.hold-progress {
+  flex: 0 0 120px;
+  height: 6px;
+  background: rgba(255, 179, 64, 0.25);
+}
+
+.hold-progress > span {
+  display: block;
+  height: 100%;
+  background: #ffb340;
+}
+
+/* ---- PR4：背景面板 ---- */
+.seed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.snapshot-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* ---- PR2：刺激响应面板 ---- */

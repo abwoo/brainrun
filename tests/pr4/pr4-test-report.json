@@ -1,0 +1,167 @@
+{
+  "determinism": {
+    "same_seed_max_d": 0.008938607715815197,
+    "diff_seed_max_d": 0.008938607715815197,
+    "reset_rerun_max_d": 0.009084953824681464
+  },
+  "modes": {
+    "quiet_std": 0.0,
+    "spont_std": 0.00036224534985380546,
+    "osc_fft_hz": 10.0,
+    "osc_ptp": 0.009208356993435269
+  },
+  "long_run": {
+    "max_mean_e_60s": 0.016036609410872184
+  },
+  "snapshot": {
+    "restore_max_d": 0.0,
+    "trajectory_max_d": 0.0
+  },
+  "checks": [
+    {
+      "check": "D1 same seed + same params -> bit-identical E (max diff 0)",
+      "ok": false,
+      "detail": "max |dE| = 0.008938607715815197"
+    },
+    {
+      "check": "D2 a different seed gives a different trajectory",
+      "ok": true,
+      "detail": "max |dE| seed0 vs seed1 = 0.0089"
+    },
+    {
+      "check": "D3 reset + rerun equals the first run (max diff 0)",
+      "ok": false,
+      "detail": "max |dE| = 0.009084953824681464"
+    },
+    {
+      "check": "M1 Quiet: mean E almost still over 5 s live",
+      "ok": true,
+      "detail": "mean-E std=0.00000 max=0.0149"
+    },
+    {
+      "check": "M2 Spontaneous: sustained small activity, far from lock",
+      "ok": true,
+      "detail": "mean-E std=0.00036 range=[0.0146, 0.0158] median node std=0.00217"
+    },
+    {
+      "check": "M3 Oscillatory: FFT peak at the documented 10 Hz",
+      "ok": true,
+      "detail": "peak=10.00 Hz"
+    },
+    {
+      "check": "M4 Oscillatory: visible rhythm, far from lock",
+      "ok": true,
+      "detail": "mean-E ptp=0.0092 max=0.0211"
+    },
+    {
+      "check": "L1 default mode: 60 s sim time, mean E stays below 0.15, finite",
+      "ok": true,
+      "detail": "max mean E=0.0160 over 60 s, finite=True"
+    },
+    {
+      "check": "L2 default mode: never locked during the 60 s run",
+      "ok": true,
+      "detail": "locked=False"
+    },
+    {
+      "check": "U1 background panel offers all three modes + seed + snapshots",
+      "ok": true,
+      "detail": "panel text present"
+    },
+    {
+      "check": "U2 mode parameters match the documented values (OU tau 100 ms, sigma 0.10; sine 10 Hz, amp 0.30)",
+      "ok": true,
+      "detail": "modeParams={'mode': 'spontaneous', 'ou_tau_ms': 100, 'ou_sigma': 0.1, 'ext_sine_amp': 0.3, 'ext_sine_freq_hz': 10}"
+    },
+    {
+      "check": "U4 fresh load defaults to Spontaneous",
+      "ok": true,
+      "detail": "default mode=spontaneous"
+    },
+    {
+      "check": "H0 probe found a node hit point for the hold tests",
+      "ok": true,
+      "detail": "hit=(0.3, 0.3, 52)"
+    },
+    {
+      "check": "H1 hold warning appears before the lock (progress + '离锁定阈值' + '松开即停')",
+      "ok": false,
+      "detail": "warning=''"
+    },
+    {
+      "check": "H2 one-click restore returns the network near baseline",
+      "ok": false,
+      "detail": "restored=False mean E after=0.2407"
+    },
+    {
+      "check": "H3 warning banner is gone after restore",
+      "ok": true,
+      "detail": "warning count=0"
+    },
+    {
+      "check": "H4 a long hold locks the network and the banner explains it as a new stable state (not 'frozen')",
+      "ok": false,
+      "detail": "banner=''"
+    },
+    {
+      "check": "H6 pulse on flip-prone node 10 locks the network and shows the same 'new stable state' banner",
+      "ok": true,
+      "detail": "locked banner seen=True"
+    },
+    {
+      "check": "H6b banner RESET recovers after a pulse flip",
+      "ok": true,
+      "detail": "mean E after=0.0149 locked=False"
+    },
+    {
+      "check": "S1 slow-frame short click still fires a pulse",
+      "ok": true,
+      "detail": "peak |dE[52]|=0.48489742230606536"
+    },
+    {
+      "check": "S2 slow-frame short click is NOT misread as a hold",
+      "ok": false,
+      "detail": "hold_active=False auto=None mean E=0.2407"
+    },
+    {
+      "check": "S3 a real still hold still triggers under throttling",
+      "ok": false,
+      "detail": "hold_active seen=False"
+    },
+    {
+      "check": "K1 manual snapshot saves (info shows it)",
+      "ok": true,
+      "detail": "info={'manual': {'t_ms': 1500, 'savedAtWall': 1794379856980}, 'auto': None}"
+    },
+    {
+      "check": "K2 restore returns the exact saved state (max diff 0)",
+      "ok": true,
+      "detail": "max |dE| = 0.0"
+    },
+    {
+      "check": "K3 post-restore trajectory matches the uninterrupted run",
+      "ok": true,
+      "detail": "max |dE| = 0.0"
+    },
+    {
+      "check": "K4 manual snapshot survives RESET (auto is cleared by RESET)",
+      "ok": true,
+      "detail": "info after RESET={'manual': {'t_ms': 1500, 'savedAtWall': 1794379856980}, 'auto': None}"
+    },
+    {
+      "check": "K5 a hold creates an auto snapshot WITHOUT touching manual",
+      "ok": true,
+      "detail": "info after hold={'manual': {'t_ms': 1500, 'savedAtWall': 1794379856980}, 'auto': {'t_ms': 2691, 'savedAtWall': 1794379860654}}"
+    },
+    {
+      "check": "K6 auto snapshot restores to the pre-hold state",
+      "ok": true,
+      "detail": "mean E after auto restore=0.0149"
+    },
+    {
+      "check": "E1 zero console errors",
+      "ok": true,
+      "detail": "errors=[]"
+    }
+  ]
+}

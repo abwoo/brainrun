@@ -44,6 +44,19 @@ interface WasmSimInstance {
   get_bias(node: number): number;
   clear_bias(node: number): void;
   clear_all_bias(): void;
+  // PR4 — background activity, seeds, snapshots.
+  set_background_mode(mode: number): number;
+  background_mode(): number;
+  set_seed(seed: number): void;
+  seed(): number;
+  ou_tau_ms(): number;
+  ou_sigma(): number;
+  drive_const(): number;
+  ext_sine_amp(): number;
+  ext_sine_freq_hz(): number;
+  snapshot_ou(): Float64Array;
+  take_snapshot(): string;
+  restore_snapshot(json: string): void;
   reset(): void;
   snapshot_e(): Float64Array;
   snapshot_i(): Float64Array;
@@ -71,6 +84,10 @@ async function loadWasm(): Promise<WasmModuleShape> {
 
 const LOCK_MEAN_E = 0.15; // 见 protocol.ts
 const LOCK_WINDOW_MS = 500;
+/** PR4：按住预警阈值——全网平均 E 超过它且有按住在进行中时，视为
+ * “正在走向锁定”，在锁定发生前就提示。基线约 0.011、锁定 0.15，
+ * 0.05 夹在中间且远高于一次脉冲的瞬态均值。 */
+const APPROACH_MEAN_E = 0.05;
 const MAX_CATCHUP_STEPS = 200;
 
 let sim: WasmSimInstance | null = null;
@@ -84,14 +101,27 @@ let wallAccumMs = 0;
 
 /** 待发送的脉冲事件（绝对仿真时间）。 */
 let pulses: Array<{ node: number; start_ms: number; duration_ms: number; amplitude: number }> = [];
-/** 进行中的按住（节点集合）。按住事件在收到消息时立即提交进引擎，
- * 收到松开消息时立即删除——不经过 tick 中转，否则一次快点击若被
- * 主线程卡顿拖成“按住”，开始与结束消息可能落在同一个 tick 间隙里，
- * 事件还没进引擎就被删掉，刺激就丢了。 */
-const holds = new Set<number>();
+/** 进行中的按住（节点 → 按住开始的仿真时间 ms）。按住事件在收到消息时
+ * 立即提交进引擎，收到松开消息时立即删除——不经过 tick 中转，否则一次
+ * 快点击若被主线程卡顿拖成“按住”，开始与结束消息可能落在同一个 tick
+ * 间隙里，事件还没进引擎就被删掉，刺激就丢了。 */
+const holds = new Map<number, number>();
+
+/** PR4：Worker 内保存的实验快照（id → {仿真时间, JSON}）。'manual' 是
+ * 用户手动保存的（主线程同时存一份进 localStorage）；'auto' 是每次按住
+ * 开始时自动存的（按住开始前那一刻的状态），只活在内存里，RESET 时清掉，
+ * 绝不覆盖 'manual'。 */
+const snapshots = new Map<string, { t_ms: number; json: string }>();
 
 /** 最近快照的全网平均 E（时间戳，仿真 ms），用于锁定判断。 */
 const meanHistory: Array<{ t_ms: number; mean_e: number }> = [];
+
+/**
+ * 锁定闩：网络是双稳态，高活动态不会自己退回，所以锁定一旦成立就闩住，
+ * 直到 RESET 或恢复快照才清掉。不闩的话，锁定判断会在阈值附近来回翻，
+ * 警告横幅与锁定横幅反复切换，横幅上的恢复按钮跟着反复卸载，用户点不上。
+ */
+let lockedLatched = false;
 
 function post(msg: WorkerOutMessage): void {
   (self as unknown as { postMessage: (m: WorkerOutMessage) => void }).postMessage(msg);
@@ -109,10 +139,21 @@ function snapshot(): Snapshot | null {
     meanHistory.shift();
   }
   const windowMs = meanHistory.length > 0 ? t_ms - meanHistory[0].t_ms : 0;
-  const locked =
+  const lockNow =
     windowMs >= LOCK_WINDOW_MS * 0.9 &&
     meanHistory.length > 0 &&
     meanHistory.every((h) => h.mean_e > LOCK_MEAN_E);
+  if (lockNow) lockedLatched = true;
+  const locked = lockedLatched;
+  // PR4：按住预警。hold_active = 有按住在进行；approaching_lock =
+  // 按住中且均值已明显抬升（> 0.05）但尚未锁定；lock_progress =
+  // mean_e / 0.15（0–1），即离锁定阈值还有多远。
+  const holdEntries = [...holds.entries()];
+  const hold_active = holdEntries.length > 0;
+  const hold_node = hold_active ? holdEntries[0][0] : null;
+  const hold_ms = hold_active ? t_ms - Math.min(...holdEntries.map(([, s]) => s)) : 0;
+  const lock_progress = Math.min(1, Math.max(0, mean_e / LOCK_MEAN_E));
+  const approaching_lock = hold_active && mean_e > APPROACH_MEAN_E && !locked;
   return {
     type: 'snapshot',
     t_ms,
@@ -121,6 +162,11 @@ function snapshot(): Snapshot | null {
     p,
     mean_e,
     locked,
+    hold_active,
+    hold_node,
+    hold_ms,
+    lock_progress,
+    approaching_lock,
     diverged: sim.diverged(),
     divergence_detail: sim.divergence_detail(),
     paused,
@@ -190,8 +236,15 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'hold_start': {
         if (!sim) return;
         if (!holds.has(msg.node)) {
-          holds.add(msg.node);
-          sim.add_stimulus(msg.node, sim.time_ms(), 1e9, msg.amplitude);
+          // PR4：按住开始前先存自动快照（按住前那一刻的完整状态），
+          // 再加按住事件——恢复它就是“回到按住前”。自动快照只活在
+          // Worker 内存里，绝不覆盖用户手动保存的快照。
+          const json = sim.take_snapshot();
+          const t_ms = sim.time_ms();
+          snapshots.set('auto', { t_ms, json });
+          post({ type: 'snapshot_saved', id: 'auto', t_ms, json });
+          holds.set(msg.node, t_ms);
+          sim.add_stimulus(msg.node, t_ms, 1e9, msg.amplitude);
         }
         return;
       }
@@ -257,21 +310,93 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         wallAccumMs = 0;
         return;
       }
-      case 'reset': {
+      case 'reset':
+      case 'reset_paused': {
         if (!sim) return;
         sim.reset();
         pulses = [];
         holds.clear();
         meanHistory.length = 0;
+        lockedLatched = false;
         wallAccumMs = 0;
         lastTickWall = Date.now();
+        // PR4：RESET 清掉自动快照（它对应的是“按住前”，按住已随 RESET
+        // 消失，留着会把用户带回一次已作废的按住前状态）；手动快照是
+        // 用户存的东西，RESET 不动它。
+        snapshots.delete('auto');
         // Reset 恢复的是“确定性初始状态 + 继续运行”：paused 标志也必须清零。
         // paused 只活在 Worker 里，快照把它回传、界面只读快照镜像它——
         // 若 reset 不清 paused，界面以为在运行而 Worker 一直停着（B6b：
         // Pause 后点 RESET，TIME 永远停在 0.0 s）。不要在 App 侧再发一个
         // resume 来“修”它：那样会留下两个事实来源，下一个只调 reset 的
         // 调用方（例如测试桥）还会踩同一个坑。
-        paused = false;
+        // reset_paused 是原子复位+暂停（确定性步进用）：reset 与 pause
+        // 分两条消息发，中间会漏进 live tick——tick 推进 OU 并消耗
+        // RNG，次数随时间抖动，同种子重跑就不再逐值相等（实测 reset 后
+        // 120 ms 内 t_ms 能跑到 50 ms）。单条消息内处理，tick 不可能
+        // 插进来，复位后状态才是确定的。
+        paused = msg.type === 'reset_paused';
+        return;
+      }
+      // PR4 — background mode / seed / deterministic stepping / snapshots.
+      case 'set_background_mode': {
+        if (!sim) return;
+        const code = msg.mode === 'quiet' ? 0 : msg.mode === 'spontaneous' ? 1 : 2;
+        sim.set_background_mode(code);
+        const mode = (['quiet', 'spontaneous', 'oscillatory'] as const)[sim.background_mode()];
+        post({
+          type: 'mode_applied',
+          params: {
+            mode,
+            ou_tau_ms: sim.ou_tau_ms(),
+            ou_sigma: sim.ou_sigma(),
+            ext_sine_amp: sim.ext_sine_amp(),
+            ext_sine_freq_hz: sim.ext_sine_freq_hz(),
+          },
+        });
+        return;
+      }
+      case 'set_seed': {
+        if (!sim) return;
+        sim.set_seed(msg.seed);
+        return;
+      }
+      case 'advance_ms': {
+        // 只在暂停时推进：确定性步进（测试用）。运行中收到就忽略，
+        // 否则 tick 循环会与这次推进重叠、步数不再确定。
+        if (!sim || !paused) return;
+        sim.advance(msg.ms);
+        const snap = snapshot();
+        if (snap) post(snap);
+        return;
+      }
+      case 'save_snapshot': {
+        if (!sim) return;
+        const json = sim.take_snapshot();
+        const t_ms = sim.time_ms();
+        snapshots.set(msg.id, { t_ms, json });
+        post({ type: 'snapshot_saved', id: msg.id, t_ms, json });
+        return;
+      }
+      case 'restore_snapshot': {
+        if (!sim) return;
+        const stored = snapshots.get(msg.id);
+        const json = msg.json || stored?.json;
+        if (!json) {
+          post({ type: 'error', message: `没有可恢复的快照：${msg.id}` });
+          return;
+        }
+        sim.restore_snapshot(json);
+        snapshots.set(msg.id, { t_ms: sim.time_ms(), json });
+        pulses = [];
+        holds.clear();
+        meanHistory.length = 0;
+        lockedLatched = false;
+        wallAccumMs = 0;
+        lastTickWall = Date.now();
+        post({ type: 'snapshot_restored', id: msg.id, t_ms: sim.time_ms() });
+        const snap = snapshot();
+        if (snap) post(snap);
         return;
       }
       case 'set_snapshot_hz': {
