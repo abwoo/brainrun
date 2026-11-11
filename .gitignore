@@ -23,6 +23,9 @@ __pycache__/
 # re-run reference/python-model/compare.py to reproduce these)
 reference/python-model/outputs/rust_*.json
 reference/python-model/outputs/default_run_traces.npz
+# PR3 cross-check trace dumps (regenerate: node tests/pr3/crosscheck-node.mjs
+# then python3 tests/pr3/crosscheck-python.py; numbers in debug-rounds.md)
+tests/pr3/*-scenarios.json
 # OS / editor
 .DS_Store
 # Rust build outputs

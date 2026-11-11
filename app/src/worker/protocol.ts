@@ -25,7 +25,17 @@ export type WorkerInMessage =
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'reset' }
-  | { type: 'set_snapshot_hz'; hz: number };
+  | { type: 'set_snapshot_hz'; hz: number }
+  // PR3 — direct manipulation.  Weights are structural edits: they take
+  // effect from the next step and SURVIVE reset (only the reset_weight /
+  // reset_all_weights messages change them back).  Bias is an applied
+  // input: it is cleared by reset, like stimuli.
+  | { type: 'set_weight'; i: number; j: number; w: number }
+  | { type: 'reset_weight'; i: number; j: number }
+  | { type: 'reset_all_weights' }
+  | { type: 'set_bias'; node: number; value: number }
+  | { type: 'clear_bias'; node: number }
+  | { type: 'clear_all_bias' };
 
 export interface Snapshot {
   type: 'snapshot';

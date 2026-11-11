@@ -33,6 +33,17 @@ interface WasmSimInstance {
   stim_amplitude(): number;
   set_stim_duration_ms(d: number): void;
   stim_duration_ms(): number;
+  // PR3 — direct manipulation (see crates/brain-wasm/src/lib.rs).
+  set_weight(i: number, j: number, w: number): number;
+  get_weight(i: number, j: number): number;
+  original_weight(i: number, j: number): number;
+  get_weights(): Float64Array;
+  reset_weight(i: number, j: number): number;
+  reset_all_weights(): void;
+  set_bias(node: number, value: number): number;
+  get_bias(node: number): number;
+  clear_bias(node: number): void;
+  clear_all_bias(): void;
   reset(): void;
   snapshot_e(): Float64Array;
   snapshot_i(): Float64Array;
@@ -199,6 +210,40 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (p.c_ei !== undefined) sim.set_c_ei(p.c_ei);
         if (p.stim_amplitude !== undefined) sim.set_stim_amplitude(p.stim_amplitude);
         if (p.stim_duration_ms !== undefined) sim.set_stim_duration_ms(p.stim_duration_ms);
+        return;
+      }
+      // PR3 — direct manipulation.  Weight edits take effect from the
+      // next step and survive reset (the engine keeps them; only the
+      // reset_weight / reset_all_weights messages change them back).
+      // Bias is an applied input and is cleared by reset.
+      case 'set_weight': {
+        if (!sim) return;
+        sim.set_weight(msg.i, msg.j, msg.w);
+        return;
+      }
+      case 'reset_weight': {
+        if (!sim) return;
+        sim.reset_weight(msg.i, msg.j);
+        return;
+      }
+      case 'reset_all_weights': {
+        if (!sim) return;
+        sim.reset_all_weights();
+        return;
+      }
+      case 'set_bias': {
+        if (!sim) return;
+        sim.set_bias(msg.node, msg.value);
+        return;
+      }
+      case 'clear_bias': {
+        if (!sim) return;
+        sim.clear_bias(msg.node);
+        return;
+      }
+      case 'clear_all_bias': {
+        if (!sim) return;
+        sim.clear_all_bias();
         return;
       }
       case 'pause': {

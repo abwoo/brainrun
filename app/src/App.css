@@ -737,3 +737,180 @@ body {
     flex-wrap: wrap;
   }
 }
+
+/* ---- PR3：直接操纵（权重编辑 + 持续偏置） ---- */
+/* 权重行刻意不用 .param 类名：PR2 测试断言全页恰好 4 个 .param；
+   交互模式与 ParamControl 相同，样式类独立（.edge-* / .weight-*）。 */
+.weight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weight-item {
+  border-bottom: 1px solid rgba(19, 57, 84, 0.5);
+  padding-bottom: 8px;
+}
+
+.weight-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.weight-line .conn-nums {
+  margin-left: auto;
+}
+
+.weight-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #05080c;
+  background: #ffb340;
+  border-radius: 2px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.weight-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.weight-restore {
+  margin-left: auto;
+}
+
+.weight-restore-all {
+  margin: 8px 0 4px;
+}
+
+.edge-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.edge-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edge-step {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--blue-mid);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.edge-step:hover:not(:disabled) {
+  border-color: var(--blue);
+}
+
+.edge-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.edge-step:focus-visible,
+.edge-number:focus-visible,
+.edge-slider:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.edge-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.edge-slider:disabled {
+  cursor: not-allowed;
+}
+
+.edge-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--blue-dim);
+  border-radius: 2px;
+}
+
+.edge-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  border: 1px solid var(--blue);
+  border-radius: 50%;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.edge-slider::-moz-range-track {
+  height: 4px;
+  background: var(--blue-dim);
+  border-radius: 2px;
+}
+
+.edge-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--blue);
+  border-radius: 50%;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.edge-number {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--blue-mid);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: right;
+}
+
+.edge-number:disabled {
+  opacity: 0.5;
+}
+
+.edge-value {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text);
+  min-width: 44px;
+  text-align: right;
+}
+
+.bias-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}

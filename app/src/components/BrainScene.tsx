@@ -93,6 +93,10 @@ interface BrainSceneProps {
   replayE: Float64Array | null;
   /** PR2：三类响应标记的脑区 id（null = 无响应数据，不画标记）。 */
   responseGroups: ResponseGroups | null;
+  /** PR3：持续偏置输入所在的脑区列表（空 = 无偏置，不画标记）。
+   *  与脉冲的琥珀色扩散环形状、颜色、含义都不同：这是持续输入的标记
+   *  （紫色八面体，每脑区一个）。 */
+  biasList: Array<{ node: number; value: number }>;
 }
 
 export default function BrainScene({
@@ -111,6 +115,7 @@ export default function BrainScene({
   baselineE,
   replayE,
   responseGroups,
+  biasList,
 }: BrainSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -133,11 +138,25 @@ export default function BrainScene({
      *  RESET 或下一次刺激时由 effect 重建/清除。 */
     respGroup: THREE.Group;
     selMarker: THREE.Mesh;
+    /** PR3：持续偏置输入的标记组（紫色八面体，每脑区一个，画在偏置
+     *  脑区的中心）。与脉冲的琥珀色扩散环形状、颜色、含义都不同。 */
+    biasGroup: THREE.Group;
     centerOffset: THREE.Vector3;
     raycaster: THREE.Raycaster;
   } | null>(null);
   const hoverRef = useRef<number | null>(null);
   const selectedRef = useRef<number | null>(null);
+  /** PR3：最近一次刺激的实际触点（射线与网格的交点，场景坐标）。
+   *  持久响应标记里的输入环画在这里，不再画在脑区中心；若射线未命中
+   *  网格则回落到脑区中心（fromHit=false，代码里注明）。 */
+  const lastStimulusPointRef = useRef<{
+    node: number;
+    point: THREE.Vector3;
+    fromHit: boolean;
+  } | null>(null);
+  /** PR3：偏置列表的 ref（渲染循环与调试桥只读 ref，不触发渲染）。 */
+  const biasListRef = useRef(biasList);
+  biasListRef.current = biasList;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const onPulseRef = useRef(onPulse);
@@ -301,8 +320,10 @@ export default function BrainScene({
 
   // PR2：持久响应标记——输入环（琥珀空心环）/ 局部响应（琥珀实心球）/
   // 网络响应（蓝色小球）。三者颜色与形状都不同；只在有响应数据时
-  // 出现，RESET 或下一次刺激时重建。标记位置只取脑区中心坐标，
-  // 不参与任何神经计算。
+  // 出现，RESET 或下一次刺激时重建。
+  // PR3：输入环画在最近一次刺激的实际触点（射线与网格的交点），不再
+  // 画在脑区中心；只有射线未命中网格（回落）时才用脑区中心。局部 /
+  // 网络标记仍画在各自脑区中心（它们表示“哪个脑区响应了”，不是触点）。
   useEffect(() => {
     const s = sceneRef.current;
     if (!s) return;
@@ -329,7 +350,13 @@ export default function BrainScene({
           side: THREE.DoubleSide,
         }),
       );
-      ring.position.copy(centre(responseGroups.input));
+      const hit = lastStimulusPointRef.current;
+      if (hit && hit.node === responseGroups.input) {
+        ring.position.copy(hit.point);
+      } else {
+        // 回落：没有记录到本次刺激的触点（例如射线未命中网格），用中心。
+        ring.position.copy(centre(responseGroups.input));
+      }
       ring.userData.isInputRing = true;
       ring.userData.respKind = 'input';
       respGroup.add(ring);
@@ -366,6 +393,34 @@ export default function BrainScene({
     s.selMarker.position.set(c[0], c[1], c[2]).sub(s.centerOffset);
     s.selMarker.visible = true;
   }, [selectedId, data]);
+
+  // PR3：持续偏置输入的标记（紫色八面体，每脑区一个，画在偏置脑区的
+  // 中心）。只在偏置开着（幅度 ≠ 0）的脑区出现；与脉冲的琥珀色扩散环
+  // 形状、颜色、含义都不同；不参与任何神经计算。
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s) return;
+    const { biasGroup, centerOffset } = s;
+    while (biasGroup.children.length > 0) {
+      const child = biasGroup.children.pop()!;
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+    for (const { node, value } of biasList) {
+      if (value === 0) continue;
+      const marker = new THREE.Mesh(
+        new THREE.OctahedronGeometry(2.8),
+        new THREE.MeshBasicMaterial({ color: 0xb78cff }),
+      );
+      const c = data.regions[node].centre;
+      marker.position.set(c[0], c[1], c[2]).sub(centerOffset);
+      marker.userData.biasNode = node;
+      marker.userData.biasValue = value;
+      biasGroup.add(marker);
+    }
+  }, [biasList, data]);
 
   // 连接线：选中脑区的前 5 条主要连接弧线
   useEffect(() => {
@@ -534,6 +589,11 @@ export default function BrainScene({
     selMarker.visible = false;
     scene.add(selMarker);
 
+    // PR3：持续偏置输入的标记组——紫色八面体，每脑区一个
+    // （与脉冲的琥珀色环不同）。
+    const biasGroup = new THREE.Group();
+    scene.add(biasGroup);
+
     const raycaster = new THREE.Raycaster();
     sceneRef.current = {
       renderer,
@@ -548,11 +608,17 @@ export default function BrainScene({
       markerGroup,
       respGroup,
       selMarker,
+      biasGroup,
       centerOffset,
       raycaster,
     };
 
-    const pickRegion = (clientX: number, clientY: number): number | null => {
+    /** PR3：射线拾取，返回脑区 id 与射线命中的皮层表面实际点。
+     *  交点是 Three.js Raycaster 的 intersection.point（场景坐标；
+     *  网格无位移/旋转，几何顶点已按 centerOffset 居中，所以交点
+     *  可直接用作标记位置）。选中逻辑不变：仍按最近脑区（三角面
+     *  顶点 → regionMap）。 */
+    const pickHit = (clientX: number, clientY: number): { region: number; point: THREE.Vector3 } | null => {
       const s = sceneRef.current;
       if (!s) return null;
       const rect = renderer.domElement.getBoundingClientRect();
@@ -564,7 +630,11 @@ export default function BrainScene({
       const hits = s.raycaster.intersectObject(s.mesh, false);
       if (hits.length === 0 || !hits[0].face) return null;
       const vertexIndex = hits[0].face.a;
-      return data.regionMap[vertexIndex];
+      return { region: data.regionMap[vertexIndex], point: hits[0].point.clone() };
+    };
+
+    const pickRegion = (clientX: number, clientY: number): number | null => {
+      return pickHit(clientX, clientY)?.region ?? null;
     };
 
     const moveTooltip = (clientX: number, clientY: number) => {
@@ -575,11 +645,16 @@ export default function BrainScene({
       tip.style.top = `${clientY - rect.top + 10}px`;
     };
 
-    /** 在脑区中心放一个短暂扩散环：交互确认标记，450 ms 后消失。 */
-    const spawnMarker = (regionId: number) => {
+    /** PR3：在射线命中的皮层表面实际点放一个短暂扩散环：交互确认标记，
+     *  450 ms 后消失。若 hitPoint 为 null（射线未命中网格——理论上不
+     *  应发生，因为能选中就说明命中了），回落到脑区中心，并在
+     *  lastStimulusPointRef 里记 fromHit=false。 */
+    const spawnMarker = (regionId: number, hitPoint: THREE.Vector3 | null) => {
       const s = sceneRef.current;
       if (!s) return;
       const c = data.regions[regionId].centre;
+      const pos = hitPoint ?? new THREE.Vector3(c[0], c[1], c[2]).sub(s.centerOffset);
+      lastStimulusPointRef.current = { node: regionId, point: pos.clone(), fromHit: hitPoint !== null };
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(2.5, 3.5, 40),
         new THREE.MeshBasicMaterial({
@@ -589,7 +664,7 @@ export default function BrainScene({
           side: THREE.DoubleSide,
         }),
       );
-      ring.position.set(c[0], c[1], c[2]).sub(s.centerOffset);
+      ring.position.copy(pos);
       ring.userData.born = performance.now();
       s.markerGroup.add(ring);
     };
@@ -600,6 +675,9 @@ export default function BrainScene({
      *  按压时长以事件时间算，不以处理时的墙钟时间算。 */
     let downTime = 0;
     let downRegion: number | null = null;
+    /** PR3：按下时射线命中的皮层表面实际点（按下时即取到，松开/按住
+     *  启动时复用，避免松开时重算拾取不到同一触点）。 */
+    let downPoint: THREE.Vector3 | null = null;
     let moved = false;
     let holding = false;
     /** 按住启动时的 performance.now()：撤回判定以它为准（见 HOLD_DELAY_MS 说明）。 */
@@ -630,7 +708,7 @@ export default function BrainScene({
       if (!simRef.current?.isReady()) return;
       holding = true;
       holdStartPerf = performance.now();
-      spawnMarker(downRegion);
+      spawnMarker(downRegion, downPoint);
       onHoldStartRef.current(downRegion);
     };
     /** 撤回一次被证实为误判的按住：停输入、删标记（见 HOLD_DELAY_MS 说明）。 */
@@ -704,7 +782,9 @@ export default function BrainScene({
       moved = false;
       holding = false;
       holdStartPerf = null;
-      downRegion = pickRegion(e.clientX, e.clientY);
+      const hit = pickHit(e.clientX, e.clientY);
+      downRegion = hit?.region ?? null;
+      downPoint = hit?.point ?? null;
       if (downRegion !== null) {
         onSelectRef.current(downRegion);
         clearHoldTimer();
@@ -737,7 +817,10 @@ export default function BrainScene({
       // 不制造虚假的持续输入与锁定。
       // PR1 小修：引擎未就绪时不画确认标记、不发脉冲（同 startHold）。
       if (!simRef.current?.isReady()) return;
-      spawnMarker(id);
+      // PR3：确认环画在松开点的射线命中处（与按下点同一触点优先）；
+      // 拾取不到时回落到按下点，再不行回落到脑区中心。
+      const hitUp = pickHit(e.clientX, e.clientY);
+      spawnMarker(id, hitUp?.point ?? downPoint);
       onPulseRef.current(id);
     };
     const onPointerCancel = () => {
@@ -940,6 +1023,70 @@ export default function BrainScene({
           }
         }
         return n > 0 ? [r / n, g / n, b / n] : null;
+      },
+      /** PR3：最近一次刺激的实际触点（射线与网格的交点，场景坐标）；
+       *  fromHit=false 表示射线未命中、回落到了脑区中心。 */
+      getLastStimulusPoint: () => {
+        const h = lastStimulusPointRef.current;
+        return h
+          ? { node: h.node, point: [h.point.x, h.point.y, h.point.z], fromHit: h.fromHit }
+          : null;
+      },
+      /** PR3：持久响应标记里输入环的实际位置（null = 当前无输入环）。 */
+      getInputRingPosition: () => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        for (const child of sc.respGroup.children) {
+          const mesh = child as THREE.Mesh;
+          if (mesh.userData.respKind === 'input') {
+            return [mesh.position.x, mesh.position.y, mesh.position.z];
+          }
+        }
+        return null;
+      },
+      /** PR3：最近一次触点到所属脑区最近顶点的距离（mm）。交点落在
+       *  三角面上，最近顶点距离不超过该处最大边长；用于测试确认标记
+       *  落在网格表面附近。 */
+      getLastHitSurfaceDistance: () => {
+        const h = lastStimulusPointRef.current;
+        const sc = sceneRef.current;
+        if (!h || !sc) return null;
+        const pos = sc.geometry.getAttribute('position') as THREE.BufferAttribute;
+        let best = Infinity;
+        for (let vi = 0; vi < data.regionMap.length; vi++) {
+          if (data.regionMap[vi] !== h.node) continue;
+          const dx = pos.getX(vi) - h.point.x;
+          const dy = pos.getY(vi) - h.point.y;
+          const dz = pos.getZ(vi) - h.point.z;
+          const d = dx * dx + dy * dy + dz * dz;
+          if (d < best) best = d;
+        }
+        return Math.sqrt(best);
+      },
+      /** PR3：某脑区中心在场景坐标下的位置（TVB 原始中心减去网格居中
+       *  偏移），供测试确认刺激标记不在脑区中心。 */
+      getRegionCentre: (node: number) => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        const c = data.regions[node].centre;
+        return [c[0] - sc.centerOffset.x, c[1] - sc.centerOffset.y, c[2] - sc.centerOffset.z];
+      },
+      /** PR3：持续偏置标记（每脑区一个紫色八面体），供测试确认偏置
+       *  标记与脉冲环在形状与颜色上不同、且只在偏置开着时出现。 */
+      getBiasMarkers: () => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        return sc.biasGroup.children.map((child) => {
+          const mesh = child as THREE.Mesh;
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          return {
+            node: mesh.userData.biasNode as number,
+            value: mesh.userData.biasValue as number,
+            geometry: mesh.geometry.type,
+            color: mat.color ? `#${mat.color.getHexString()}` : null,
+            position: [mesh.position.x, mesh.position.y, mesh.position.z],
+          };
+        });
       },
     };
 
