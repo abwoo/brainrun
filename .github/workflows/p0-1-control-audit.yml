@@ -1,0 +1,31 @@
+name: P0-1A Control Causality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  control-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+      - name: Exhaustive JSX control-handler inventory + targeted causality contracts
+        run: node --test tests/p0-1/control-flow.test.mjs
+      - name: TypeScript typecheck
+        working-directory: app
+        run: npx tsc -b
+      - name: Frontend lint
+        working-directory: app
+        run: npm run lint
