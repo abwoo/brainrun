@@ -76,7 +76,8 @@ export interface EegEvent {
   type: 'standard' | 'oddball' | 'noise' | 'pulse';
   /** 仿真时钟上的时间戳，ms（不是浏览器墙钟）。 */
   tMs: number;
-  condition: 'standard' | 'oddball';
+  /** An arbitrary LIVE pulse is NOT an oddball condition without a task design. */
+  condition: 'standard' | 'oddball' | 'unclassified';
   /** 该事件用的刺激驱动数值。 */
   drive: number;
   /** 驱动单位：'wc' = Wilson–Cowan 无量纲驱动；'jr' = Jansen–Rit 1/s。 */
