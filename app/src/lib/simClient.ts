@@ -18,6 +18,8 @@ export interface StimulusMarker {
   node: number;
   /** 'pulse' | 'hold'。 */
   kind: 'pulse' | 'hold';
+  /** 发送时用的刺激幅度（模型单位；pulse 取发送时 stim_amplitude）。 */
+  amplitude: number;
 }
 
 /**
@@ -610,7 +612,7 @@ export class SimClient {
     this.worker?.postMessage(msg);
   }
 
-  private mark(kind: 'pulse' | 'hold', node: number): void {
+  private mark(kind: 'pulse' | 'hold', node: number, amplitude: number): void {
     const t_ms = this.latest ? this.latest.t_ms : 0;
     // PR2：记下发送前最近快照的 E 作基线（ΔE 视图与响应窗口的零点）。
     // 只有真实快照到达过才有基线；否则保持上一次基线（不编造）。
@@ -628,13 +630,13 @@ export class SimClient {
         .map((s) => ({ t_ms: s.t_ms, e: Float64Array.from(s.e), i: Float64Array.from(s.i) }));
       this.pinnedWindow = { baselineT_ms: t_ms, node, t0_ms: t0, t1_ms: t1, snapshots: seed };
     }
-    this.markers.push({ t_ms, node, kind });
+    this.markers.push({ t_ms, node, kind, amplitude });
     if (this.markers.length > 50) this.markers.splice(0, this.markers.length - 50);
   }
 
   /** 脉冲刺激：用当前参数的幅度与持续时间。 */
   pulse(node: number): void {
-    this.mark('pulse', node);
+    this.mark('pulse', node, this.params.stim_amplitude);
     this.send({
       type: 'stimulus',
       node,
@@ -643,8 +645,19 @@ export class SimClient {
     });
   }
 
+  /** PR8-LINK：带幅度的单次脉冲（感觉输入 / 刺激实验 / 直播闭环用）。
+   *  幅度钳制到 [−2, 2]（与 Level A 直接驱动范围一致；Rust 端 per-event
+   *  幅度不钳制，故客户端钳制）；持续时间钳制到 [20, 500] ms（与 UI
+   *  脉冲时长范围一致）。与 pulse() 一样记标记、钉响应窗口。 */
+  pulseAt(node: number, amplitude: number, durationMs: number): void {
+    const amp = Math.min(2, Math.max(-2, amplitude));
+    const dur = Math.min(500, Math.max(20, durationMs));
+    this.mark('pulse', node, amp);
+    this.send({ type: 'stimulus', node, amplitude: amp, duration_ms: dur });
+  }
+
   holdStart(node: number): void {
-    this.mark('hold', node);
+    this.mark('hold', node, this.params.stim_amplitude);
     this.holdStartWall = { node, wallMs: Date.now() };
     this.send({ type: 'hold_start', node, amplitude: this.params.stim_amplitude });
   }
@@ -1000,7 +1013,7 @@ export class SimClient {
               windowT1_ms: null,
             },
       pulse: (node: number, amplitude?: number, duration_ms?: number) => {
-        this.mark('pulse', node);
+        this.mark('pulse', node, amplitude ?? this.params.stim_amplitude);
         this.send({
           type: 'stimulus',
           node,
@@ -1008,6 +1021,9 @@ export class SimClient {
           duration_ms: duration_ms ?? this.params.stim_duration_ms,
         });
       },
+      // PR8-LINK 调试桥：带幅度的单次脉冲（与 UI 的感觉输入 / 直播闭环相同入口）。
+      pulseAt: (node: number, amplitude: number, duration_ms: number) =>
+        this.pulseAt(node, amplitude, duration_ms),
       holdStart: (node: number) => this.holdStart(node),
       holdEnd: (node: number) => this.holdEnd(node),
       retractHold: (node: number) => this.retractHold(node),

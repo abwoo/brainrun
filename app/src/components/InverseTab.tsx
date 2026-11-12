@@ -157,7 +157,9 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
             </label>
             <label>
               λ²：
-              <input type="number" value={lambda2} min={0.001} max={1} step={0.01} onChange={(e) => setLambda2(+e.target.value)} style={{ width: 72 }} />
+              {/* PR8-LAYOUT L-02：框内只显示 3 位小数（0.111），与下方对照表
+                  “MNE（λ² = 0.111）”口径一致；状态里仍存完整浮点数，不改计算。 */}
+              <input type="number" value={lambda2.toFixed(3)} min={0.001} max={1} step={0.01} onChange={(e) => setLambda2(+e.target.value)} style={{ width: 72 }} />
             </label>
             <label>
               MNE 噪声 σ（µV）：

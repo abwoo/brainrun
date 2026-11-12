@@ -846,6 +846,35 @@ function multitaperTfr(
 }
 
 /**
+ * 试次间最大逐点差（µV），单通道：任意两试次、任意采样点的最大 |差|。
+ * PR8-NUMFIX：确定性模型无噪声时各试次完全相同（实测默认 10 s WC
+ * 实验：1.9e-16 µV），此时各试次 TFR 相位全同、ITC 恒为 1.000，是
+ * 退化值不是锁相证据；0.25 µV 白噪声下实测 1.28 µV。调用方（TfrTab）
+ * 以 `ITC_DEGENERATE_THRESHOLD_UV = 1e-6` µV 为界：低于它不展示 ITC
+ * 数值。ERSP 不受影响（功率比仍有意义），本函数不改 erspItc 的计算。
+ */
+export const ITC_DEGENERATE_THRESHOLD_UV = 1e-6;
+
+export function maxTrialDifferenceUv(epochs: EpochSet, channel: string): number {
+  const chIdx = epochs.channels.indexOf(channel);
+  if (chIdx < 0) throw new RangeError(`maxTrialDifferenceUv: channel ${channel} not in EpochSet`);
+  if (epochs.trials.length < 2) return 0;
+  const nT = epochs.timesMs.length;
+  let max = 0;
+  for (let a = 0; a < epochs.trials.length; a++) {
+    for (let b = a + 1; b < epochs.trials.length; b++) {
+      const xa = epochs.trials[a][chIdx];
+      const xb = epochs.trials[b][chIdx];
+      for (let j = 0; j < nT; j++) {
+        const d = Math.abs(xa[j] - xb[j]);
+        if (d > max) max = d;
+      }
+    }
+  }
+  return max;
+}
+
+/**
  * ERSP（dB）与 ITC（无量纲 0–1），单通道，按 [频率][时间] 排列。
  * - 方法 `stft`/`morlet` 复用同名函数；`multitaper` 为滑动窗
  *   multitaper（窗长 = 7 个周期，见 `multitaperTfr`）。三种方法

@@ -5,7 +5,14 @@
  * `{ recording, events, epochs, onEpochsChange, channel }`。
  * 本 tab 只做分段/平均/显示（A1 的 `epochRecording` + `averageEpochs`，
  * 经 `lateResponse.ts` 的 `epochOddballExperiment` / `analyseErp` /
- * `differenceWaveErp`），不重新跑模型（“运行实验”在 EEG 页，B1 的按钮）。
+ * `differenceWaveErp`），另有一个显式按钮可直接跑 late 机制 oddball
+ * 实验（`runOddballExperiment`，单通道 Pz，见 PR8-NUMFIX）：壳实验
+ * 记录是 plain WC/JR 模型、无 late 机制，250–600 ms 窗内基本无响应，
+ * 表格峰值约 0 µV；late 实验的 oddball 峰才是 0.174 µV @352 ms。
+ * 两条路径的文案是条件化的：0.17 µV 那句只在 late 数据下出现，
+ * 壳记录路径下如实写窗内无响应，界面写的数与实际算出的数永不脱节。
+ * “运行实验”在 EEG 页，B1 的按钮；本 tab 的 late 按钮只改 epochs，
+ * 不碰壳的 recording/events（壳仍由 B1 持有，见 PR8-NUMFIX 与契约 §1.8）。
  *
  * 分段口径（MNE）：−200–800 ms、基线 −200–0 ms、峰峰值 >150 µV 剔除。
  * 峰值窗 250–600 ms、窗均值 300–500 ms，与 ds003061 约束口径一致。
@@ -19,6 +26,7 @@ import {
   differenceWaveErp,
   epochOddballExperiment,
   filterEpochsByCondition,
+  runOddballExperiment,
 } from '../lib/lateResponse.ts';
 import { PUBLIC_EEG_CONSTRAINT } from '../lib/publicEegConstraint.ts';
 
@@ -55,6 +63,14 @@ export default function ErpTab({
   channel: string;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // PR8-NUMFIX：当前 epochs 的来源。'shell' = 壳实验记录切分；
+  // 'late' = 本 tab 的 late 机制 oddball 实验（单通道 Pz）。文案与
+  // “已切分”计数都按来源条件化，不许出现界面写一个数、实际算另一个数。
+  const [epochSource, setEpochSource] = useState<{
+    kind: 'shell' | 'late';
+    kept: number;
+    total: number;
+  } | null>(null);
 
   const analysis = useMemo(() => {
     if (!epochs) return null;
@@ -79,7 +95,27 @@ export default function ErpTab({
       return;
     }
     try {
-      onEpochsChange(epochOddballExperiment(recording, events));
+      const ep = epochOddballExperiment(recording, events);
+      setEpochSource({ kind: 'shell', kept: ep.trials.length, total: events.length });
+      onEpochsChange(ep);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  // PR8-NUMFIX：late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 +
+  // 8 oddball）。壳实验记录是 plain WC/JR、无 late 机制，250–600 ms 窗内
+  // 基本无响应（峰 ≈0、潜伏期落在窗首 252 ms）；只有这条路径算出的
+  // oddball 峰才是 0.174 µV @352 ms，与机制文档 §4 一致。只改 epochs，
+  // 不碰壳的 recording/events；late 实验是单通道 Pz，当前通道不是 Pz
+  // 时下方会明确提示切通道，不静默换通道。
+  const handleLateExperiment = () => {
+    setError(null);
+    try {
+      const { recording: rec, events: evs } = runOddballExperiment({});
+      const ep = epochOddballExperiment(rec, evs);
+      setEpochSource({ kind: 'late', kept: ep.trials.length, total: evs.length });
+      onEpochsChange(ep);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -138,16 +174,40 @@ export default function ErpTab({
             color: '#d7e5ef',
             cursor: recording && events.length > 0 ? 'pointer' : 'not-allowed',
             fontSize: 13,
+            marginRight: 8,
           }}
         >
           切分试次（MNE 口径）
         </button>
+        <button
+          type="button"
+          onClick={handleLateExperiment}
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            border: '1px solid #ffb829',
+            background: '#3a2f10',
+            color: '#d7e5ef',
+            cursor: 'pointer',
+            fontSize: 13,
+          }}
+        >
+          运行 oddball 实验（late 机制）并切分
+        </button>
+        <p style={note}>
+          右边按钮跑 late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 + 8 oddball），
+          不依赖 EEG 页的记录；左边按钮切分 EEG 页已有的壳实验记录。壳记录是 plain 模型、
+          窗内基本无响应，late 实验才有 0.174 µV 的晚期峰（见下方说明）。
+        </p>
         {error && <p style={{ ...note, color: '#ff9d9d' }}>{error}</p>}
-        {!recording && <p style={note}>还没有 EEG 记录。先在 EEG 页运行实验。</p>}
-        {recording && epochs && (
+        {!recording && <p style={note}>还没有 EEG 记录。先在 EEG 页运行实验（或直接点 late 机制按钮）。</p>}
+        {epochs && epochSource && (
           <p style={note}>
-            已切分：{epochs.trials.length} / {events.length} 试次保留，
-            {events.length - epochs.trials.length} 试次被剔除（峰峰值超限或出界）。
+            已切分：{epochSource.kept} / {epochSource.total} 试次保留，
+            {epochSource.total - epochSource.kept} 试次被剔除（峰峰值超限或出界）。
+            来源：{epochSource.kind === 'late'
+              ? 'late 机制 oddball 实验（单通道 Pz）'
+              : 'EEG 页的壳实验记录'}。
           </p>
         )}
       </div>
@@ -235,10 +295,24 @@ export default function ErpTab({
             <p style={note}>
               ds003061 实测对照（Pz）：oddball 峰 {PUBLIC_EEG_CONSTRAINT.p300PeakUvAtPz} µV @
               {PUBLIC_EEG_CONSTRAINT.p300PeakLatencyMs} ms、300–500 ms 均值 6.94 µV、差异波峰{' '}
-              {PUBLIC_EEG_CONSTRAINT.differencePeakUvAtPz} µV。模型峰约 0.17 µV：形态对上（晚期正成分、
-              潜伏期在窗内、oddball 选择性），幅度差约 50 倍——这是结构性缺口，没有靠重缩放修掉，
-              见 docs/pr6-erp-mechanism.md。
+              {PUBLIC_EEG_CONSTRAINT.differencePeakUvAtPz} µV。
             </p>
+            {epochSource?.kind === 'late' ? (
+              <p style={note}>
+                模型峰约 0.17 µV（本表 oddball 行实测 {analysis.odd.peakUv.toFixed(3)} µV @
+                {analysis.odd.peakLatencyMs.toFixed(0)} ms）：形态对上（晚期正成分、
+                潜伏期在窗内、oddball 选择性），幅度差约 50 倍——这是结构性缺口，没有靠重缩放修掉，
+                见 docs/pr6-erp-mechanism.md。
+              </p>
+            ) : (
+              <p style={note}>
+                注意：上面表格是壳实验记录（plain WC/JR 模型，无 late 机制）算出的——250–600 ms
+                窗内基本无响应，峰值小于 0.001 µV（表格按 3 位小数显示为 0.000）、潜伏期落在窗首
+                252 ms（窗内只有早期峰的衰减尾巴，最大 |值| 在窗首）。late 机制的模型峰约
+                0.17 µV @352 ms（docs/pr6-erp-mechanism.md §4）要点上面“运行 oddball 实验
+                （late 机制）”才会出现；幅度差约 50 倍是结构性缺口，没有靠重缩放修掉。
+              </p>
+            )}
             <p style={note}>
               试次数量效应：SEM ≈ σ/√n。无噪声运行时试次完全相同、SEM 为 0（只有边界共享点带来
               ~1e-4 µV 级数值差异）；加测量噪声后，试次数翻 4 倍、SEM 约减半。
@@ -249,6 +323,12 @@ export default function ErpTab({
       {analysis?.error && (
         <div style={panel}>
           <p style={note}>{analysis.error}</p>
+          {epochSource?.kind === 'late' && (
+            <p style={note}>
+              late 机制 oddball 实验只出单通道 Pz：请在 EEG tab 把通道切到 Pz 再看本页，
+              或点“切分试次”回到壳实验记录。
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -185,3 +185,20 @@ Oscillatory 10 Hz 正弦驱动仍标注为外部驱动，不是自发节律。
   潜伏期 4 ms）。
 - Alpha：TS Welch 与 Python scipy Welch 同口径（nFft=1024、周期 Hann、
   50% 重叠、先减均值），峰位一致到一格 bin（0.244 Hz）以内。
+
+## 7. PR8-NUMFIX：ERP tab 的诚实性修补（2026-11-12）
+
+live 站实测：EEG 页壳实验记录（plain WC/JR，无 late 机制）切出的 ERP，
+三行峰值全 0.000 µV、潜伏期全 252 ms——复算：WC 默认 oddball 峰
+0.000061 µV @252 ms（窗首；窗内只有早期峰的衰减尾巴，图上纵轴半幅
+0.234 µV 是全 epoch 最大 |均值| 0.204 µV 的早期峰，不在峰值窗内），
+JR 默认 −0.00143 µV @252 ms。旧 ErpTab 文案却无条件写“模型峰约
+0.17 µV”——那个数属于 late 机制（§4：0.174 µV @352 ms），tab 实际
+算出的 plain 模型在窗内 ≈0。修法（不改机制、不重缩放）：ErpTab 加显式
+按钮“运行 oddball 实验（late 机制）并切分”，跑 `runOddballExperiment({})`
+后切分，只改 epochs、不碰壳的 recording/events；文案按 epochs 来源条件化——
+late 路径写 0.17 µV（与本表实测 0.174 µV @352 ms 一致），壳记录路径如实写
+“窗内基本无响应、峰 <0.001 µV、潜伏期落在窗首”。旧契约断言“ErpTab 不跑
+oddball 实验”已按契约流程作废并更新（`tests/pr5/contract.test.mjs` B2 节、
+`docs/frontend-backend-contract.md` §1.8）。幅度缺口仍 51 倍（0.174 vs 真实
+8.89 µV），定位仍是教学仿真，不在本批修。

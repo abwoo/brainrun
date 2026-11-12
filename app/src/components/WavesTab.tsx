@@ -13,9 +13,10 @@
  *
  * 布局：纵向堆叠、无绝对定位、无重叠；1920×1080 与 978px 冒烟级查看。
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { EegRecording } from '../lib/eegData.ts';
 import { EEG_BANDS, type EegBandName } from '../lib/eegData.ts';
+import { DEFAULT_NOISE, generateNoise } from '../lib/eegRecording.ts';
 import { bandPowers, welchPsd } from '../lib/signalProcessing.ts';
 import { PUBLIC_EEG_CONSTRAINT } from '../lib/publicEegConstraint.ts';
 
@@ -47,30 +48,44 @@ export default function WavesTab({
   recording: EegRecording | null;
   channel: string;
 }) {
+  // PR8-D：叠加 PR6 噪声背景（默认关）。噪声是伪迹、不是神经源：开关只
+  // 改变 PSD 的输入信号，不改记录本身、不跑模型。默认噪声参数
+  // （白 2 / 粉红 1 / 工频 0.5 / 漂移 0.5 µV RMS）与种子取自当前记录。
+  const [showBackground, setShowBackground] = useState(false);
   const analysis = useMemo(() => {
     if (!recording) return null;
     const chIdx = recording.channels.findIndex((c) => c.label === channel);
     if (chIdx < 0) return { error: `通道 ${channel} 不在记录中` } as const;
-    const x = recording.dataUv[chIdx];
-    const m = x.reduce((s, v) => s + v, 0) / x.length;
-    const xc = x.map((v) => v - m);
-    // Welch：nFft=1024（df≈0.244 Hz），周期 Hann、50% 重叠，与 Python scipy 同口径。
-    const { freqsHz, psd } = welchPsd(xc, recording.sfreqHz, { nFft: 1024 });
-    const bands = bandPowers(freqsHz, psd);
-    let peakHz = 0;
-    let peakPsd = -1;
-    for (let i = 0; i < freqsHz.length; i++) {
-      if (freqsHz[i] >= EEG_BANDS.alpha[0] && freqsHz[i] <= EEG_BANDS.alpha[1] && psd[i] > peakPsd) {
-        peakPsd = psd[i];
-        peakHz = freqsHz[i];
+    const analyseSignal = (x: number[]) => {
+      const m = x.reduce((s, v) => s + v, 0) / x.length;
+      const xc = x.map((v) => v - m);
+      // Welch：nFft=1024（df≈0.244 Hz），周期 Hann、50% 重叠，与 Python scipy 同口径。
+      const { freqsHz, psd } = welchPsd(xc, recording.sfreqHz, { nFft: 1024 });
+      const bands = bandPowers(freqsHz, psd);
+      let peakHz = 0;
+      let peakPsd = -1;
+      for (let i = 0; i < freqsHz.length; i++) {
+        if (freqsHz[i] >= EEG_BANDS.alpha[0] && freqsHz[i] <= EEG_BANDS.alpha[1] && psd[i] > peakPsd) {
+          peakPsd = psd[i];
+          peakHz = freqsHz[i];
+        }
       }
-    }
-    const total = BAND_ORDER.reduce((s, b) => s + bands[b], 0);
-    const shares: Record<EegBandName, number> = {} as Record<EegBandName, number>;
-    for (const b of BAND_ORDER) shares[b] = total > 0 ? bands[b] / total : 0;
-    const rms = Math.sqrt(xc.reduce((s, v) => s + v * v, 0) / xc.length);
-    return { error: null, freqsHz, psd, bands, shares, peakHz, peakPsd, rms, n: x.length };
-  }, [recording, channel]);
+      const total = BAND_ORDER.reduce((s, b) => s + bands[b], 0);
+      const shares: Record<EegBandName, number> = {} as Record<EegBandName, number>;
+      for (const b of BAND_ORDER) shares[b] = total > 0 ? bands[b] / total : 0;
+      const rms = Math.sqrt(xc.reduce((s, v) => s + v * v, 0) / xc.length);
+      return { error: null, freqsHz, psd, bands, shares, peakHz, peakPsd, rms, n: x.length };
+    };
+    const x = recording.dataUv[chIdx];
+    const base = analyseSignal(x);
+    if (!showBackground) return { ...base, baseAlphaShare: base.shares.alpha, backgroundOn: false };
+    const noise = generateNoise(
+      DEFAULT_NOISE, recording.channels.length, x.length, recording.sfreqHz, recording.seed,
+    );
+    const mixed = x.map((v, j) => v + noise.total[chIdx][j]);
+    const withBg = analyseSignal(mixed);
+    return { ...withBg, baseAlphaShare: base.shares.alpha, backgroundOn: true };
+  }, [recording, channel, showBackground]);
 
   if (!recording) {
     return (
@@ -122,12 +137,17 @@ export default function WavesTab({
     <div>
       <div style={panel}>
         <h3 style={title}>频段 / PSD（WAVES）——通道 {channel}</h3>
+        <label style={{ ...note, display: 'block', cursor: 'pointer' }}>
+          <input aria-label="叠加噪声背景" type="checkbox" checked={showBackground}
+            onChange={e => setShowBackground(e.target.checked)} /> 叠加 PR6 噪声背景（白 2 / 粉红 1 / 工频 0.5 / 漂移 0.5 µV RMS，伪迹，非神经源；只改变 PSD 输入，不改记录）
+        </label>
         <p style={note}>
           Welch PSD（nFft=1024，df≈0.244 Hz，周期 Hann、50% 重叠；先减均值，与 Python scipy 同口径）。
           Alpha 峰 <strong>{peakHz.toFixed(2)} Hz</strong>；ds003061 实测 Pz {realPz.toFixed(2)} Hz / Oz{' '}
           {realOz.toFixed(2)} Hz，偏差 {peakHz - realPz >= 0 ? '+' : ''}
           {(peakHz - realPz).toFixed(2)} Hz（Pz）/ {peakHz - realOz >= 0 ? '+' : ''}
           {(peakHz - realOz).toFixed(2)} Hz（Oz）。记录 RMS {rms.toFixed(3)} µV（真实基线 RMS 6.07 µV）。
+          {analysis.backgroundOn && ` 已叠加噪声背景：未叠加时 alpha 占比 ${(analysis.baseAlphaShare * 100).toFixed(1)}%。`}
         </p>
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -163,6 +183,9 @@ export default function WavesTab({
         <p style={note}>
           占比分母是五个频段功率之和。JR p0=220 纯极限环的 alpha 占比约 99.8%，真实 Pz 只有 30.3%
           （真实脑电有宽带背景），模型无背景噪声，占比虚高是已知局限，不是拟合结果。
+          叠加默认噪声背景后，10 s 纯极限环 Pz 记录的 alpha 占比实测由 99.8% 降至 13.5%
+          （噪声功率压过微弱的极限环信号，低于真实 30.3%——背景加过了头，不是校准到 30.3%；
+          见 PR8 方法学测试）。开关默认关闭，打开后上方同时显示未叠加时的占比以便对照。
         </p>
       </div>
       <div style={panel}>

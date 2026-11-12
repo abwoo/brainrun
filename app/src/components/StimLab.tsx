@@ -1,10 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AUDITORY_BURST_DRIVE,
+  AUDITORY_BURST_DURATION_MS_DEFAULT,
+  BIPHASIC_PERIOD_RANGE_MS,
+  DEFAULT_BIPHASIC_PERIOD_MS,
   DEFAULT_TMS_COIL,
   FIELD_TO_JR_GAIN_DEFAULT,
   FIELD_TO_WC_GAIN_DEFAULT,
   STIMULATION_LIMITATION,
+  VISUAL_DRIVE_AMPLITUDE,
+  VISUAL_FLICKER_DURATION_MS_DEFAULT,
   fieldToDrive,
+  figureEightFieldGrid,
   normalComponentVm,
   runAuditoryTrain,
   runDirectDrive,
@@ -12,22 +19,26 @@ import {
   runVisualFlicker,
   tesElectricField,
   tesFieldGrid,
+  tmsBiphasicPulse,
+  tmsFieldForShape,
   tmsFieldGrid,
-  tmsInducedField,
   type AuditoryTrainResult,
   type ColumnModel,
   type ColumnResponse,
+  type FieldGridPoint,
   type StimLevel,
   type TesElectrode,
   type TmsCoil,
+  type TmsCoilShape,
   type Vec3Mm,
 } from '../lib/stimulation';
+import { sensoryTargetNodes } from '../lib/eegRecording';
 import { welchPsd } from '../lib/signalProcessing';
 
 const LEVEL_MEANING: Record<StimLevel, string> = {
   A: 'Level A · 直接神经模型输入：给局部 WC/JR 柱加一个写清的驱动，不声称是完整的 tES/TMS 物理刺激。',
   B: 'Level B · TES 电场：头皮电极（mA）→ 均匀导体点源解析解算出的头内电场，无颅骨/边界/FEM。',
-  C: 'Level C · TMS 电磁场：圆形线圈（半径/匝数/dI/dt）→ 法拉第感应电场，均匀导体 σ=0.33 S/m。',
+  C: 'Level C · TMS 电磁场：圆形或 8 字形线圈（半径/匝数/dI/dt）→ 法拉第感应电场，均匀导体 σ=0.33 S/m；双相波形为一个余弦周期的 dI/dt(t)，E(t) 线性跟随。',
   D: 'Level D · 电场到神经响应：目标处沿皮层法向的电场分量经未校准增益映射为柱的附加输入。电场强不等于真实大脑必然兴奋/抑制。',
 };
 
@@ -66,8 +77,73 @@ function Trace({ q, times, color }: { q: number[]; times: number[]; color: strin
   </svg>;
 }
 
+/** PR8-D: field arrows from real computed grid values (central y-slice, X–Z side view).
+ *  Only the grid points with |y| <= 20 mm are drawn (a documented 2-D slice of
+ *  the 3-D field, not the whole volume); each arrow's direction is the true
+ *  (Ex, Ez) of that point and its length scales with the true |E|.
+ *  No decorative arrows: every arrow comes from a `tesFieldGrid` /
+ *  `tmsFieldGrid` / `figureEightFieldGrid` value. */
+function FieldArrows({ grid, maxMag }: { grid: FieldGridPoint[]; maxMag: number }) {
+  const W = 560, H = 360;
+  const s = Math.min(W, H) / 200;
+  const cx = W / 2, cy = H / 2;
+  const slice = grid.filter(p => Math.abs(p.positionMm[1]) <= 20);
+  const arrows = slice.map((p, i) => {
+    const [x, , z] = p.positionMm;
+    const [ex, , ez] = p.fieldVm;
+    const m = Math.hypot(ex, ez);
+    if (m <= 1e-12 || maxMag <= 0) return null;
+    const len = 4 + 16 * (p.magnitudeVm / maxMag);
+    const ux = ex / m, uz = ez / m;
+    const x1 = cx + x * s, y1 = cy - z * s;
+    const x2 = x1 + ux * len, y2 = y1 - uz * len;
+    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+      stroke="#22d3ee" strokeWidth="1.2" opacity={0.35 + 0.65 * (p.magnitudeVm / maxMag)} />;
+  });
+  return <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ background: '#0a1622', border: '1px solid #133954' }}
+    role="img" aria-label={`中央 y 切片场箭头（|y|≤20 mm，${slice.length} 个真实场矢量，X–Z 投影）`}>
+    <circle cx={cx} cy={cy} r={85.5 * s} fill="none" stroke="#33475a" strokeWidth="1" />
+    <line x1={cx - 85.5 * s} y1={cy} x2={cx + 85.5 * s} y2={cy} stroke="#1c2f40" strokeWidth="1" />
+    {arrows}
+    <text x="6" y="14" fill="#9cabb8" fontSize="11">中央 y 切片（|y|≤20 mm），{slice.length} 个箭头，方向 = 真实 (Ex, Ez)，长度 ∝ |E|</text>
+  </svg>;
+}
+
+/** PR8-D: biphasic pulse E(t) — the dominant field component (signed, so the
+ *  sign reversal between the two half-cycles is visible). Values come from
+ *  `tmsBiphasicPulse` (static field at peak dI/dt, scaled by cos). */
+function BiphasicTrace({ pulse }: { pulse: ReturnType<typeof tmsBiphasicPulse> }) {
+  const W = 560, H = 120;
+  const peak = pulse.fieldVm[0];
+  const comp = [0, 1, 2].reduce((a, b) => Math.abs(peak[a]) >= Math.abs(peak[b]) ? a : b, 0);
+  const names = ['Ex', 'Ey', 'Ez'];
+  const max = Math.max(1e-9, ...pulse.fieldVm.map(f => Math.abs(f[comp])));
+  const T = pulse.timesMs[pulse.timesMs.length - 1];
+  const pts = pulse.timesMs.map((t, i) =>
+    `${(t / T) * W},${H / 2 - (pulse.fieldVm[i][comp] / max) * (H / 2 - 6)}`).join(' ');
+  return <div>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ background: '#0a1622', border: '1px solid #133954' }}
+      role="img" aria-label={`双相脉冲 ${names[comp]} 随时间变化曲线`}>
+      <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke="#33475a" strokeWidth="1" />
+      <polyline points={pts} fill="none" stroke="#22d3ee" strokeWidth="1.5" />
+      <text x="6" y="14" fill="#9cabb8" fontSize="11">{names[comp]} 峰值 {max.toFixed(2)} V/m（t=0），周期 {T.toFixed(2)} ms</text>
+    </svg>
+    <p className="panel-text">双相波形：dI/dt(t) = 峰值 × cos(2πt/T)，t ∈ [0, T]，其余为 0；E(t) 按线性跟随。峰值 |E| {pulse.peakMagnitudeVm.toFixed(2)} V/m（{pulse.shape === 'figure8' ? '8 字形' : '圆环'}线圈）。</p>
+  </div>;
+}
+
 /** PR-14 · 脑刺激实验室：Level A/B/C/D + 感觉输入。所有控件都对应 stimulation.ts 里的真实函数。 */
-export default function StimLab({ onClose }: { onClose: () => void }) {
+export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
+  onClose: () => void;
+  /**
+   * PR8-LINK 直播接线（App 传）：选中脑区（TES/TMS 默认目标）+ 全部脑区
+   * label（感觉靶区按 label 找）+ 向主仿真发脉冲的入口。不传时感觉输入
+   * 只有本地柱一路，不进主仿真。
+   */
+  selectedRegion?: { id: number; label: string; centre: Vec3Mm } | null;
+  regions?: Array<{ label: string }> | null;
+  onPulse?: (node: number, amplitude: number, durationMs: number) => void;
+}) {
   const [level, setLevel] = useState<StimLevel>('B');
   const [model, setModel] = useState<ColumnModel>('wc');
   const [targetIdx, setTargetIdx] = useState(0);
@@ -76,6 +152,9 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const [tesCurrentMA, setTesCurrentMA] = useState(2);
   const [sigma, setSigma] = useState(0.33);
   const [coil, setCoil] = useState<TmsCoil>({ ...DEFAULT_TMS_COIL });
+  const [coilShape, setCoilShape] = useState<TmsCoilShape>('circular');
+  const [showFieldArrows, setShowFieldArrows] = useState(false);
+  const [biphasicPeriodMs, setBiphasicPeriodMs] = useState(DEFAULT_BIPHASIC_PERIOD_MS);
   const [fieldSource, setFieldSource] = useState<'tes' | 'tms'>('tms');
   const [normalIdx, setNormalIdx] = useState(0);
   const [wcGain, setWcGain] = useState(FIELD_TO_WC_GAIN_DEFAULT);
@@ -92,7 +171,49 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const [isiMs, setIsiMs] = useState(500);
   const [auditory, setAuditory] = useState<AuditoryTrainResult | null>(null);
 
-  const target = TARGET_PRESETS[targetIdx].pos;
+  // PR8-LINK：目标预设首位是选中脑区（App 传 brainData centre；TVB 坐标、
+  // 未配准 HEAD 球坐标，属演示映射）；选区一切换，目标回到选中脑区。
+  const TARGETS: { label: string; pos: Vec3Mm }[] = selectedRegion
+    ? [
+        {
+          label: `选中脑区 #${selectedRegion.id} ${selectedRegion.label}（中心 ${selectedRegion.centre.map((v) => v.toFixed(1)).join(', ')} mm）`,
+          pos: selectedRegion.centre,
+        },
+        ...TARGET_PRESETS,
+      ]
+    : TARGET_PRESETS;
+  const selectedRegionId = selectedRegion?.id ?? null;
+  useEffect(() => {
+    setTargetIdx(0);
+  }, [selectedRegionId]);
+  // PR8-LINK：感觉靶区（按 brainData label 找）：视觉→双侧 V1，听觉→双侧 A1。
+  const visualNodes = useMemo(
+    () => (regions ? sensoryTargetNodes(regions, 'visual') : []),
+    [regions],
+  );
+  const auditoryNodes = useMemo(
+    () => (regions ? sensoryTargetNodes(regions, 'auditory') : []),
+    [regions],
+  );
+  // PR8-LINK：感觉脉冲的定时器（卸载 / 停止 / 重跑时清掉，不让脉冲在关弹窗后继续发）。
+  const sensoryTimersRef = useRef<number[]>([]);
+  useEffect(
+    () => () => {
+      sensoryTimersRef.current.forEach((t) => window.clearTimeout(t));
+      sensoryTimersRef.current = [];
+    },
+    [],
+  );
+  const [sensoryRunning, setSensoryRunning] = useState(false);
+  const [flickerLive, setFlickerLive] = useState<string | null>(null);
+  const [audLive, setAudLive] = useState<string | null>(null);
+  const stopSensoryPulses = () => {
+    sensoryTimersRef.current.forEach((t) => window.clearTimeout(t));
+    sensoryTimersRef.current = [];
+    setSensoryRunning(false);
+  };
+
+  const target = TARGETS[Math.min(targetIdx, TARGETS.length - 1)].pos;
   const normal = NORMALS[normalIdx].n;
   const electrodes: TesElectrode[] = useMemo(() => [
     { label: 'Anode', positionMm: ELECTRODE_POSITIONS[anodePosIdx].pos, currentMA: tesCurrentMA },
@@ -102,31 +223,53 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
     try { return tesElectricField(electrodes, target, sigma); } catch { return null; }
   }, [electrodes, target, sigma]);
   const tms = useMemo(() => {
-    try { return tmsInducedField(coil, target); } catch { return null; }
-  }, [coil, target]);
-  const field = fieldSource === 'tes' ? tes : tms;
+    try { return tmsFieldForShape(coil, coilShape, target); } catch { return null; }
+  }, [coil, coilShape, target]);
+  // PR8-NUMFIX：目标处电场与网格必须跟随当前级别，不能跟默认的场来源。
+  // 旧代码 `field = fieldSource === 'tes' ? tes : tms`，而 fieldSource 默认
+  // 是 'tms'：Level B（TES）读数栏显示的却是 TMS 场——默认目标 [0,0,70]
+  // 在圆环线圈轴上，感应电场按对称性恰为 0.000 V/m，而同页 TMS 网格最大
+  // 32.631 V/m（偏轴点），造成“目标点 0.000、网格 32.631”的假异常。
+  // 修后：B 级固定 TES（默认目标 |E| = 0.793 V/m），C 级固定 TMS，
+  // fieldSource 只在 Level D（电场→响应映射）里起作用。
+  const activeFieldSource: 'tes' | 'tms' = level === 'B' ? 'tes' : level === 'C' ? 'tms' : fieldSource;
+  const field = activeFieldSource === 'tes' ? tes : tms;
   const normalField = field ? normalComponentVm(field.fieldVm, normal) : null;
   const grid = useMemo(() => {
     try {
-      return fieldSource === 'tes'
-        ? tesFieldGrid(electrodes, sigma, 40)
-        : tmsFieldGrid(coil, 40);
+      if (activeFieldSource === 'tes') return tesFieldGrid(electrodes, sigma, 40);
+      return coilShape === 'figure8' ? figureEightFieldGrid(coil, 40) : tmsFieldGrid(coil, 40);
     } catch { return []; }
-  }, [fieldSource, electrodes, sigma, coil]);
+  }, [activeFieldSource, electrodes, sigma, coil, coilShape]);
   const gridMax = grid.length ? Math.max(...grid.map(p => p.magnitudeVm)) : 0;
+  const biphasic = useMemo(() => {
+    try {
+      return tmsBiphasicPulse(coil, target, { shape: coilShape, periodMs: biphasicPeriodMs });
+    } catch { return null; }
+  }, [coil, coilShape, target, biphasicPeriodMs]);
+
+  // PR8-LINK：Level A/D 的驱动同时向主仿真发一次直播脉冲（只在 WC 柱时：
+  // JR 的驱动单位是 1/s，进不了 WC 网络；幅度钳制到 [-2, 2]，见 pulseAt）。
+  const livePulseNote = (driveApplied: number): string => {
+    if (model !== 'wc') return '· JR 柱响应未进直播 WC 网络（驱动单位 1/s，与 WC 脉冲单位不同）';
+    if (!onPulse || !selectedRegion) return '· 未选脑区或未接直播，脉冲未发（仅本地柱）';
+    const amp = Math.min(2, Math.max(-2, driveApplied));
+    onPulse(selectedRegion.id, amp, driveMs);
+    return `· 已向 #${selectedRegion.id} ${selectedRegion.label} 发直播脉冲（幅度 ${amp.toFixed(2)}，${driveMs} ms；见主界面 RESPONSE）`;
+  };
 
   const runLevelResponse = () => {
     try {
       if (level === 'A') {
         const r = runDirectDrive({ model, drive, durationMs: driveMs });
-        setResponse(r); setResponseLabel(`Level A 直接驱动 ${drive}（${model === 'wc' ? '模型单位' : '1/s'}，${driveMs} ms）`);
+        setResponse(r); setResponseLabel(`Level A 直接驱动 ${drive}（${model === 'wc' ? '模型单位' : '1/s'}，${driveMs} ms）${livePulseNote(drive)}`);
       } else if (level === 'D' && field) {
         const r = runLevelDResponse({
           fieldVm: field.fieldVm, normalHead: normal, model,
           wcGain, jrGain, durationMs: driveMs,
         });
         setResponse(r);
-        setResponseLabel(`Level D ${fieldSource === 'tes' ? 'TES' : 'TMS'} 场法向分量 ${r.normalFieldVm.toFixed(3)} V/m → 驱动 ${r.driveApplied.toFixed(3)}（增益 ${r.gainUsed}，未校准）`);
+        setResponseLabel(`Level D ${fieldSource === 'tes' ? 'TES' : 'TMS'} 场法向分量 ${r.normalFieldVm.toFixed(3)} V/m → 驱动 ${r.driveApplied.toFixed(3)}（增益 ${r.gainUsed}，未校准）${livePulseNote(r.driveApplied)}`);
       }
     } catch (e) {
       setResponse(null);
@@ -143,6 +286,29 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
       for (let k = 1; k < psd.length; k++) if (psd[k] > peakP) { peakP = psd[k]; peakF = freqsHz[k]; }
       setFlickerPeakHz(peakF);
       setResponse(r); setResponseLabel(`视觉闪烁 ${flickerHz} Hz，强度 ${flickerIntensity}（WC 柱，零均值正弦驱动）`);
+      // PR8-LINK：闪烁同时进主仿真——每周期向双侧 V1 各发一次脉冲（幅度 =
+      // 强度×0.5 模型单位，与本地柱驱动同幅；时长 = 半周期，钳制 20–500 ms）。
+      // 本地柱曲线仍展示（作参考），动力学入口是这些脉冲。
+      stopSensoryPulses();
+      setFlickerLive(null);
+      if (onPulse && visualNodes.length > 0) {
+        const periodMs = 1000 / flickerHz;
+        const cycles = Math.floor(VISUAL_FLICKER_DURATION_MS_DEFAULT / periodMs);
+        const amp = flickerIntensity * VISUAL_DRIVE_AMPLITUDE;
+        const dur = Math.min(500, Math.max(20, Math.round(periodMs / 2)));
+        setSensoryRunning(true);
+        for (let k = 0; k < cycles; k++) {
+          sensoryTimersRef.current.push(window.setTimeout(() => {
+            visualNodes.forEach((n) => onPulse(n, amp, dur));
+            setFlickerLive(
+              `已向枕区 ${visualNodes.map((n) => `#${n}`).join('、')} 发第 ${k + 1}/${cycles} 次脉冲（幅度 ${amp.toFixed(2)}，${dur} ms；见主界面 RESPONSE）`,
+            );
+            if (k === cycles - 1) setSensoryRunning(false);
+          }, k * periodMs));
+        }
+      } else {
+        setFlickerLive('未接直播（无 V1 靶区或未传 onPulse）：只跑了本地柱，未进主仿真。');
+      }
     } catch (e) {
       setResponse(null);
       setResponseLabel('运行失败：' + (e instanceof Error ? e.message : String(e)));
@@ -151,7 +317,27 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const runAuditory = () => {
     try {
       const r = runAuditoryTrain({ toneHz, intensity: audIntensity, isiMs, totalMs: 5000 });
-      setAuditory(r); setResponse(r); setResponseLabel(`听觉 burst 串：音调 ${toneHz} Hz（仅记录，不进入动力学），强度 ${audIntensity}，ISI ${isiMs} ms`);
+      setAuditory(r); setResponse(r); setResponseLabel(`听觉 burst 串：音调 ${toneHz} Hz（元数据，载波未进动力学），强度 ${audIntensity}，ISI ${isiMs} ms`);
+      // PR8-LINK：burst 同时进主仿真——每个 burst 起始时刻向双侧 A1 各发
+      // 一次脉冲（幅度 = 强度×1.0 模型单位，时长 50 ms，与本地柱 burst 同款）。
+      // 音调 Hz 仍是元数据（kHz 载波 1 ms 柱步长无法分辨，不声称模拟音调本身）。
+      stopSensoryPulses();
+      setAudLive(null);
+      if (onPulse && auditoryNodes.length > 0) {
+        const amp = audIntensity * AUDITORY_BURST_DRIVE;
+        setSensoryRunning(true);
+        for (let k = 0; k < r.burstOnsetsMs.length; k++) {
+          sensoryTimersRef.current.push(window.setTimeout(() => {
+            auditoryNodes.forEach((n) => onPulse(n, amp, AUDITORY_BURST_DURATION_MS_DEFAULT));
+            setAudLive(
+              `已向颞区 ${auditoryNodes.map((n) => `#${n}`).join('、')} 发第 ${k + 1}/${r.burstOnsetsMs.length} 次 burst 脉冲（幅度 ${amp.toFixed(2)}，${AUDITORY_BURST_DURATION_MS_DEFAULT} ms；见主界面 RESPONSE）`,
+            );
+            if (k === r.burstOnsetsMs.length - 1) setSensoryRunning(false);
+          }, r.burstOnsetsMs[k]));
+        }
+      } else {
+        setAudLive('未接直播（无 A1 靶区或未传 onPulse）：只跑了本地柱，未进主仿真。');
+      }
     } catch (e) {
       setAuditory(null); setResponse(null);
       setResponseLabel('运行失败：' + (e instanceof Error ? e.message : String(e)));
@@ -160,7 +346,7 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
 
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="脑刺激实验室"
-      onClick={e => e.stopPropagation()} style={{ width: 'min(1120px,96vw)', maxWidth: 'none', maxHeight: '94vh' }}>
+      onClick={e => e.stopPropagation()} style={{ width: 'min(1120px,96vw)', maxWidth: 'none', maxHeight: '86vh' }}>
       <div className="screen-title" style={{ display: 'flex', justifyContent: 'space-between', right: 0, pointerEvents: 'auto' }}>
         PR-14 · STIMULATION LAB
         <button className="chip chip-small" type="button" onClick={onClose}>关闭</button>
@@ -184,9 +370,12 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
         </label>
         <label className="panel-text">目标位置（球心坐标，mm）
           <select aria-label="目标位置" value={targetIdx} onChange={e => setTargetIdx(Number(e.target.value))}>
-            {TARGET_PRESETS.map((t, i) => <option key={t.label} value={i}>{t.label}</option>)}
+            {TARGETS.map((t, i) => <option key={t.label} value={i}>{t.label}</option>)}
           </select>
         </label>
+        {selectedRegion && (
+          <p className="panel-text">默认目标 = 选中脑区 #{selectedRegion.id} {selectedRegion.label}（brainData 中心，TVB 坐标、未配准 HEAD 球坐标，演示映射）；换选区后目标自动跟过去。</p>
+        )}
 
         {(level === 'B' || (level === 'D' && fieldSource === 'tes')) && <div>
           <div className="conn-title">TES 电极配置 · 电流 mA</div>
@@ -210,6 +399,12 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
 
         {(level === 'C' || (level === 'D' && fieldSource === 'tms')) && <div>
           <div className="conn-title">TMS 线圈配置</div>
+          <label className="panel-text">线圈形状
+            <select aria-label="线圈形状" value={coilShape} onChange={e => setCoilShape(e.target.value as TmsCoilShape)}>
+              <option value="circular">圆环线圈（单环）</option>
+              <option value="figure8">8 字形线圈（双环反向电流，线性叠加）</option>
+            </select>
+          </label>
           <p className="panel-text">线圈半径 {coil.radiusMm.toFixed(0)} mm</p>
           <input aria-label="线圈半径" type="range" min="10" max="100" step="1" value={coil.radiusMm}
             onChange={e => setCoil({ ...coil, radiusMm: Number(e.target.value) })} style={{ width: '100%' }} />
@@ -219,7 +414,12 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
           <p className="panel-text">电流变化率 dI/dt {(coil.dIdtAPerS / 1e7).toFixed(1)}×10⁷ A/s</p>
           <input aria-label="电流变化率" type="range" min="0" max="20" step="1" value={coil.dIdtAPerS / 1e7}
             onChange={e => setCoil({ ...coil, dIdtAPerS: Number(e.target.value) * 1e7 })} style={{ width: '100%' }} />
-          <p className="panel-text">线圈中心 [0, 0, 102] mm，轴向 +Z（贴头皮顶部）；目标在轴上时感应电场为零（对称性）。</p>
+          <p className="panel-text">线圈中心 [0, 0, 102] mm，轴向 +Z（贴头皮顶部）；目标在轴上时感应电场为零（对称性）。8 字形时两环中心沿线圈平面偏移 ±半径，反向电流，交界处场相加。</p>
+          <div className="conn-title">双相 TMS 波形 · E(t)（一个脉冲周期）</div>
+          <p className="panel-text">脉冲周期 {biphasicPeriodMs.toFixed(2)} ms（{BIPHASIC_PERIOD_RANGE_MS[0]}–{BIPHASIC_PERIOD_RANGE_MS[1]} ms；真实双相脉冲约 0.2–0.4 ms）</p>
+          <input aria-label="双相脉冲周期" type="range" min={BIPHASIC_PERIOD_RANGE_MS[0]} max={BIPHASIC_PERIOD_RANGE_MS[1]} step="0.05" value={biphasicPeriodMs}
+            onChange={e => setBiphasicPeriodMs(Number(e.target.value))} style={{ width: '100%' }} />
+          {biphasic ? <BiphasicTrace pulse={biphasic} /> : <p className="panel-text">目标离线圈太近，无法计算脉冲波形。</p>}
         </div>}
 
         {(level === 'B' || level === 'C') && <div>
@@ -228,12 +428,23 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
             <p className="panel-text">E = ({field.fieldVm.map(v => v.toFixed(3)).join(', ')}) V/m，|E| = {field.magnitudeVm.toFixed(3)} V/m</p>
             <p className="panel-text">沿皮层法向（{NORMALS[normalIdx].label}）分量：{normalField !== null ? normalField.toFixed(3) : '—'} V/m</p>
             <p className="panel-text">网格场分布（脑内 {grid.length} 点，步长 40 mm）：最大 |E| {gridMax.toFixed(3)} V/m</p>
+            {level === 'C' && field && field.magnitudeVm < 1e-9 && (
+              <p className="panel-text">
+                目标在圆环线圈轴上，感应电场按对称性为零是正确结果，不是计算失败；
+                把目标移到偏轴预设（如 [30, 0, 70]，|E| ≈ 85 V/m）可见非零场。
+              </p>
+            )}
           </div> : <p className="panel-text">目标离电极/线圈太近或超出脑球，无法计算（点源奇点保护）。</p>}
           <label className="panel-text">皮层法向
             <select aria-label="皮层法向" value={normalIdx} onChange={e => setNormalIdx(Number(e.target.value))}>
               {NORMALS.map((n, i) => <option key={n.label} value={i}>{n.label}</option>)}
             </select>
           </label>
+          <label className="panel-text">
+            <input aria-label="显示场箭头" type="checkbox" checked={showFieldArrows}
+              onChange={e => setShowFieldArrows(e.target.checked)} /> 显示场箭头（中央 y 切片，真实计算值）
+          </label>
+          {showFieldArrows && grid.length > 0 && <FieldArrows grid={grid} maxMag={gridMax} />}
         </div>}
 
         {level === 'D' && <div>
@@ -279,8 +490,10 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
           <input aria-label="闪烁强度" type="range" min="0" max="1" step="0.05" value={flickerIntensity}
             onChange={e => setFlickerIntensity(Number(e.target.value))} style={{ width: '100%' }} />
           <button className="chip" type="button" onClick={runFlicker}>运行闪烁实验</button>
+          {sensoryRunning && <button className="chip" type="button" onClick={stopSensoryPulses}>停止感觉脉冲</button>}
           {flickerPeakHz !== null && <p className="panel-text">Welch PSD 峰：{flickerPeakHz.toFixed(2)} Hz（刺激 {flickerHz} Hz；复用 PR6 welchPsd）</p>}
-          <p className="panel-text">听觉 burst：音调 {toneHz} Hz（仅记录，不进入动力学），强度 {audIntensity.toFixed(2)}，ISI {isiMs} ms</p>
+          {flickerLive && <p className="panel-text">{flickerLive}</p>}
+          <p className="panel-text">听觉 burst：音调 {toneHz} Hz（元数据，载波未进动力学），强度 {audIntensity.toFixed(2)}，ISI {isiMs} ms；burst 节律进主仿真（颞区 A1 脉冲），不是“播放一段声音”。</p>
           <input aria-label="音调频率" type="number" min="20" max="20000" step="10" value={toneHz}
             onChange={e => setToneHz(Number(e.target.value))} style={{ width: '100%' }} />
           <input aria-label="听觉强度" type="range" min="0" max="1" step="0.05" value={audIntensity}
@@ -293,6 +506,7 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <button className="chip" type="button" onClick={runAuditory}>运行听觉实验</button>
+          {audLive && <p className="panel-text">{audLive}</p>}
           {auditory && <p className="panel-text">每 burst 后 300 ms 内峰值 |q|：{auditory.perBurstPeakAbsQNAm.map(v => v.toFixed(3)).join(', ')} nA·m；
             固定窗 [500, 1500] ms 内平均 |q|：{auditory.fixedWindowMeanAbsQNAm.toFixed(3)} nA·m</p>}
         </div>

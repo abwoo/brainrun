@@ -5,6 +5,7 @@ import {
   SPHERE_MODEL_ID, sphereElectrodePotentials, validateSphereFixture,
   type SphereFixture, type MontageKey,
 } from '../lib/sphereForward';
+import { clampSourcePositionMm } from '../lib/eegRecording';
 import type { Vec3Mm } from '../lib/volumeConduction';
 
 /**
@@ -13,7 +14,14 @@ import type { Vec3Mm } from '../lib/volumeConduction';
  * NOT to the TVB demo cortex. This is deliberately independent from
  * BrainScene: none of its cortical vertices are claimed to be MNI.
  */
-export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onOpenReal?:()=>void}) {
+export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:()=>void;onOpenReal?:()=>void;
+  /**
+   * PR8-LINK 直播源（App 传）：选中脑区的 TVB 中心 + 由直播 E/I 经 PR5
+   * q 链算出的偶极矩（基线 = 选区切换时该脑区的 E/I）。不传时只有手动
+   * 偶极子一路（独立演示）。
+   */
+  liveSource?: { positionMm: Vec3Mm; momentNAm: number; regionLabel: string; regionId: number } | null;
+}) {
   const [data,setData]=useState<SphereFixture|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [position,setPosition]=useState<Vec3Mm>([0,0,16]);
@@ -22,6 +30,22 @@ export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onO
   const [montage,setMontage]=useState<MontageKey>('10-20');
   const [reference,setReference]=useState<'average'|'infinity'>('average');
   const [selectedElectrode,setSelectedElectrode]=useState('Cz');
+  // PR8-LINK：直播模式（默认开，只要传了 liveSource）；开着时位置与偶极矩
+  // 跟随直播源，手动滑杆与拖动被直播值覆盖（拖动后下一帧即恢复）。
+  const [liveMode,setLiveMode]=useState(liveSource != null);
+  useEffect(()=>{
+    if(!liveMode||!liveSource||!data)return;
+    let next: Vec3Mm;
+    try {
+      next = clampSourcePositionMm(data, liveSource.positionMm);
+    } catch {
+      next = liveSource.positionMm;
+    }
+    // 值没变时返回旧引用，免得每帧（liveSource 约 15 Hz 换身份）都重算电位与重绘 3D。
+    setPosition((prev) => (prev[0] === next[0] && prev[1] === next[1] && prev[2] === next[2] ? prev : next));
+    const q = liveSource.momentNAm;
+    setMoment((prev) => (prev === q ? prev : q));
+  },[liveMode,liveSource,data]);
   const mount=useRef<HTMLDivElement>(null);
   const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>)=>void)|null>(null);
   useEffect(()=>{
@@ -152,7 +176,7 @@ export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onO
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true"
       aria-label="分层球形头EEG物理实验" onClick={e=>e.stopPropagation()}
-      style={{width:'min(1190px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
+      style={{width:'min(1190px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',alignItems:'center',right:0,pointerEvents:'auto'}}>
         FOUR-LAYER SPHERE · PHYSICS EEG
         <button type="button" className="chip chip-small" onClick={onClose}>关闭</button>
@@ -163,10 +187,26 @@ export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onO
           进阶：真实 MRI/BEM（加载自行获取的模板）
         </button>}
         <p className="panel-text" style={{color:'#ffb340'}}>经 MNE 计算的四层球形导体：脑组织、脑脊液、颅骨和头皮。是模型级 EEG 正向仿真，不是个体 MRI/BEM，亦未与 TVB 76区皮层配准。</p>
+        <label className="panel-text">
+          <input type="checkbox" checked={liveMode && !!liveSource} disabled={!liveSource}
+            onChange={(e)=>setLiveMode(e.target.checked)} />{' '}
+          直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）
+        </label>
+        {liveMode && liveSource ? (
+          <p className="panel-text" style={{color:'#7dd3a8'}}>
+            直播源：#{liveSource.regionId} {liveSource.regionLabel} · q = {liveSource.momentNAm.toFixed(3)} nA·m
+            （live E/I 经 PR5 假设链，基线 = 选区切换时该脑区的 E/I；偶极矩矢量 = q × 下方所选方向，法向是假设）
+            · 位置 = 脑区中心（TVB 坐标、未配准 HEAD，钳制进 ±48 mm 球网格）· 改选区、改 G 后电位跟着变。
+          </p>
+        ) : (
+          <p className="panel-text" style={{color:'#ffb340'}}>
+            独立演示：手动偶极子，未接主仿真（拖动源 / 改偶极矩只改本实验；想接直播先在主界面选一个脑区，再勾选“直播源”）。
+          </p>
+        )}
         {error&&<p role="alert" className="panel-text">{error}</p>}
         {!data&&!error&&<p className="panel-text">正在加载 MNE 正向模型…</p>}
         {data&&<p className="panel-text">模型 {SPHERE_MODEL_ID} · MNE {data.mne_version} · 电极头坐标方向径向投影到 95 mm 球面 · 源位置插值（已独立验证误差）</p>}
-        <div style={{display:'grid',gridTemplateColumns:'minmax(0, 1.5fr) minmax(230px, 1fr)',gap:12}}>
+        <div className="lab-split">
           <div ref={mount} role="img" aria-label="MNE四层球形头模型与可拖动源"
             style={{width:'100%',height:425,border:'1px solid #133954'}}/>
           <div style={{minWidth:0}}>
@@ -185,9 +225,9 @@ export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onO
                 <option value="X">X 左右</option><option value="Y">Y 前后</option><option value="Z">Z 上下</option>
               </select>
             </label>
-            <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m</p>
+            <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m{liveMode && liveSource ? '（直播值，滑杆已锁定）' : ''}</p>
             <input type="range" aria-label="球形头偶极矩" min="-30" max="30" step=".5"
-              value={moment} onChange={e=>setMoment(Number(e.target.value))} style={{width:'100%'}}/>
+              value={moment} disabled={liveMode && !!liveSource} onChange={e=>setMoment(Number(e.target.value))} style={{width:'100%'}}/>
             <label className="panel-text">EEG 参考
               <select aria-label="球形头参考方式" value={reference}
                 onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
@@ -203,9 +243,13 @@ export default function HeadSphereLab({onClose,onOpenReal}:{onClose:()=>void;onO
             </label>
             <p className="panel-text">源位置 mm：{position.map(x=>x.toFixed(1)).join(', ')}</p>
             <p className="panel-text">当前电极电位：{vSelected===undefined?'—':vSelected.toFixed(4)+' µV'}</p>
+            {peaks.length > 0 && (
+              <p className="panel-text">最大电极：{peaks[0].label} {peaks[0].v.toFixed(4)} µV（{peaks.length} 导中幅值最大，尖峰时跟最大值走）</p>
+            )}
             <button type="button" className="chip chip-small" onClick={()=>{
               setPosition([0,0,16]);setMoment(10);setAxis('X');setMontage('10-20');setReference('average');setSelectedElectrode('Cz');
-            }}>重置球形实验</button>
+              setLiveMode(false);
+            }}>重置球形实验（回到手动偶极子）</button>
             <div className="conn-title">电极信号（幅值前 19 位）</div>
             {peaks.slice(0,19).map(s=><div key={s.label}
               style={{display:'flex',gap:5,alignItems:'center',marginBottom:3}}>

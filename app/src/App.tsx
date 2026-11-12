@@ -14,10 +14,29 @@ import ParamControl from './components/ParamControl';
 import CellularLab from './components/CellularLab';
 import DipoleLab from './components/DipoleLab';
 import EegAnalysisLab from './components/EegAnalysisLab';
+import type { EegLabTab } from './components/EegAnalysisLab';
 import ExperimentLab from './components/ExperimentLab';
+import ExplorePanel from './components/ExplorePanel';
 import HeadSphereLab from './components/HeadSphereLab';
 import LocalBEMLab from './components/LocalBEMLab';
+import ScenarioLauncher, {
+  scenarioResultToRecord,
+  type ExperimentRecord,
+} from './components/ScenarioLauncher';
 import StimLab from './components/StimLab';
+import WavesTab from './components/WavesTab';
+import type { EegRecording } from './lib/eegData';
+import {
+  APP_MODES,
+  MODE_DESCRIPTIONS,
+  MODE_LABELS,
+  getScenario,
+  runScenarioCompute,
+  transitionMode,
+  type AppMode,
+  type KeyNumber,
+  type LabTarget,
+} from './lib/scenarios';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData, topConnections } from './lib/brainData';
 import { DEFAULT_PARAMS, DELTA_FULL, KNOB_MAP, RESPONSE_THRESHOLD, SimClient } from './lib/simClient';
@@ -32,6 +51,7 @@ import type {
 } from './lib/simClient';
 import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, DEFAULT_BACKGROUND_MODE, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
 import { validateSphereFixture, type SphereFixture } from './lib/sphereForward';
+import { equivalentMomentNAm } from './lib/localCorticalColumn';
 import type { Snapshot } from './worker/protocol';
 import './App.css';
 
@@ -179,6 +199,21 @@ export default function App() {
   const [showCellularLab, setShowCellularLab] = useState(false);
   const [showStimLab, setShowStimLab] = useState(false);
   const [showExperimentLab, setShowExperimentLab] = useState(false);
+  // PR8-A：四个模式（计划 §16.1，默认 PLAY）与渐进式展示（§16.2，
+  // 默认只展示 3D 大脑 + 少量控制 + 实时测量窗口 + 简单操作说明）。
+  const [mode, setMode] = useState<AppMode>('play');
+  const [showMore, setShowMore] = useState(false);
+  // PR8-A：一键科学场景（§16.3）——启动器弹窗、实验记录、球形正向模型。
+  const [showScenarioLauncher, setShowScenarioLauncher] = useState(false);
+  const [scenarioRecords, setScenarioRecords] = useState<ExperimentRecord[]>([]);
+  const [runningScenarioId, setRunningScenarioId] = useState<number | null>(null);
+  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [scenarioFixture, setScenarioFixture] = useState<SphereFixture | null>(null);
+  const [scenarioFixtureError, setScenarioFixtureError] = useState<string | null>(null);
+  // PR8-A：EEG 模式内联实验台的初始 tab（S8–S11 的“打开实验台”用）与
+  // WAVES 模式的 Alpha 记录（S4 跑完 JR 极限环后交来，WavesTab 画真实 PSD）。
+  const [eegInitialTab, setEegInitialTab] = useState<EegLabTab>('eeg');
+  const [wavesRecording, setWavesRecording] = useState<EegRecording | null>(null);
   // PR7：对照实验用的球形正向模型 fixture（与 EegAnalysisLab 同一来源；
   // 打开对照实验时才加载，null 时源定位对照不可用，其余两节可用）。
   const [expFixture, setExpFixture] = useState<SphereFixture | null>(null);
@@ -201,6 +236,25 @@ export default function App() {
       });
     return () => controller.abort();
   }, [showExperimentLab, expFixture, expFixtureError]);
+
+  // PR8-A：打开一键场景启动器时加载球形正向模型（只加载一次；与
+  // EegAnalysisLab / ExperimentLab 同一来源、同一 model_id。失败时
+  // 需要它的场景禁用、不编造 fixture）。
+  useEffect(() => {
+    if (!showScenarioLauncher || scenarioFixture || scenarioFixtureError) return;
+    const controller = new AbortController();
+    fetch(import.meta.env.BASE_URL + 'forward-assets/sphere-model.json', { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py');
+        const data = (await r.json()) as SphereFixture;
+        validateSphereFixture(data);
+        setScenarioFixture(data);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setScenarioFixtureError(String(e));
+      });
+    return () => controller.abort();
+  }, [showScenarioLauncher, scenarioFixture, scenarioFixtureError]);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [holdMs, setHoldMs] = useState<number | null>(null);
@@ -404,6 +458,33 @@ export default function App() {
   const selectedE = selectedId !== null && snap ? snap.e[selectedId] : null;
   const selectedI = selectedId !== null && snap ? snap.i[selectedId] : null;
   const selectedP = selectedId !== null && snap ? snap.p[selectedId] : null;
+  // PR8-LINK：HEAD/DIPOLE 直播偶极矩的基线——选区切换时捕获该脑区当时的
+  // E/I（静息参考）；q 由 live E/I 经 PR5 假设链算（equivalentMomentNAm）。
+  // 基线只在选区变化时重捕，不随快照漂移；未捕获到之前 moment 为 null。
+  const liveQBaselineRef = useRef<{ node: number; e: number; i: number } | null>(null);
+  useEffect(() => {
+    if (selectedId === null) {
+      liveQBaselineRef.current = null;
+      return;
+    }
+    if (snap && liveQBaselineRef.current?.node !== selectedId) {
+      liveQBaselineRef.current = {
+        node: selectedId,
+        e: snap.e[selectedId],
+        i: snap.i[selectedId],
+      };
+    }
+  }, [selectedId, snap]);
+  const liveMomentNAm = useMemo(() => {
+    if (selectedId === null || snap === null) return null;
+    const b = liveQBaselineRef.current;
+    if (!b || b.node !== selectedId) return null;
+    try {
+      return equivalentMomentNAm(snap.e[selectedId], snap.i[selectedId], b.e, b.i);
+    } catch {
+      return null;
+    }
+  }, [snap, selectedId]);
   // PR3：选中脑区的持续偏置（0 = 无偏置）与全网已改权重数。
   const selectedBias = selectedId !== null ? (biasMap[selectedId] ?? 0) : 0;
   const modifiedWeightCount = Object.keys(weightEdits).length;
@@ -516,9 +597,9 @@ export default function App() {
     }
   }, [biasMap, selectedId]);
   const handleBiasChange = useCallback(
-    (v: number) => {
+    (v: number): number => {
       const sim = simRef.current;
-      if (!sim || selectedId === null) return;
+      if (!sim || selectedId === null) return 0;
       const stored = sim.setBias(selectedId, v); // 0 = 清除偏置
       setBiasMap((prev) => {
         const next = { ...prev };
@@ -526,6 +607,7 @@ export default function App() {
         else next[selectedId] = stored;
         return next;
       });
+      return stored;
     },
     [selectedId],
   );
@@ -679,6 +761,164 @@ export default function App() {
     setSnapMsg(null);
   };
 
+  // PR8-A：一键场景 S1–S3 的实时引擎动作（计划 §16.3）。等响应窗口
+  // 填满（最后一条快照到达窗口末尾）再读数，不只等汇总第一次出现——
+  // 汇总在窗口填满前就可能非空，那时读到的峰值会被低估（实测：提前读
+  // 到 −0.0036，等满窗后同一脉冲峰值约 +0.48）。
+  const waitResponseWindowFull = useCallback(async (prevBaselineT: number | null) => {
+    const sim = simRef.current;
+    if (!sim) throw new Error('仿真引擎未就绪');
+    const deadline = Date.now() + 12000;
+    let lastSeen = '无基线/窗口';
+    while (Date.now() < deadline) {
+      const b = sim.getBaseline();
+      const w = sim.getLastResponseWindow();
+      if (b && w) {
+        const last = w.snapshots[w.snapshots.length - 1];
+        lastSeen =
+          `基线 t=${b.t_ms} ms（之前 ${prevBaselineT ?? '无'}）· 窗口基线 t=${w.baselineT_ms} ms · ` +
+          `快照 ${w.snapshots.length} 条 · 末条 t=${last ? last.t_ms : '无'} ms · 窗口末尾 t1=${w.t1_ms} ms`;
+      } else if (b) {
+        lastSeen = `基线 t=${b.t_ms} ms（之前 ${prevBaselineT ?? '无'}）· 尚无响应窗口`;
+      }
+      if (
+        b && w && b.t_ms !== prevBaselineT && w.baselineT_ms === b.t_ms &&
+        w.snapshots.length > 0 &&
+        w.snapshots[w.snapshots.length - 1].t_ms >= w.t1_ms - 16
+      ) {
+        return { baseline: b, window: w, summary: sim.getResponseSummary() };
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    throw new Error(`响应窗口未在 12 s 内填满（可到 RESPONSE 面板手工查看）。最后看到：${lastSeen}`);
+  }, []);
+
+  const peakDeltaEForNode = useCallback((node: number): number => {
+    const sim = simRef.current;
+    if (!sim) throw new Error('仿真引擎未就绪');
+    const b = sim.getBaseline();
+    const w = sim.getLastResponseWindow();
+    if (!b || !w) throw new Error('暂无响应窗口');
+    let peak = 0;
+    for (const s of w.snapshots) {
+      const d = s.e[node] - b.e[node];
+      if (Math.abs(d) > Math.abs(peak)) peak = d;
+    }
+    return peak;
+  }, []);
+
+  const runLiveScenario = useCallback(
+    async (id: number): Promise<{ keyNumbers: KeyNumber[]; note: string }> => {
+      const sim = simRef.current;
+      if (!sim || !simReady) throw new Error('仿真引擎未就绪（WASM 加载中或加载失败）');
+      const prevBaselineT = sim.getBaseline()?.t_ms ?? null;
+      if (id === 1) {
+        handlePulse(40);
+        const { summary } = await waitResponseWindowFull(prevBaselineT);
+        return {
+          keyNumbers: [
+            { label: '40 号脑区峰值 ΔE', value: peakDeltaEForNode(40), unit: '' },
+            { label: '响应脑区数', value: summary?.count ?? 0, unit: '个' },
+          ],
+          note: '脉冲 40 号脑区（真实引擎动作）；峰值 ΔE 见 RESPONSE 面板。',
+        };
+      }
+      if (id === 2) {
+        if (!data) throw new Error('脑数据未加载');
+        const orig = data.connectivity.weights[73][54];
+        handleWeightChange(73, 54, 0);
+        handlePulse(73);
+        try {
+          const { summary } = await waitResponseWindowFull(prevBaselineT);
+          return {
+            keyNumbers: [
+              { label: '73 号脑区峰值 ΔE（权重 0）', value: peakDeltaEForNode(73), unit: '' },
+              { label: '响应脑区数', value: summary?.count ?? 0, unit: '个' },
+              { label: '73→54 原始权重', value: orig, unit: '' },
+            ],
+            note: '73→54 权重改 0 后脉冲 73 号脑区；权重随后已恢复原始值。',
+          };
+        } finally {
+          handleWeightReset(73, 54);
+        }
+      }
+      if (id === 3) {
+        sim.setParams({ c_ei: 6 });
+        setKExcInh(KNOB_MAP.c_eiK(6));
+        handlePulse(40);
+        const { summary } = await waitResponseWindowFull(prevBaselineT);
+        return {
+          keyNumbers: [
+            { label: '40 号脑区峰值 ΔE（c_ei=6）', value: peakDeltaEForNode(40), unit: '' },
+            { label: '响应脑区数', value: summary?.count ?? 0, unit: '个' },
+          ],
+          note: 'c_ei 由 4.0 改为 6.0 后脉冲 40 号脑区；改完的 c_ei=6.0 留在 PARAMETERS 面板，可手动改回 4.0。',
+        };
+      }
+      throw new RangeError(`runLiveScenario: no live path for scenario ${id}`);
+    },
+    [data, simReady, handlePulse, handleWeightChange, handleWeightReset, waitResponseWindowFull, peakDeltaEForNode],
+  );
+
+  // PR8-A：一键场景总入口（S1–S3 走实时引擎，S4–S15 走 runScenarioCompute）。
+  // 每次运行追加一条实验记录；S4 的 Alpha 记录交给 WAVES 模式。
+  const runScenarioById = useCallback(
+    async (id: number) => {
+      const def = getScenario(id);
+      setScenarioError(null);
+      setRunningScenarioId(id);
+      const t0 = Date.now();
+      try {
+        if (def.needsLiveSim) {
+          const live = await runLiveScenario(id);
+          const rec: ExperimentRecord = {
+            time: new Date().toISOString(),
+            scenarioId: id,
+            title: def.title,
+            mode: def.mode,
+            preset: def.preset,
+            keyNumbers: live.keyNumbers,
+            note: live.note,
+            durationMs: Date.now() - t0,
+            live: true,
+          };
+          setScenarioRecords((prev) => [...prev, rec]);
+        } else {
+          if (def.requiresFixture && !scenarioFixture) {
+            throw new Error(
+              '球形正向模型未加载：请先运行 scientific/forward/generate_sphere_model.py 生成 app/public/forward-assets/sphere-model.json',
+            );
+          }
+          const r = runScenarioCompute(id, { fixture: scenarioFixture });
+          if (r.alphaRecording) setWavesRecording(r.alphaRecording);
+          setScenarioRecords((prev) => [...prev, scenarioResultToRecord(r, false)]);
+        }
+      } catch (e) {
+        setScenarioError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setRunningScenarioId(null);
+      }
+    },
+    [runLiveScenario, scenarioFixture],
+  );
+
+  // PR8-A：场景启动器里的“打开实验台”（仅导航；计算已在启动器里跑完）。
+  const handleOpenLab = useCallback((target: LabTarget, eegTab?: EegLabTab) => {
+    setShowScenarioLauncher(false);
+    if (target === 'eeg') {
+      setEegInitialTab(eegTab ?? 'eeg');
+      setMode('eeg');
+    } else if (target === 'head') {
+      setShowHeadSphereLab(true);
+    } else if (target === 'cellular') {
+      setShowCellularLab(true);
+    } else if (target === 'experiment') {
+      setShowExperimentLab(true);
+    } else if (target === 'dipole') {
+      setShowDipoleLab(true);
+    }
+  }, []);
+
   const locked = snap?.locked ?? false;
   const simTimeS = snap ? (snap.t_ms / 1000).toFixed(1) : '0.0';
 
@@ -688,6 +928,38 @@ export default function App() {
         <div className="topbar-title">BRAIN PHYSICS</div>
         <div className="topbar-sub">PLAYGROUND · LIVE SIMULATION</div>
         <div className="topbar-controls">
+          <div className="mode-switch" role="group" aria-label="模式">
+            {APP_MODES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`chip${mode === m ? ' chip-on' : ''}`}
+                data-mode={m}
+                aria-pressed={mode === m}
+                onClick={() => setMode(transitionMode(mode, m))}
+                title={MODE_DESCRIPTIONS[m]}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={`chip${showMore ? ' chip-on' : ''}`}
+            aria-pressed={showMore}
+            onClick={() => setShowMore((v) => !v)}
+            title="渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设"
+          >
+            更多 {showMore ? '▲' : '▼'}
+          </button>
+          <button
+            type="button"
+            className={`chip${showScenarioLauncher ? ' chip-on' : ''}`}
+            onClick={() => setShowScenarioLauncher(true)}
+            title="一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录"
+          >
+            一键场景
+          </button>
           <button
             type="button"
             className={`chip ${!paused && simReady ? 'chip-on' : ''}`}
@@ -743,6 +1015,21 @@ export default function App() {
         </div>
       </header>
 
+      {mode === 'eeg' ? (
+        <main className="main main-eeg">
+          <EegAnalysisLab
+            inline
+            initialTab={eegInitialTab}
+            onClose={() => setMode('play')}
+            liveSource={{
+              sim: simRef.current,
+              node: selectedId,
+              regionLabel: selected?.label ?? null,
+              positionMm: selected ? selected.centre : null,
+            }}
+          />
+        </main>
+      ) : (
       <main className="main">
         <section className="stage screen">
           <div className="screen-title">3D LIVE BRAIN</div>
@@ -849,7 +1136,7 @@ export default function App() {
         </section>
 
         <aside className="panels">
-          <section className="screen panel">
+          <section className="screen panel live-panel">
             <div className="screen-title">LIVE ACTIVITY</div>
             <ActivityChart
               sim={simRef.current}
@@ -863,6 +1150,41 @@ export default function App() {
             />
           </section>
 
+          {mode === 'waves' && (
+            <section className="screen panel waves-panel">
+              <div className="screen-title">WAVES · 频段 / PSD</div>
+              <div className="panel-body">
+                <p className="panel-text">
+                  Alpha 探索 = JR p0=220 极限环（自发节律，实测峰 ~10.99 Hz）。
+                  先运行场景 4 生成一条 Pz 记录，再看频谱——频段功率全部来自同一份记录的同一通道。
+                </p>
+                <button
+                  type="button"
+                  className="chip chip-small"
+                  disabled={runningScenarioId === 4}
+                  onClick={() => runScenarioById(4)}
+                  title="运行一键场景 4：JR p0=220 极限环跑 12 s，生成 Pz 记录供下方的 WavesTab 分析"
+                >
+                  {runningScenarioId === 4 ? '运行中…' : '运行场景 4：产生 Alpha 记录'}
+                </button>
+                {scenarioError && <p className="panel-text">{scenarioError}</p>}
+                <WavesTab recording={wavesRecording} channel="Pz" />
+              </div>
+            </section>
+          )}
+          {mode === 'explore' && (
+            <section className="screen panel explore-panel">
+              <div className="screen-title">EXPLORE · 解剖 / 图谱 / 坐标</div>
+              <div className="panel-body">
+                <ExplorePanel data={data} onOpenCellular={() => setShowCellularLab(true)} />
+                <p className="panel-text">
+                  场景 13（Hodgkin–Huxley 注入电流看动作电位）可在「一键场景」里跑，
+                  算完再点“打开实验台”进细胞实验。
+                </p>
+              </div>
+            </section>
+          )}
+          {mode === 'play' && (
           <section className="screen panel response-panel">
             <div className="screen-title">刺激响应 · RESPONSE</div>
             <div className="panel-body">
@@ -1043,7 +1365,9 @@ export default function App() {
               )}
             </div>
           </section>
+          )}
 
+          {mode === 'play' && showMore && (
           <section className="screen panel background-panel">
             <div className="screen-title">背景活动 · BACKGROUND</div>
             <div className="panel-body">
@@ -1172,7 +1496,9 @@ export default function App() {
               </p>
             </div>
           </section>
+          )}
 
+          {mode === 'play' && showMore && (
           <section className="screen panel">
             <div className="screen-title">PARAMETERS</div>
             <div className="params params-live">
@@ -1255,7 +1581,9 @@ export default function App() {
                 : '仿真引擎加载中，参数暂不可用…'}
             </p>
           </section>
+          )}
 
+          {mode === 'play' && showMore && (
           <section className="screen panel region-panel">
             <div className="screen-title">REGION / CONNECTION</div>
             <div className="panel-body">
@@ -1427,8 +1755,29 @@ export default function App() {
               )}
             </div>
           </section>
+          )}
+
+          {mode === 'play' && !showMore && (
+            <section className="screen panel more-panel">
+              <div className="screen-title">更多</div>
+              <div className="panel-body">
+                <p className="panel-text">
+                  具体参数、数学模型、单位、背景活动、脑区与连接细节收在这里。
+                  点“更多”展开；顶栏的“更多”开关也能开合。
+                </p>
+                <button
+                  type="button"
+                  className="chip chip-small"
+                  onClick={() => setShowMore(true)}
+                >
+                  展开更多：参数、背景活动、脑区与连接
+                </button>
+              </div>
+            </section>
+          )}
         </aside>
       </main>
+      )}
 
       <footer className="bottombar">
         <span>点击刺激 · 按住持续输入 · 拖动旋转 · 滚轮缩放 · 双击背景恢复视角</span>
@@ -1438,13 +1787,41 @@ export default function App() {
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
 
+      {showScenarioLauncher && (
+        <ScenarioLauncher
+          onClose={() => setShowScenarioLauncher(false)}
+          records={scenarioRecords}
+          onClearRecords={() => setScenarioRecords([])}
+          runningId={runningScenarioId}
+          runError={scenarioError}
+          onRunScenario={runScenarioById}
+          onOpenLab={handleOpenLab}
+          fixtureReady={scenarioFixture !== null}
+          fixtureError={scenarioFixtureError}
+        />
+      )}
       {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} onOpenReal={() => {
         setShowHeadSphereLab(false);
         setShowLocalBEM(true);
-      }} />}
-      {showEegLab && <EegAnalysisLab onClose={() => setShowEegLab(false)} />}
+      }} liveSource={selected && liveMomentNAm !== null ? { positionMm: selected.centre, momentNAm: liveMomentNAm, regionLabel: selected.label, regionId: selected.id } : null} />}
+      {showEegLab && (
+        <EegAnalysisLab
+          onClose={() => setShowEegLab(false)}
+          liveSource={{
+            sim: simRef.current,
+            node: selectedId,
+            regionLabel: selected?.label ?? null,
+            positionMm: selected ? selected.centre : null,
+          }}
+        />
+      )}
       {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
-      {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
+      {showDipoleLab && (
+        <DipoleLab
+          onClose={() => setShowDipoleLab(false)}
+          liveSource={selected && liveMomentNAm !== null ? { positionMm: selected.centre, momentNAm: liveMomentNAm, regionLabel: selected.label, regionId: selected.id } : null}
+        />
+      )}
       {showCellularLab && (
         <div className="modal-backdrop" onClick={() => setShowCellularLab(false)}>
           <div
@@ -1458,12 +1835,25 @@ export default function App() {
               <button className="chip chip-small" type="button" onClick={() => setShowCellularLab(false)}>关闭</button>
             </div>
             <div className="modal-body">
-              <CellularLab />
+              <CellularLab
+                liveE={selectedE}
+                liveP={selectedP}
+                regionLabel={selected?.label ?? null}
+                regionId={selectedId}
+                onApplyBias={handleBiasChange}
+              />
             </div>
           </div>
         </div>
       )}
-      {showStimLab && <StimLab onClose={() => setShowStimLab(false)} />}
+      {showStimLab && (
+        <StimLab
+          onClose={() => setShowStimLab(false)}
+          selectedRegion={selected ? { id: selected.id, label: selected.label, centre: selected.centre } : null}
+          regions={data ? data.regions : null}
+          onPulse={(node, amp, dur) => simRef.current?.pulseAt(node, amp, dur)}
+        />
+      )}
       {showExperimentLab && (
         <div className="modal-backdrop" onClick={() => setShowExperimentLab(false)}>
           <div
@@ -1482,7 +1872,16 @@ export default function App() {
                   球形正向模型未加载（{expFixtureError}）：源定位对照不可用，双脑数值比较与时间机器、闭环照常可用。
                 </p>
               )}
-              <ExperimentLab fixture={expFixture} onClose={() => setShowExperimentLab(false)} />
+              <ExperimentLab
+                fixture={expFixture}
+                onClose={() => setShowExperimentLab(false)}
+                live={{
+                  sim: simRef.current,
+                  node: selectedId,
+                  label: selected?.label ?? null,
+                  positionMm: selected ? selected.centre : null,
+                }}
+              />
             </div>
           </div>
         </div>
@@ -1524,11 +1923,41 @@ export default function App() {
                 16,384 顶点皮层网格同样来自 TVB 示例数据 cortex_16384，
                 与连接矩阵配套对齐。
               </p>
-              <div className="conn-title">模型</div>
+              <div className="conn-title">模型 · 最终定位：教学仿真</div>
               <p className="panel-text">
                 Wilson–Cowan 兴奋 / 抑制神经群体模型，是神经群体平均活动的
                 现象学模型，不是第一性原理求解器。这里模拟的是该模型在上述
                 演示连接组上的行为，不代表真实人脑的客观反应。
+              </p>
+              <p className="panel-text">
+                最终定位（PR8）：教学仿真。本产品的全部 EEG / ERP 输出均为
+                未校准的模型演示，不是真实人脑的预测、不是临床测量、不是
+                个体脑电的复现。未校准的模型结果不得在任何一处被表述为真实
+                人脑参数或真实人脑预测。
+              </p>
+              <div className="conn-title">已知限制 · 实测数字（公开 EEG 约束 ds003061 sub-001 run-1）</div>
+              <p className="panel-text">
+                幅度缺口：oddball P300 峰值模型 0.174 µV @352 ms vs 真实
+                8.89 µV @410 ms，差 51 倍。300–500 ms 窗内均值模型 0.070 µV
+                vs 真实 6.94 µV，差 99 倍；差异波峰 0.166 vs 9.14 µV，差
+                55 倍。形态与潜伏期已修好（oddball 选择性 8.1×、峰在窗内），
+                幅度没修好：调增益只会把柱子推上锁存分支，峰值天花板约
+                0.21 µV。
+              </p>
+              <p className="panel-text">
+                基线 RMS 仍为 0：模型刺激前 RMS 0 vs 真实 Pz 6.07 µV；JR
+                p0=220 极限环 Pz RMS 0.017 µV，差约 360 倍。Alpha 功率占比
+                虚高：纯极限环 99.8% vs 真实 Pz 30.3% / Oz 69.3%（模型缺宽带
+                背景；频率对上量级，10.99 vs 10.00 Hz，占比数字不能直接比）。
+              </p>
+              <p className="panel-text">
+                源定位深度偏置：无噪声深源 plain 55.43 → dSPM 0.00 mm，但浅源
+                dSPM 变坏到 55.43 mm；有噪声深源 depth 96.00 mm 比 plain
+                78.38 mm 更差——没有一种方法同时修好深浅两端。MNE 峰值幅度被
+                压缩：真值 10 nA·m 时峰值只有 0.36–5.26 nA·m（λ²=1/9 时为真值
+                的 4–53%），不得把峰值读作真值幅度。偶极矩假设链（N=1,000,000、
+                c=0.08、200/100 pA、0.5 mm）全是假设、未校准，幅度与绝对 µV
+                值没有任何实测约束。
               </p>
               <div className="conn-title">默认预设</div>
               <p className="panel-text">
@@ -1582,6 +2011,8 @@ export default function App() {
                 数据许可核查见仓库 docs/data-license.md；
                 代码 MIT，第三方说明见 NOTICE.md。
               </p>
+            </div>
+            <div className="modal-foot">
               <button type="button" className="chip modal-close" onClick={() => setShowModelInfo(false)}>
                 知道了
               </button>

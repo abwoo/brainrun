@@ -7,7 +7,14 @@ import {
 } from '../lib/volumeConduction';
 
 /** Educational unbounded homogeneous conductor; NOT a head BEM or a TVB neural source. */
-export default function DipoleLab({ onClose }: { onClose: () => void }) {
+export default function DipoleLab({ onClose, liveSource }: { onClose: () => void;
+  /**
+   * PR8-LINK 直播源（App 传）：选中脑区的 TVB 中心 + 由直播 E/I 经 PR5
+   * q 链算出的偶极矩（基线 = 选区切换时该脑区的 E/I）。不传时只有手动
+   * 偶极子一路（独立演示）。
+   */
+  liveSource?: { positionMm: Vec3Mm; momentNAm: number; regionLabel: string; regionId: number } | null;
+}) {
   const mount = useRef<HTMLDivElement>(null);
   const display = useRef<((p: Vec3Mm, dir: Vec3Mm, volts: number[]) => void) | null>(null);
   const [position, setPosition] = useState<Vec3Mm>([0, 0, 0]);
@@ -15,6 +22,21 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
   const [moment, setMoment] = useState(10);
   const [conductivity, setConductivity] = useState(DEFAULT_CONDUCTIVITY_S_M);
   const [reference, setReference] = useState<'average'|'infinity'>('average');
+  // PR8-LINK：直播模式（默认开，只要传了 liveSource）；开着时位置与偶极矩
+  // 跟随直播源。位置按长度钳制到 55 mm（与原拖动钳制一致；TVB 中心最长
+  // 约 79 mm，未配准 HEAD，属演示映射）。
+  const [liveMode, setLiveMode] = useState(liveSource != null);
+  useEffect(() => {
+    if (!liveMode || !liveSource) return;
+    const p = liveSource.positionMm;
+    const len = Math.hypot(p[0], p[1], p[2]);
+    const k = len > 55 ? 55 / len : 1;
+    const next: Vec3Mm = [p[0] * k, p[1] * k, p[2] * k];
+    // 值没变时返回旧引用，免得每帧（liveSource 约 15 Hz 换身份）都重算电位与重绘 3D。
+    setPosition((prev) => (prev[0] === next[0] && prev[1] === next[1] && prev[2] === next[2] ? prev : next));
+    const q = liveSource.momentNAm;
+    setMoment((prev) => (prev === q ? prev : q));
+  }, [liveMode, liveSource]);
   const sensors = useMemo(() => demoSphereSensors(90), []);
   const dir = useMemo<Vec3Mm>(() => axis === 'X' ? [1,0,0] : axis === 'Y' ? [0,1,0] : [0,0,1], [axis]);
   const voltage = useMemo(() => sensorPotentialsMicrovolts([{
@@ -22,6 +44,13 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
     momentNAm: [dir[0]*moment, dir[1]*moment, dir[2]*moment],
   }], sensors, { mode: reference }, conductivity), [position, dir, moment, sensors, reference, conductivity]);
   const maxAbs = Math.max(0.001, ...voltage.map(Math.abs));
+  // PR8-LAYOUT（参考项）：幅值最大的示意电极，只读展示，供尖峰时跟最大值走；
+  // 不改任何电位计算。默认偶极方向仍为 X 轴，Cz 读数小是深部源增益本身小。
+  const maxSensor = useMemo(() => {
+    let bi = 0;
+    voltage.forEach((v, i) => { if (Math.abs(v) > Math.abs(voltage[bi])) bi = i; });
+    return { label: sensors[bi]?.label ?? '—', v: voltage[bi] ?? 0 };
+  }, [voltage, sensors]);
 
   useEffect(() => {
     const host = mount.current;
@@ -111,15 +140,31 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
 
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="电流偶极子物理实验"
-      onClick={e=>e.stopPropagation()} style={{width:'min(1120px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
+      onClick={e=>e.stopPropagation()} style={{width:'min(1120px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',right:0,pointerEvents:'auto'}}>
         PR5 · DIPOLE PHYSICS LAB
         <button className="chip chip-small" type="button" onClick={onClose}>关闭</button>
       </div>
       <div className="modal-body">
         <p className="panel-text" style={{color:'#ffb340'}}>{MODEL_LIMITATION}</p>
+        <label className="panel-text">
+          <input type="checkbox" checked={liveMode && !!liveSource} disabled={!liveSource}
+            onChange={(e)=>setLiveMode(e.target.checked)} />{' '}
+          直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）
+        </label>
+        {liveMode && liveSource ? (
+          <p className="panel-text" style={{color:'#7dd3a8'}}>
+            直播源：#{liveSource.regionId} {liveSource.regionLabel} · q = {liveSource.momentNAm.toFixed(3)} nA·m
+            （live E/I 经 PR5 假设链，基线 = 选区切换时该脑区的 E/I；偶极矩矢量 = q × 下方所选方向，法向是假设）
+            · 位置 = 脑区中心（TVB 坐标、未配准 HEAD，长度钳制到 55 mm）· 改选区、改 G 后电位跟着变。
+          </p>
+        ) : (
+          <p className="panel-text" style={{color:'#ffb340'}}>
+            独立演示：手动偶极子，未接主仿真（拖动源 / 改偶极矩只改本实验；想接直播先在主界面选一个脑区，再勾选“直播源”）。
+          </p>
+        )}
         <p className="panel-text">拖动橙色电流源，旋转场景，修改偶极矩及方向。12个示意传感器电位由解析公式实时计算。</p>
-        <div style={{display:'grid',gridTemplateColumns:'minmax(0, 1.5fr) minmax(230px, 1fr)',gap:12}}>
+        <div className="lab-split">
           <div ref={mount} role="img" aria-label="交互式三维电流源与模拟传感器"
             style={{height:420,width:'100%',border:'1px solid #133954'}}/>
           <div style={{minWidth:0}}>
@@ -129,9 +174,9 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
                 <option value="X">X 左右</option><option value="Y">Y 前后</option><option value="Z">Z 上下</option>
               </select>
             </label>
-            <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m</p>
+            <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m{liveMode && liveSource ? '（直播值，滑杆已锁定）' : ''}</p>
             <input aria-label="偶极矩强度" type="range" min="-30" max="30" step="0.5"
-              value={moment} onChange={e=>setMoment(Number(e.target.value))} style={{width:'100%'}}/>
+              value={moment} disabled={liveMode && !!liveSource} onChange={e=>setMoment(Number(e.target.value))} style={{width:'100%'}}/>
             <p className="panel-text">电导率 {conductivity.toFixed(2)} S/m</p>
             <input aria-label="导电率" type="range" min="0.10" max="1.00" step="0.01"
               value={conductivity} onChange={e=>setConductivity(Number(e.target.value))} style={{width:'100%'}}/>
@@ -145,8 +190,10 @@ export default function DipoleLab({ onClose }: { onClose: () => void }) {
             <button className="chip chip-small" type="button" onClick={()=>{
               setPosition([0,0,0]);setMoment(10);setAxis('X');
               setConductivity(DEFAULT_CONDUCTIVITY_S_M);setReference('average');
-            }}>重置实验</button>
+              setLiveMode(false);
+            }}>重置实验（回到手动偶极子）</button>
             <div className="conn-title">示意电极电位 · µV</div>
+            <p className="panel-text">最大电极：{maxSensor.label} {maxSensor.v.toFixed(3)} µV（12 导中幅值最大，尖峰时跟最大值走）</p>
             {sensors.map((s,i)=><div key={s.label} style={{display:'flex',alignItems:'center',gap:5}}>
               <span style={{width:28}}>{s.label}</span>
               <div style={{flex:1,background:'#122637',height:8,position:'relative'}}>

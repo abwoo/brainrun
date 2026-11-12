@@ -15,6 +15,12 @@ couplings are the same explicitly assumed chains as PR5/PR6
 numerical cross-check, *not* empirical biological calibration, and the
 Level D gains are uncalibrated by design.
 
+PR8-D additions (same analytic framework, no FEM solver): a figure-8
+coil (two circular loops, opposite currents — linear superposition of
+two `tms_field` calls) and a biphasic dI/dt(t) waveform (one cosine
+cycle); E(t) follows by linearity in dI/dt. See
+tests/pr8/debug-rounds-d.md for the FEM/BEM evaluation (not implemented).
+
 Units: mm / mA / V/m / ms / Hz / nA*m. Coordinates: head-RAS,
 sphere-centred mm. Outputs are written to
 tests/pr7/fixtures/stimulation-reference.json by main().
@@ -97,6 +103,46 @@ def tms_field(coil, target_mm, n_segments=3600):
     dist = np.linalg.norm(np.asarray(target_mm, dtype=float)[None, :] - pts, axis=1)
     integral = np.sum(dl / dist[:, None], axis=0)
     return -MU0 / (4.0 * np.pi) * coil["turns"] * coil["dIdtAPerS"] * integral
+
+
+# --- PR8-D: figure-8 coil + biphasic waveform ------------------------------
+import math  # noqa: E402  (kept with the PR8-D block for clarity)
+
+BIPHASIC_PERIOD_MS = 0.3
+
+
+def coil_basis_u(axis):
+    """First in-plane basis vector u of the coil (same construction as TS coilBasis)."""
+    axis = np.asarray(axis, dtype=float)
+    axis = axis / np.linalg.norm(axis)
+    a = np.array([1.0, 0.0, 0.0]) if abs(axis[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    u = np.cross(axis, a)
+    return u / np.linalg.norm(u)
+
+
+def figure_eight_coils(coil):
+    """Two loops: centres offset by one radius along u, opposite currents."""
+    u = coil_basis_u(coil["axis"])
+    c = np.asarray(coil["centerMm"], dtype=float)
+    plus = dict(coil)
+    plus["centerMm"] = [float(v) for v in c + coil["radiusMm"] * u]
+    minus = dict(coil)
+    minus["centerMm"] = [float(v) for v in c - coil["radiusMm"] * u]
+    minus["dIdtAPerS"] = -coil["dIdtAPerS"]
+    return plus, minus
+
+
+def figure_eight_field(coil, target_mm, n_segments=3600):
+    """Figure-8 field: linear sum of the two loop fields (V/m)."""
+    a, b = figure_eight_coils(coil)
+    return tms_field(a, target_mm, n_segments) + tms_field(b, target_mm, n_segments)
+
+
+def biphasic_didt(t_ms, peak_didt, period_ms=BIPHASIC_PERIOD_MS):
+    """dI/dt(t) = peak * cos(2 pi t / T) on [0, T], else 0 (A/s)."""
+    if t_ms < 0.0 or t_ms > period_ms:
+        return 0.0
+    return peak_didt * math.cos(2.0 * math.pi * t_ms / period_ms)
 
 
 # --- Column integration (DOP853) ------------------------------------------
@@ -245,6 +291,21 @@ def make_reference():
     tms360 = tms_field(TMS_COIL, TMS_TARGET_MM, n_segments=360)
     tms_axis = tms_field(TMS_COIL, [0, 0, 70], n_segments=3600)
 
+    # PR8-D: figure-8 (3600 vs 360 segments) + biphasic pulse (circular coil).
+    fig8 = figure_eight_field(TMS_COIL, TMS_TARGET_MM, n_segments=3600)
+    fig8_360 = figure_eight_field(TMS_COIL, TMS_TARGET_MM, n_segments=360)
+    fig8_axis = figure_eight_field(TMS_COIL, [0, 0, 70], n_segments=3600)
+    _bip_t = [round(i * 0.01, 10) for i in range(int(BIPHASIC_PERIOD_MS / 0.01) + 1)]
+    _bip_base = tms_field(TMS_COIL, TMS_TARGET_MM, n_segments=3600)
+    biphasic = {
+        "periodMs": BIPHASIC_PERIOD_MS,
+        "peakDIdtAPerS": TMS_COIL["dIdtAPerS"],
+        "timesMs": _bip_t,
+        "dIdtAPerS": [float(biphasic_didt(t, TMS_COIL["dIdtAPerS"])) for t in _bip_t],
+        "fieldVm": [[float(v * biphasic_didt(t, 1.0)) for v in _bip_base] for t in _bip_t],
+        "peakMagnitudeVm": float(np.linalg.norm(_bip_base)),
+    }
+
     level_d_wc = {"fieldsVm": LEVEL_D_FIELDS_VM, "peaks": [], "series100": None}
     for field in LEVEL_D_FIELDS_VM:
         t, q = run_wc_pieces(level_d_pieces(field, FIELD_TO_WC_GAIN, "wc"), 600.0)
@@ -302,6 +363,16 @@ def make_reference():
             "fieldVm360Segments": [float(x) for x in tms360],
             "axisFieldMagnitudeVm": float(np.linalg.norm(tms_axis)),
         },
+        "figure8": {
+            "coil": TMS_COIL, "targetMm": TMS_TARGET_MM,
+            "loopCentresMm": [figure_eight_coils(TMS_COIL)[0]["centerMm"],
+                              figure_eight_coils(TMS_COIL)[1]["centerMm"]],
+            "fieldVm": [float(x) for x in fig8],
+            "magnitudeVm": float(np.linalg.norm(fig8)),
+            "fieldVm360Segments": [float(x) for x in fig8_360],
+            "axisFieldMagnitudeVm": float(np.linalg.norm(fig8_axis)),
+        },
+        "biphasic": biphasic,
         "levelD": {
             "wcGain": FIELD_TO_WC_GAIN, "jrGain": FIELD_TO_JR_GAIN,
             "wc": level_d_wc, "jr": level_d_jr,

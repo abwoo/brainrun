@@ -1,10 +1,13 @@
 /**
  * PR-15 — 实验沙盒组件：双脑 A/B 对照、时间机器、闭环控制。
  *
- * Props 约定（壳由总协调接）：`{ fixture, onClose }`，fixture 为球形
+ * Props 约定（壳由总协调接）：`{ fixture, onClose, live }`，fixture 为球形
  * 正向模型（`app/public/forward-assets/sphere-model.json`，与
  * EegAnalysisLab 同一来源）；fixture 为 null 时源定位对照不可用，
- * 其余两节可用（不依赖正向模型）。
+ * 其余两节可用（不依赖正向模型）。`live` 为 App 传的直播接线
+ * （SimClient + 选中脑区 + 其 TVB 中心）；不传时只有 JR 柱一路。
+ * PR8-LINK：双脑 A 可取直播、时间机器有直播回放、闭环有直播闭环；
+ * JR 柱的三节原样保留并标“独立演示”，不冒充直播。
  * 每个控件都对应 `app/src/lib/experiments.ts` 里的真实函数：
  * A/B → `runAB` / `compareLocalization`；时间机器 → `TimeMachine`
  * （step/stepTo/restore/fork/replay）；闭环 → `runClosedLoop` /
@@ -16,8 +19,11 @@
  *
  * 布局：纵向堆叠、无绝对定位、无重叠；1920×1080 与 978px 冒烟级查看。
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SphereFixture } from '../lib/sphereForward';
+import { runLiveExperiment } from '../lib/eegRecording';
+import type { SimClient } from '../lib/simClient';
+import type { Vec3Mm } from '../lib/volumeConduction';
 import {
   CLOSED_LOOP_SIMULATION_ONLY,
   compareControlVsNoControl,
@@ -75,9 +81,20 @@ function fmt(v: number, digits = 4): string {
 export default function ExperimentLab({
   fixture,
   onClose,
+  live,
 }: {
   fixture: SphereFixture | null;
   onClose: () => void;
+  /**
+   * PR8-LINK 直播接线（App 传）：主仿真客户端 + 选中脑区 + 其 TVB 中心。
+   * 不传时只有 JR 柱对照一路（独立演示）。
+   */
+  live?: {
+    sim: SimClient | null;
+    node: number | null;
+    label: string | null;
+    positionMm: Vec3Mm | null;
+  };
 }) {
   /* ── A/B 对照 ── */
   const [driveA, setDriveA] = useState('120');
@@ -137,6 +154,56 @@ export default function ExperimentLab({
         `eLORETA ${fmt(shallow.eloreta.localizationErrorMm, 2)} mm。` +
         `没有一种方法同时修好深浅两端，见文档。`,
     );
+  };
+
+  /* ── PR8-LINK：直播 A ── */
+  const [liveA, setLiveA] = useState<string | null>(null);
+  const [liveAError, setLiveAError] = useState<string | null>(null);
+
+  const handleRunLiveA = () => {
+    setLiveAError(null);
+    try {
+      const sim = live?.sim;
+      if (!sim) throw new Error('直播未就绪（仿真引擎加载中）');
+      if (live?.node === null || live?.node === undefined) {
+        throw new Error('先在主界面选一个脑区，再取直播 A');
+      }
+      if (!fixture || !live?.positionMm) {
+        throw new Error('球形正向模型未加载：Pz 代理不可算（先看上方“先在主界面刺激一次”的 ΔE 部分）');
+      }
+      const win = sim.getLastResponseWindow();
+      const base = sim.getBaseline();
+      if (!win || !base) throw new Error('先在主界面刺激一次（需要最近的响应窗口）');
+      let peak = 0;
+      for (const s of win.snapshots) {
+        const d = s.e[live.node] - base.e[live.node];
+        if (Math.abs(d) > Math.abs(peak)) peak = d;
+      }
+      const samples = sim.getSnapshotHistory();
+      if (samples.length < 2) throw new Error('直播快照历史不足：等仿真跑满 1 秒');
+      const first = samples[0];
+      const { recording } = runLiveExperiment({
+        fixture,
+        samples,
+        node: live.node,
+        baselineE: first.e[live.node],
+        baselineI: first.i[live.node],
+        markers: sim.getMarkers(),
+        positionMm: live.positionMm,
+        noise: null,
+      });
+      const pzIdx = recording.channels.findIndex((c) => c.label === 'Pz');
+      const pzRow = recording.dataUv[pzIdx];
+      const pzPeak = Math.max(...pzRow.map(Math.abs));
+      const pzRms = Math.sqrt(pzRow.reduce((s, v) => s + v * v, 0) / pzRow.length);
+      setLiveA(
+        `直播 A（#${live.node} ${live.label ?? ''}）：响应窗口 ${win.snapshots.length} 条快照，峰值 ΔE ${peak.toFixed(3)}；` +
+          `直播推导 Pz 峰值 ${pzPeak.toFixed(3)} µV，RMS ${pzRms.toFixed(3)} µV。` +
+          `B 列仍是 JR 柱（见上方对照表）：两者模型不同，只并列、不作同口径差值。`,
+      );
+    } catch (e) {
+      setLiveAError(String(e));
+    }
   };
 
   /* ── 时间机器 ── */
@@ -215,6 +282,29 @@ export default function ExperimentLab({
     }
   };
 
+  /* ── PR8-LINK：直播回放（真实快照存储）── */
+  const [liveTm, setLiveTm] = useState<Array<{ t_ms: number; e: number; i: number }> | null>(null);
+  const [liveTmIdx, setLiveTmIdx] = useState(0);
+  const [liveTmError, setLiveTmError] = useState<string | null>(null);
+
+  const handleLoadLiveTm = () => {
+    setLiveTmError(null);
+    try {
+      const sim = live?.sim;
+      if (!sim) throw new Error('直播未就绪（仿真引擎加载中）');
+      if (live?.node === null || live?.node === undefined) {
+        throw new Error('先在主界面选一个脑区，再载入直播快照');
+      }
+      const hist = sim.getSnapshotHistory();
+      if (hist.length < 2) throw new Error('直播快照历史不足：等仿真跑满 1 秒');
+      const node = live.node;
+      setLiveTm(hist.map((s) => ({ t_ms: s.t_ms, e: s.e[node], i: s.i[node] })));
+      setLiveTmIdx(hist.length - 1);
+    } catch (e) {
+      setLiveTmError(String(e));
+    }
+  };
+
   /* ── 闭环 ── */
   const [clMode, setClMode] = useState<ControllerMode>('threshold');
   const [clFeature, setClFeature] = useState<FeatureKind>('instant');
@@ -266,9 +356,63 @@ export default function ExperimentLab({
     }
   };
 
+  /* ── PR8-LINK：直播闭环 ── */
+  const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>('instant');
+  const [clLiveThreshold, setClLiveThreshold] = useState('0.05');
+  const [clLiveAmp, setClLiveAmp] = useState('2');
+  const [clLiveMax, setClLiveMax] = useState('5');
+  const [clLiveRunning, setClLiveRunning] = useState(false);
+  const [clLiveLog, setClLiveLog] = useState<string[]>([]);
+  const clLiveStateRef = useRef({ lastTriggerWall: 0, count: 0 });
+  const liveSim = live?.sim ?? null;
+  const liveNode = live?.node ?? null;
+
+  useEffect(() => {
+    if (!clLiveRunning) return;
+    if (!liveSim || liveNode === null) {
+      setClLiveRunning(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      const latest = liveSim.getLatest();
+      if (!latest) return;
+      const node = liveNode;
+      let feat: number;
+      if (clLiveFeature === 'instant') {
+        feat = latest.e[node];
+      } else {
+        const hist = liveSim.getSnapshotHistory();
+        const win = hist.filter((s) => s.t_ms >= latest.t_ms - 1000);
+        feat = win.length
+          ? Math.sqrt(win.reduce((s, x) => s + x.e[node] * x.e[node], 0) / win.length)
+          : latest.e[node];
+      }
+      const thr = Number(clLiveThreshold);
+      const amp = Number(clLiveAmp);
+      const max = Number(clLiveMax);
+      const now = Date.now();
+      if (
+        Number.isFinite(feat) && Number.isFinite(thr) && feat > thr &&
+        now - clLiveStateRef.current.lastTriggerWall >= 2000 &&
+        clLiveStateRef.current.count < max
+      ) {
+        clLiveStateRef.current.lastTriggerWall = now;
+        clLiveStateRef.current.count += 1;
+        liveSim.pulseAt(node, amp, 100);
+        const n = clLiveStateRef.current.count;
+        setClLiveLog((prev) => [
+          ...prev,
+          `t=${(latest.t_ms / 1000).toFixed(2)} s 特征 ${feat.toFixed(3)} > 阈值 ${thr} → 脉冲 #${node}（幅度 ${amp}，100 ms），第 ${n}/${max} 次`,
+        ]);
+        if (n >= max) setClLiveRunning(false);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [clLiveRunning, clLiveFeature, clLiveThreshold, clLiveAmp, clLiveMax, liveSim, liveNode]);
+
   return (
     <div>
-      <div style={warn}>{CLOSED_LOOP_SIMULATION_ONLY}本页全部结果来自 JR 皮层柱模拟，不是人体实测。</div>
+      <div style={warn}>{CLOSED_LOOP_SIMULATION_ONLY}本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的三节来自主仿真真实快照。</div>
 
       {/* A/B 对照 */}
       <div style={panel}>
@@ -314,10 +458,59 @@ export default function ExperimentLab({
         {depthResult && <p style={note}>{depthResult}</p>}
       </div>
 
+      {/* PR8-LINK：直播 A（双脑对照的 A 取直播仿真） */}
+      <div style={panel}>
+        <h3 style={title}>双脑 A/B 对照 · 直播 A</h3>
+        <p style={note}>
+          A 取直播仿真：选中脑区在最近响应窗口里的峰值 ΔE（真实快照）+ 同一份
+          直播推导的 Pz 峰值/RMS（经 runLiveExperiment，与 EEG 台同一条管线）。
+          B 仍是上方 JR 柱对照的 B（驱动可改）；两者模型不同，只并列、不作
+          同口径差值。改 G、换选区后重取，A 的数值跟着变。
+        </p>
+        <div style={row}>
+          <button style={button} onClick={handleRunLiveA}>取直播 A（最近响应窗口）</button>
+        </div>
+        {liveAError && <p style={note}>{liveAError}</p>}
+        {liveA && <p style={note}>{liveA}</p>}
+      </div>
+
+      {/* PR8-LINK：直播回放（SimClient 真实快照存储） */}
+      <div style={panel}>
+        <h3 style={title}>时间机器 · 直播回放</h3>
+        <p style={note}>
+          最近约 10 秒的真实直播快照（SimClient 快照历史，60 Hz）：拖动看选中
+          脑区的 E/I 是怎么走的。直播引擎不可倒带——这里只回放已记录的历史，
+          不改仿真状态；想从历史点改参数重跑，用下面的 JR 柱时间机器（独立演示）。
+        </p>
+        <div style={row}>
+          <button style={button} onClick={handleLoadLiveTm}>载入最近 10 秒直播快照</button>
+        </div>
+        {liveTmError && <p style={note}>{liveTmError}</p>}
+        {liveTm && liveTm.length > 0 && (
+          <div style={row}>
+            <span style={label}>回放：{(liveTm[Math.min(liveTmIdx, liveTm.length - 1)].t_ms / 1000).toFixed(2)} s（拖动）</span>
+            <input
+              type="range"
+              min={0}
+              max={liveTm.length - 1}
+              value={liveTmIdx}
+              onChange={(e) => setLiveTmIdx(Number(e.target.value))}
+              style={{ flex: 1, minWidth: 200 }}
+            />
+            <span style={label}>
+              E = {fmt(liveTm[Math.min(liveTmIdx, liveTm.length - 1)].e)}，
+              I = {fmt(liveTm[Math.min(liveTmIdx, liveTm.length - 1)].i)}
+              （#{live?.node ?? '—'} {live?.label ?? ''}）
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* 时间机器 */}
       <div style={panel}>
-        <h3 style={title}>时间机器</h3>
+        <h3 style={title}>时间机器 · JR 柱（独立演示）</h3>
         <p style={note}>
+          独立演示：Jansen–Rit 皮层柱的时间机器，与直播仿真无关（不读主仿真快照）。
           暂停、单步（一次一个 dt = 0.5 ms）、历史缓冲（每 10 ms 一份快照）、
           回放（拖动已记录的快照历史）、慢动作（回放倍率只改变查看速度，
           不改变物理）、恢复模型快照、从历史状态改参数后重新运行（分支）。
@@ -364,8 +557,9 @@ export default function ExperimentLab({
 
       {/* 闭环 */}
       <div style={panel}>
-        <h3 style={title}>闭环控制</h3>
+        <h3 style={title}>闭环控制 · JR 柱（独立演示）</h3>
         <p style={note}>
+          独立演示：Jansen–Rit 皮层柱的闭环模拟，与直播仿真无关。
           模拟 EEG（Pz 代理）→ 特征提取 → 状态判定 → 控制器 → 延迟 → 虚拟刺激
           （加到 JR 输入上）→ 神经响应。控制器输出单位 1/s，加在静息输入 p0
           上：正值兴奋、负值抑制。阈值模式用固定阈值触发抑制输出；
@@ -414,6 +608,49 @@ export default function ExperimentLab({
         </div>
         {clError && <p style={note}>{clError}</p>}
         {clResult && <p style={note}>{clResult}</p>}
+      </div>
+
+      {/* PR8-LINK：直播闭环（特征取自直播 EEG/活动，反馈经 Worker 脉冲回主仿真） */}
+      <div style={panel}>
+        <h3 style={title}>闭环控制 · 直播闭环</h3>
+        <p style={note}>
+          特征取自直播：选中脑区 #{liveNode ?? '—'} {live?.label ?? ''} 的 live E
+          （瞬时值，或最近 1 秒的 RMS）。特征超过阈值时，经 Worker 脉冲
+          （pulseAt，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 +
+          2 秒冷却 + 手动停止：脉冲可能把双稳态网络翻进高活动态，触发到上限
+          自动停；停后若网络锁住，用主界面横幅的恢复/RESET 回来。
+        </p>
+        <div style={row}>
+          <span style={label}>特征</span>
+          <select value={clLiveFeature} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')} style={input}>
+            <option value="instant">瞬时 E（无量纲）</option>
+            <option value="rms">1 秒 RMS E（无量纲）</option>
+          </select>
+          <span style={label}>阈值</span>
+          <input style={input} value={clLiveThreshold} onChange={(e) => setClLiveThreshold(e.target.value)} />
+          <span style={label}>反馈脉冲幅度（模型单位）</span>
+          <input style={input} value={clLiveAmp} onChange={(e) => setClLiveAmp(e.target.value)} />
+          <span style={label}>触发上限（次）</span>
+          <input style={input} value={clLiveMax} onChange={(e) => setClLiveMax(e.target.value)} />
+          {!clLiveRunning ? (
+            <button
+              style={button}
+              disabled={!liveSim || liveNode === null}
+              onClick={() => {
+                clLiveStateRef.current = { lastTriggerWall: 0, count: 0 };
+                setClLiveLog([]);
+                setClLiveRunning(true);
+              }}
+            >
+              启动直播闭环
+            </button>
+          ) : (
+            <button style={button} onClick={() => setClLiveRunning(false)}>停止直播闭环</button>
+          )}
+          {(!liveSim || liveNode === null) && <span style={label}>先在主界面选一个脑区（直播未就绪或未选区时不可启动）。</span>}
+        </div>
+        {clLiveRunning && <p style={note}>直播闭环运行中：每 250 ms 读一次直播快照，超阈值即反馈脉冲。</p>}
+        {clLiveLog.map((line, i) => <p key={i} style={note}>{line}</p>)}
       </div>
 
       <div style={row}>

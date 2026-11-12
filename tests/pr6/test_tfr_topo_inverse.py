@@ -13,10 +13,11 @@
    tfr-topo-inverse fixture，与 tests/pr6/fixtures/ 里存的逐点比较
    （TS 测试读的就是这两份 fixture，过期即失败）。
    新鲜度容差按跨环境浮点确定性实测取值（不是逐位相等）：地形
-   电极电位 1e-5 µV（CI 漂移 2.46e-6，来自 CI 现场重算的球形
-   正向模型在不同 CPU 上的 MNE 求解差异）、盲测 spread 相对
-   1e-5（CI 漂移 6.96e-6 mm，相对 8.9e-8）。量级依据与实测见
-   tests/pr6/debug-rounds.md（2026-11-12 CI 漂移诊断）。
+   电极电位 5e-5 µV（2026-11-12 PR8 预防性修补：原 1e-5 只剩 1.18
+   倍余量，64 种子 σ=3.2e-6 非均匀扰动最大 8.48e-6）、盲测 spread
+   相对 1e-4（2026-11-12 PR8 CI 再修：CI 本轮 1.49e-05，σ=1e-5
+   扰动最大 1.67e-05）。量级依据与实测见
+   tests/pr6/debug-rounds.md（2026-11-12 PR8 CI 再修）。
 2. Python 对照实现自洽：球面样条在电极点上复现、盲测表重算、
    MNE 真实管线（make_inverse_operator/apply_inverse）与 numpy
    公式峰值一致（相关 > 0.98）。
@@ -97,21 +98,26 @@ class TestSplineTopography(unittest.TestCase):
         fresh = ir.build_tfr_topo_inverse_fixture(SPHERE_PATH)
         topo_f, topo_s = fresh["topography"], TOPO_INV_FIXTURE["topography"]
         self.assertEqual(topo_f["labels"], topo_s["labels"])
-        # 地形电极电位 atol 1e-5 µV：CI 漂移实测 2.46e-6（信号幅值
-        # 0.77 µV 的 3.2e-6 相对），来自 CI 现场重算的球形正向模型
-        #（MNE 四层球求解）在不同 CPU 上的差异；1e-5 仍比同文件
-        # 样条复现容差 0.02 µV 严 2000 倍，科学门槛未动。
-        assert_close(self, topo_f["values_uv"], topo_s["values_uv"], 0, 1e-5, "topo values")
+        # 地形电极电位 atol 5e-5 µV（2026-11-12 PR8 预防性修补：原 1e-5
+        # 不够稳。CI 漂移实测 2.46e-6，但 64 种子 σ=3.2e-6 非均匀扰动
+        # 最大已达 8.48e-6，只剩 1.18 倍余量；σ=1e-5 扰动最大 2.23e-05。
+        # 本轮 CI 地形本身未失败，但同一根因、同一量级实测下 1e-5
+        # 不稳，故按同一规则提到实测最大值约 5 倍余量；仍比同文件
+        # 样条复现容差 0.02 µV 严 400 倍，科学门槛未动）。
+        assert_close(self, topo_f["values_uv"], topo_s["values_uv"], 0, 5e-5, "topo values")
         self.assertEqual(len(topo_f["grid"]), len(topo_s["grid"]))
         for g_f, g_s in zip(topo_f["grid"], topo_s["grid"]):
             self.assertAlmostEqual(g_f["x"], g_s["x"], places=12)
             self.assertAlmostEqual(g_f["y"], g_s["y"], places=12)
-            # 网格值绝对 1e-5 µV（原 places=9）：与电极电位同口径。
-            # 不能用相对容差：网格值有过零点，相对误差在过零点
-            # 附近会虚大（CI 量级扰动下相对误差可达 2.45e-4，绝对
-            # 误差实测最大 1.59e-6）；x/y 是纯坐标，仍要求 places=12。
+            # 网格值绝对 5e-5 µV（2026-11-12 PR8 预防性修补：原 1e-5
+            # 只剩约 2 倍余量——16 种子 σ=3.2e-6 非均匀扰动最大已达
+            # 4.60e-06，σ=1e-5 扰动最大 1.44e-05；与地形电极电位同
+            # 一根因、同一规则提到约 5 倍余量。不能用相对容差：网格值
+            # 有过零点，相对误差在过零点附近会虚大（CI 量级扰动下
+            # 相对误差可达 2.45e-4，绝对误差实测最大 1.59e-6）；x/y
+            # 是纯坐标，仍要求 places=12。
             grid_err = abs(g_f["value_uv"] - g_s["value_uv"])
-            self.assertLess(grid_err, 1e-5, f"grid value abs err {grid_err:.3g}")
+            self.assertLess(grid_err, 5e-5, f"grid value abs err {grid_err:.3g}")
 
     def test_spline_reproduces_electrode_values(self):
         """λ=1e-5 平滑样条在电极点上的复现误差 ≤ 0.02 µV（λ·|C| 量级）。"""
@@ -151,13 +157,19 @@ class TestBlindInverse(unittest.TestCase):
             peak_err = abs(b_f["mne"]["peak_value"] - b_s["mne"]["peak_value"]) / max(
                 1e-12, abs(b_s["mne"]["peak_value"]))
             self.assertLess(peak_err, 1e-4, f"mne peak rel err {peak_err:.3g}")
-            # spread 相对 1e-5：CI 漂移 6.96e-6 mm（78.1 mm 的 8.9e-8
-            # 相对），来自增益矩阵的跨 CPU 差异经 MNE 逆解放大；1e-5
-            # 相对仍比盲测的科学量级（分布范围几十 mm）严 6 个量级，
-            # 且位置分量仍要求精确相等，真实回归会被位置断言抓住。
+            # spread 相对 1e-4（2026-11-12 PR8 CI 再修：原 1e-5 不够）：
+            # CI 本轮 spread 相对误差 1.49e-05；PR7 的 8 种子非均匀
+            # 扰动只测到最大 4.4e-6（2.3 倍余量），低估了跨环境增益
+            # 漂移的尾部——64 种子 σ=3.2e-6 非均匀扰动最大 6.1e-6，
+            # σ=1e-5 扰动最大 1.67e-05，与 CI 值同量级；逆解求解路径
+            # 本身已证稳定（正则化矩阵条件数 21–4052、不同求解驱动
+            # spread 逐位相同），漂移只来自 CI 现场重算的球形增益。
+            # 1e-4 留约 6 倍余量，仍比盲测的科学量级（分布范围几十 mm，
+            # 1e-4 相对 ≈ 0.008 mm）严 4 个量级，且位置分量仍要求
+            # 精确相等，真实回归会被位置断言抓住。
             spread_err = abs(b_f["mne"]["spread_mm"] - b_s["mne"]["spread_mm"]) / max(
                 1e-12, abs(b_s["mne"]["spread_mm"]))
-            self.assertLess(spread_err, 1e-5,
+            self.assertLess(spread_err, 1e-4,
                             f"mne spread rel err {spread_err:.3g}")
 
     def test_mne_operator_peak_matches_numpy_formula(self):

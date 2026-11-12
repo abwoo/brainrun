@@ -1,0 +1,1501 @@
+{
+  "viewports": {},
+  "walkthrough": {
+    "canvas_box": {
+      "x": 9,
+      "y": 60,
+      "width": 1293,
+      "height": 978
+    },
+    "hover_tip_visible": true,
+    "hover_tip_text": "lCC — 点击刺激 · 按住持续输入",
+    "select_feedback": "REGION / CONNECTION",
+    "t_select_s": 29.8,
+    "stim_feedback": "基线：刺激前 t=28.16 s · lCC #75。窗口：基线前 500 ms 至刺激后约 2 s 的真实快照。",
+    "t_stim_s": 39.9,
+    "eeg_entry_found": true,
+    "eeg_entry_label": "EEG 分析（顶栏 chip）",
+    "eeg_waveform_visible": true,
+    "t_eeg_s": 7.2,
+    "all_button_texts": [
+      "PLAY — 运行中",
+      "CONNECT — 显示",
+      "RESET",
+      "HEAD EEG",
+      "EEG 分析",
+      "DIPOLE LAB",
+      "细胞实验",
+      "刺激实验",
+      "对照实验",
+      "模型信息",
+      "绝对活动 E",
+      "活动变化 ΔE",
+      "旋转 开",
+      "E",
+      "I",
+      "BOTH",
+      "绝对活动 E",
+      "活动变化 ΔE",
+      "回放响应窗口",
+      "1×",
+      "0.5×",
+      "0.25×",
+      "lCC #75峰值 ΔE +0.482",
+      "lPMCDL #63峰值 ΔE +0.011",
+      "lPFCORB #59峰值 ΔE +0.011",
+      "rPFCVL #23峰值 ΔE -0.010",
+      "安静 Quiet",
+      "自发 Spontaneous",
+      "振荡 Oscillatory",
+      "保存快照",
+      "恢复手动快照",
+      "恢复到按住前",
+      "−",
+      "+",
+      "−",
+      "+",
+      "−",
+      "+",
+      "−",
+      "+",
+      "偏置 关"
+    ],
+    "mode_buttons_exact": {
+      "PLAY": false,
+      "WAVES": false,
+      "EEG": false,
+      "EXPLORE": false
+    },
+    "mode_switch_found": false,
+    "play_chip_text": "PLAY — 运行中",
+    "t_mode_s": 0.1,
+    "total_s": 69.0
+  },
+  "page_errors": [],
+  "notes": [],
+  "sim_ready_s": 0.7,
+  "bg_params_text": "自发背景：每个脑区持续收到 Ornstein–Uhlenbeck 背景输入 （相关时间 τ = 100 ms， 幅度 σ = 0.10 模型单位 P），活动来自模型计算，不是装饰闪烁。同一随机种子重跑， 活动序列逐值相同。",
+  "measures": {
+    "978x800_main": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 运行中",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": null
+    },
+    "978x800_headsphere": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [
+        {
+          "el": "div. :: 可直接操作的物理参数电极布局10–20 基础 19 导扩展 10–10 · 94 导10–05 · 343 导源方向X ",
+          "dx": 4,
+          "overflowX": "visible"
+        }
+      ],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 752,
+        "right": 958,
+        "bottom": 776,
+        "overW": -20,
+        "overH": -24,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_dipole": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [
+        {
+          "el": "div. :: 电流源控制方向X 左右Y 前后Z 上下偶极矩 10.0 nA·m电导率 0.33 S/m参考方式平均参考无限远理论参考位",
+          "dx": 4,
+          "overflowX": "visible"
+        }
+      ],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 565,
+        "right": 958,
+        "bottom": 683,
+        "overW": -20,
+        "overH": -117,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-EEG": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-频谱": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-ERP": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-时频": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 640,
+        "right": 958,
+        "bottom": 720,
+        "overW": -20,
+        "overH": -80,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-地形": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_eeglab-源定位": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [
+        {
+          "el": "input.[number] :: ",
+          "dx": 66,
+          "overflowX": "clip"
+        }
+      ],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 645,
+        "right": 958,
+        "bottom": 722,
+        "overW": -20,
+        "overH": -78,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_cellular": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_stim": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 690,
+        "right": 958,
+        "bottom": 745,
+        "overW": -20,
+        "overH": -55,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    },
+    "978x800_experiment": {
+      "vw": 978,
+      "vh": 800,
+      "docOverflowX": 0,
+      "bodyOverflowX": 0,
+      "clipped": [],
+      "truncated": [],
+      "topbar": {
+        "scrollW": 978,
+        "clientW": 978,
+        "overflow": 0,
+        "chips": [
+          {
+            "text": "PLAY — 已暂停",
+            "x": 312,
+            "y": 10,
+            "w": 60,
+            "h": 78,
+            "right": 372,
+            "bottom": 88
+          },
+          {
+            "text": "CONNECT — 显示",
+            "x": 380,
+            "y": 10,
+            "w": 89,
+            "h": 78,
+            "right": 469,
+            "bottom": 88
+          },
+          {
+            "text": "RESET",
+            "x": 477,
+            "y": 10,
+            "w": 65,
+            "h": 78,
+            "right": 542,
+            "bottom": 88
+          },
+          {
+            "text": "HEAD EEG",
+            "x": 550,
+            "y": 10,
+            "w": 62,
+            "h": 78,
+            "right": 612,
+            "bottom": 88
+          },
+          {
+            "text": "EEG 分析",
+            "x": 620,
+            "y": 10,
+            "w": 51,
+            "h": 78,
+            "right": 671,
+            "bottom": 88
+          },
+          {
+            "text": "DIPOLE LAB",
+            "x": 679,
+            "y": 10,
+            "w": 75,
+            "h": 78,
+            "right": 754,
+            "bottom": 88
+          },
+          {
+            "text": "细胞实验",
+            "x": 762,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 807,
+            "bottom": 88
+          },
+          {
+            "text": "刺激实验",
+            "x": 815,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 859,
+            "bottom": 88
+          },
+          {
+            "text": "对照实验",
+            "x": 867,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 912,
+            "bottom": 88
+          },
+          {
+            "text": "模型信息",
+            "x": 920,
+            "y": 10,
+            "w": 44,
+            "h": 78,
+            "right": 964,
+            "bottom": 88
+          }
+        ],
+        "overlaps": [],
+        "offRight": []
+      },
+      "dialog": {
+        "w": 938,
+        "h": 736,
+        "right": 958,
+        "bottom": 768,
+        "overW": -20,
+        "overH": -32,
+        "scrollW": 936,
+        "clientW": 936
+      }
+    }
+  },
+  "open_failures": [
+    "978x800 localbem: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"HEAD EEG\", exact=True)\n    - locator resolved to <button class=\"chip\" type=\"button\" title=\"MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位\">HEAD EEG</button>\n  - attempting click action\n    - waiting for element to be visible, enabled and stable\n"
+  ],
+  "shot_failures": [
+    "walkthrough_1_selected: Page.screenshot: Timeout 10000ms exceeded.\nCall log:\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n",
+    "walkthrough_2_stimulated: Page.screenshot: Timeout 10000ms exceeded.\nCall log:\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n",
+    "walkthrough_3_eeg: Page.screenshot: Timeout 10000ms exceeded.\nCall log:\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n"
+  ]
+}

@@ -8,6 +8,9 @@
 > PR7 增补（2026-11-12，总协调集成）：PR-13 细胞级（§1.9）、PR-14 刺激（§1.10）、
 > PR-15 实验与深度加权（§1.11）。三方原报的 §1.9 编号冲突，总协调重排为
 > §1.9 / §1.10 / §1.11。
+> PR8 增补（2026-11-12，总协调集成）：PR-16 模式与场景（§1.12）、
+> 方法学数值缺口与 TES/TMS（§1.13）。两路原报的编号顺序，总协调重排为
+> §1.12 / §1.13。
 > **适用范围：** brainrun 2.0 PR-04+05+06（物理核心）及后续 PR5–PR8 全程。
 > **规则来源：** 用户 2026-11-11 22:53 定——前端（React/Three.js 界面、`app/src/lib/*.ts`、Worker 协议）与后端（Rust/WASM 引擎、Python 对照、`scientific/forward` 的 MNE 模型）共用同一份契约；改任一侧时同步改契约与另一侧，并用测试卡住漂移。
 > **测试节奏新规（2026-11-11 22:57 用户定）：** 每轮 PR 只保留该轮必需的方法学测试 + 构建通过 + 新功能冒烟；全面回归、浏览器交互全套、前端布局全面扫查、性能、五维验收、十个演示全部推迟到 PR8 合并之后做一次最终大测试。本契约的漂移测试（`tests/pr5/contract.test.mjs`）属于方法学测试（单位与坐标正确性），按新规保留。布局正确性要求见 §9——新界面按契约做对、不留已知遮挡，全面扫查留到最后。
@@ -313,9 +316,23 @@ JR p0=220；其余频段只作同一份信号的频段功率读数；Oscillatory
 
 **前端入口：已有。** `WavesTab.tsx`（PSD/频段/峰值/预设，只显示与计算，不跑模型）、
 `ErpTab.tsx`（切分试次按钮 + ERP 波形 + 峰值/潜伏期/差异波/条件对照表，只做
-分段/平均/显示，不重新跑模型）。两 tab 均为 §5.2 的前端本地计算（后端在
-`app/src/lib`，不在 WASM 引擎——符合设计，不是空壳）；“运行实验”按钮在 EEG 页
-（B1 的壳），不在本 tab 内。
+分段/平均/显示；另有一个显式按钮可跑 late 机制 oddball 实验，见下段）。
+两 tab 均为 §5.2 的前端本地计算（后端在 `app/src/lib`，不在 WASM 引擎——符合设计，
+不是空壳）；“运行实验”按钮在 EEG 页（B1 的壳），不在本 tab 内。
+
+**PR8-NUMFIX（2026-11-12）：ErpTab 允许跑 `runOddballExperiment`，只限显式按钮。**
+理由：壳实验记录是 plain WC/JR 模型、无 late 机制，ERP 250–600 ms 窗内峰实测
+0.000061 µV @252 ms（WC 默认，窗首——窗内只有早期峰的衰减尾巴；JR 默认
+−0.00143 µV @252 ms），而旧文案无条件写“模型峰约 0.17 µV”，界面写的数与 tab
+实际算出的数脱节。修法：ErpTab 加显式按钮“运行 oddball 实验（late 机制）并切分”，
+点后跑 `runOddballExperiment({})`（默认 40 试次、单通道 Pz）并切分，只改 epochs、
+不碰壳的 recording/events（壳仍由 B1 持有；“全批只用一份记录”在此让位于诚实性——
+两条路径的来源与文案都条件化标明，不假装同一份记录）；late 路径算出的 oddball 峰
+0.174 µV @352 ms、窗均值 0.0697 µV，与机制文档 §4 一致。壳记录路径下文案如实写
+“窗内基本无响应、峰 <0.001 µV、潜伏期落在窗首”。幅度缺口仍 51 倍（0.174 vs 真实
+8.89 µV），定位仍是教学仿真，不在本批修。`WavesTab` 仍不跑任何实验运行器；
+`ErpTab` 仍不跑 `runAlphaLimitCycle`。对应断言已在
+`tests/pr5/contract.test.mjs`（B2 节）中更新，旧断言“ErpTab 不跑 oddball 实验”作废。
 
 **漂移测试断言（待总协调追加进 `tests/pr5/contract.test.mjs`——该文件属 A2，
 B2 只在此登记断言文本，不越界改文件）：**
@@ -332,8 +349,10 @@ B2 只在此登记断言文本，不越界改文件）：**
   `runOddballExperiment` 返回的 `recording.sourceModelId` 等于它；
 - `WavesTab.tsx` / `ErpTab.tsx` 存在且 props 与设计稿 §1.3 一致
   （WavesTab `{ recording, channel }`、ErpTab `{ recording, events, epochs,
-  onEpochsChange, channel }`），且两文件均不 import 柱模型之外的实验运行器
-  （ErpTab 不跑模型）。
+  onEpochsChange, channel }`），且 WavesTab 不 import 实验运行器；
+  ErpTab 自 PR8-NUMFIX 起允许 import `runOddballExperiment`，只限显式按钮
+  （“运行 oddball 实验（late 机制）并切分”），且只改 epochs、不碰壳的
+  recording/events（ErpTab 仍不跑 `runAlphaLimitCycle`）。
 
 ### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）
 
@@ -420,7 +439,111 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 函数映射（前端 → Python 对照）：`runSingleExperiment` ↔ `run_single_experiment`；`runAB`/`compareRuns` ↔ `run_ab`/`compare_runs`；`TimeMachine` ↔ `TimeMachine`（step/step_to/restore/fork/replay）；`PidController` ↔ `PidController`；`simulatePidStepResponse` ↔ `simulate_pid_step_response`；`runClosedLoop` ↔ `run_closed_loop`；`compareControlVsNoControl`（TS 独有，无 Python 对照——由 fixture 数值覆盖）；`depthWeightedMneInverse`/`dspmInverse`/`eloretaInverse`/`evaluateDepthMethods` ↔ `depth_weighted_mne`/`dspm`/`eloreta`/`evaluate_case`。
 **深度加权诚实边界**：无噪声 10-20 下深源 plain 55.43 → depth 0.8 为 45.25 → dSPM 0.00 → eLORETA 32.00 mm；但浅源 dSPM 变坏到 55.43、eLORETA 78.38 mm，有噪声 0.5 µV 时深源 depth 96.00 mm 比 plain 78.38 更差——没有一种方法同时修好深浅两端，深度偏置仍是残留项，不得谎称已修。
 
+### 1.12 模式与一键科学场景（PR8-A，2026-11-12）
+
+计划 §16.1（四个模式）与 §16.3（15 个一键场景）、§16.2（渐进式展示）。
+本节是 §8.5 格式的登记：每个新增前端入口都有真实后端实现，无空壳。
+
+#### 1.12.1 四个模式（`App.tsx` 顶栏 `.mode-switch`，`scenarios.ts` L45–73）
+
+| 模式 | 状态值 | 内容（真实导航、真实内容） | 后端 |
+|---|---|---|---|
+| PLAY（默认） | `play` | 现有主场景不变：3D 大脑 + LIVE ACTIVITY + RESPONSE +（“更多”后）BACKGROUND / PARAMETERS / REGION | Wilson–Cowan 引擎（§1.1–1.4） |
+| WAVES | `waves` | 主场景 + Waves 分析视图：`WavesTab.tsx`（Welch PSD / 频段占比 / alpha 峰），记录来自 S4 的 JR 极限环实测（`alphaLimitCycleRecording`，`scenarios.ts` L352），不是标题占位 | `lateResponse.ts` `runAlphaLimitCycle` L410；`signalProcessing.ts` `welchPsd` L219 / `bandPowers` L262 |
+| EEG | `eeg` | `EegAnalysisLab` 完整六 tab 实验台，内联渲染（`inline` prop，不走弹窗）；S8–S11 的“打开实验台”经 `initialTab` 直达对应 tab | §1.6–1.8（`eegRecording.ts`、`lateResponse.ts`、`signalProcessing.ts`、`topography.ts`、`sourceLocalization.ts`） |
+| EXPLORE | `explore` | 主场景 + `ExplorePanel.tsx`：76 脑区浏览器、HEAD↔球心坐标变换、MNI152/Talairach 禁用演示、细胞实验室入口 | `brainData.ts` `topConnections` L87；`coordinates.ts` `MNE_HEAD_TO_SPHERE` L177 / `applyTransform` L117 / `parseCoordinateSpace` L42；`CellularLab`（§1.9） |
+
+模式切换状态机：`transitionMode(from, to)`（`scenarios.ts` L69）只接受四个已知模式，未知模式抛 `RangeError`，不静默回落。模式切换本身是前端导航（无 Worker 消息）；各模式内的控件仍走各自原有后端。
+
+#### 1.12.2 渐进式展示（§16.2，“更多”开关）
+
+- 默认：3D 大脑 + 少量控制（顶栏 PLAY / CONNECT / RESET / 模式 / 场景芯片、着色与旋转）+ 实时测量窗口（LIVE ACTIVITY、RESPONSE）+ 简单操作说明（底栏）。
+- “更多”展开后才出现：BACKGROUND（OU τ/σ、正弦幅/频、单位、快照说明）、PARAMETERS（四个主参数、单位与范围）、REGION / CONNECTION（权重、偏置、单位 mm / au）。开关在顶栏（`aria-pressed`）与侧栏底部各一处；三块面板的类名与选择器（`.param`、`data-param`、`.resp-row`、`data-edge`）与改前完全一致，现有测试的定位不动——但旧版 PR2–PR4 浏览器测试在点参数/脑区控件前须先点“更多”（见 `tests/pr8/debug-rounds-a.md`）。
+- WAVES / EXPLORE 模式的侧栏内容（WavesTab / ExplorePanel）是模式内容，不受“更多”控制。
+
+#### 1.12.3 15 个一键场景（`ScenarioLauncher.tsx` + `scenarios.ts` L74–200）
+
+启动器是顶栏“一键场景”芯片打开的弹窗；每个场景 = 预设 + 真实动作 + 实验记录（时间、场景、预设、关键结果数字、备注），记录可导出 JSON（`brainrun-scenarios-<时间戳>.json`），关闭弹窗不丢失（记录状态在 `App` 持有）。
+
+| # | 模式 | 预设精确值 | 控件 → 后端映射（§8.5 格式） | 实验台 |
+|---|---|---|---|---|
+| S1 | play | node=40 | `App.runLiveScenario` → `SimClient.pulse`（`simClient.ts` L636）→ Worker `pulse` → Rust WC 引擎；峰值 ΔE 约 2 s 后从响应窗口快照算出 | — |
+| S2 | play | 73→54 权重 0，脉冲 73 | `SimClient.setWeight`（L727）+ `pulse` + `resetWeight`（L774）→ Worker `set_weight` / `pulse` / `reset_weight`；跑完恢复原始权重 | — |
+| S3 | play | c_ei 4.0→6.0，脉冲 40 | `SimClient.setParams({c_ei})`（L671）→ Worker `set_params`；改完的 c_ei=6.0 留在 PARAMETERS 面板 | — |
+| S4 | waves | JR p0=220，12 s，去前 2 s，采样 4 ms | `lateResponse.ts` `runAlphaLimitCycle` L410 + `signalProcessing.ts` `welchPsd` L219 / `bandPowers` L262；记录经 `alphaLimitCycleRecording`（`scenarios.ts` L352）交给 WAVES 模式 | — |
+| S5 | eeg | 源 [0,0,16]→[16,0,16] mm，矩 [0,10,0] nA·m，10-20，平均参考 | `sphereForward.ts` `sphereElectrodePotentials` L130（四层球形头 fixture，`mne-four-layer-sphere-ras-v1`） | HEAD EEG |
+| S6 | eeg | 导联 10-20/10-10/10-05，2 s，WC，种子 1 | `eegRecording.ts` `runExperiment` L583；导联数 19 / 94 / 343 | EEG 分析（EEG tab） |
+| S7 | eeg | 电极 FCz/C1/Cz/C2/CPz，源 [0,0,16] mm，矩 [0,10,0] nA·m，**10-10** | `sphereForward.ts` `sphereElectrodePotentials` L130。**修正（PR8-A 实测发现）：** FCz / C1 / C2 / CPz 不是 10-20 标签（10-20 只有 Cz），原半成品写 10-20 会抛错；已改 10-10，校验（`scenarios.ts` L267 前后）同步收紧 | HEAD EEG |
+| S8 | eeg | oddball 40 试次（32 标准 + 8 oddball），ISI 1000 ms，噪声 0，种子 1，通道 Pz | `lateResponse.ts` `runOddballExperiment` L510 + `epochOddballExperiment` L723 + `filterEpochsByCondition` L618 + `analyseErp` L639 + `differenceWaveErp` L683 | EEG 分析（ERP tab） |
+| S9 | eeg | 同 S8；Morlet，窗 100–500 ms / 8–30 Hz | `lateResponse.ts` `runOddballExperiment` L510 + `signalProcessing.ts` `erspItc` L861（与 ERP 用同一份试次集） | EEG 分析（时频 tab） |
+| S10 | eeg | 2 s 记录，**atTimeMs=1050 ms**，源 [0,0,16] mm，矩 [0,10,0] nA·m，10-20 | `topography.ts` `topoAtTime` L282 + `forwardHeadPotential` L240。**修正（PR8-A 实测发现）：** 原半成品 atTimeMs=400 ms 在唯一事件（t=1000 ms）之前，地形恒为 0.0000 µV，对照无意义；已改 1050 ms（事件后 50 ms，近峰值，实测地形峰 0.1755 µV @Cz），校验同步收紧 | EEG 分析（地形 tab） |
+| S11 | eeg | 真源 [16,16,16] mm、矩 [0,10,0] nA·m，10-20，噪声 0，种子 7 | `sourceLocalization.ts` `blindTest` L449（逆解只读 lead-field + 电位，真值只在事后算误差） | EEG 分析（源定位 tab） |
+| S12 | play | JR 柱 A/B 各 2 s，事件 1000 ms / 100 ms，驱动 120 vs 300 1/s | `experiments.ts` `runAB` L590 | 对照实验 |
+| S13 | explore | HH，10 µA/cm² 阶跃 10–60 ms，200 ms | `cellular.ts` `simulateHodgkinHuxley` L359（标准参数 `DEFAULT_HH_PARAMS`，dt=0.025 ms） | 细胞实验 |
+| S14 | explore | 偶极子 [0,0,0] mm、矩 [10,0,0] nA·m，传感器 S10（[90,0,0] mm 示意传感器），σ=0.10 / 0.33 / 1.00 S/m | `volumeConduction.ts` `potentialMicrovolts` L51（均匀无限导体解析公式）+ `demoSphereSensors` L112 | DIPOLE LAB |
+| S15 | play | 闭环 3 s，事件 1000 ms / 100 ms / 300 1/s，阈值 0.1 µV、输出 −80 1/s、延迟 0 ms、测量噪声 0.02 µV、种子 7 | `experiments.ts` `compareControlVsNoControl` L1276（内含 `runClosedLoop` L1167；仅模拟环境，不控制人体设备） | 对照实验 |
+
+共性规则：`runScenarioCompute`（`scenarios.ts` L382）对 S1–S3 抛错（必须走实时引擎）；需要 fixture 的场景（S5–S7、S10、S11，另 S6）在 `fixture === null` 时抛错，不编造 lead-field；预设校验 `validateScenarioPresets`（L216）逐场景核对范围、单位、枚举值，并与真实后端默认值交叉核对（JR 默认 p0=90、HH 默认 dt=0.025 ms）。实测关键数字（2026-11-12，fixture 齐全时）：S4 alpha 峰 10.99 Hz、占比 99.8%、Pz RMS 0.017 µV；S8 oddball 峰 0.174 µV @352 ms、差异波 300–500 ms 均值 0.061 µV；S11 偶极子拟合误差 0.00 mm、MNE 55.43 mm；S13 4 个动作电位、峰 39.77 mV、首个 11.93 ms；S15 触发占比 0.023。
+
+#### 1.12.4 “模型信息”弹窗文案同步（PR8-C 残留 R-C1，2026-11-12）
+
+`App.tsx` 模型信息弹窗已按 C 路合入的 model-spec §1 / §13 口径同步（本工作区 model-spec.md 不动，属 C 路范围）：最终定位为**教学仿真**，全部 EEG / ERP 输出均为未校准的模型演示，不是真实人脑的预测、不是临床测量、不是个体脑电的复现；红线是未校准的模型结果不得在任何一处被表述为真实人脑参数或真实人脑预测。弹窗新增“已知限制 · 实测数字”一节，数字全部引自 model-spec §13.1：P300 峰值模型 0.174 µV @352 ms vs 真实 8.89 µV @410 ms（差 51 倍）；300–500 ms 均值 0.070 vs 6.94 µV（差 99 倍）；差异波峰 0.166 vs 9.14 µV（差 55 倍）；基线 RMS 模型 0 vs 真实 6.07 µV（JR 极限环 Pz RMS 0.017 µV，差约 360 倍）；alpha 占比 99.8% vs 真实 Pz 30.3% / Oz 69.3%（频率 10.99 vs 10.00 Hz）；源定位深度偏置（深源 dSPM 0.00 mm 但浅源变坏到 55.43 mm；有噪声深源 depth 96.00 mm 比 plain 78.38 mm 更差）；MNE 峰值幅度压缩（真值 10 nA·m 时峰值 0.36–5.26 nA·m）；偶极矩假设链（N=1,000,000、c=0.08、200/100 pA、0.5 mm）全是假设、未校准。
+
+### 1.13 PR8-D 方法学——数值缺口改善 + TES/TMS 补齐（D，2026-11-12）
+
+本节只登记本批**采纳**的改动与**实测后回退**的尝试；回退项不进产品，
+只在最后一行写清数字与去向（详见 `tests/pr8/debug-rounds-d.md`）。
+
+模块：`app/src/lib/stimulation.ts`（8 字形线圈、双相波形）、
+`app/src/components/StimLab.tsx`（新控件）、`app/src/components/WavesTab.tsx`
+（噪声背景开关）；Python 独立对照：`scientific/forward/stimulation_reference.py`
+（新增 `figure8` / `biphasic` 两节，进 `tests/pr7/fixtures/stimulation-reference.json`）、
+`scientific/eeg/eeg_reference.py` + `scientific/eeg/late_response_reference.py`
+（alpha 背景对照）；方法学测试：`tests/pr8/methods-*.test.mjs`、
+`tests/pr8/test_*.py`。单位与坐标系与 §1.10 一致（mm / nA·m / µV / ms / Hz / mA / V/m，球心头 RAS）。
+
+| 参数 | 符号 | 值 / 范围 | 单位 | 前端 | 后端 |
+|---|---|---|---|---|---|
+| TMS 线圈形状 | shape | `circular`（默认）/ `figure8` | — | `StimLab.tsx` 线圈形状下拉 | `tmsFieldForShape` / `tmsFigureEightField` / `figureEightLoopCoils` |
+| 8 字形线圈模型 | — | `FIGURE_EIGHT_MODEL_ID = 'tms-figure-eight-two-loop-v1'`，两环反向电流线性叠加 | — | 同上 | `figureEightLoopCoils`（两环中心沿线圈平面偏移 ±半径，反向电流） |
+| 8 字形网格 | — | 步长 ≤ 40 mm（UI 用 40） | mm | `StimLab.tsx` 场箭头（TMS 源时） | `figureEightFieldGrid` |
+| 双相波形 | dI/dt(t) | `BIPHASIC_WAVEFORM_ID = 'tms-biphasic-cosine-didt-v1'`，dI/dt(t) = 峰值 × cos(2πt/T)，t ∈ [0, T]，其余为 0 | A/s | `StimLab.tsx` 双相脉冲周期滑杆 + E(t) 曲线 | `biphasicDIdtAt` / `tmsBiphasicPulse` |
+| 双相脉冲周期 | T | 0.1–1.0（UI），默认 0.3；函数允许 [0.05, 2] | ms | 周期滑杆 0.1–1.0，步长 0.05 | `DEFAULT_BIPHASIC_PERIOD_MS = 0.3`，`BIPHASIC_PERIOD_RANGE_MS = [0.1, 1.0]` |
+| 双相采样 | — | 采样间隔 0.01 ms（默认），须整除周期且 ≥ 4 采样 | ms | E(t) 曲线（取峰值场分量最大的分量画有符号曲线） | `tmsBiphasicPulse` 的 `sampleDtMs` |
+| 场箭头可视化 | — | 开关，默认关；只画中央 y 切片（\|y\|≤20 mm）的真实场矢量，X–Z 投影，方向 = 真实 (Ex, Ez)，长度 ∝ \|E\| | — | `StimLab.tsx` “显示场箭头”复选框 | `tesFieldGrid` / `tmsFieldGrid` / `figureEightFieldGrid`（步长 40 mm 的已有网格值） |
+| WAVES 噪声背景开关 | — | 开关，默认关；打开时 PSD 输入 = 记录通道 + PR6 默认噪声（白 2 / 粉红 1 / 工频 0.5 / 漂移 0.5 µV RMS，种子取自记录），不改记录、不跑模型 | µV | `WavesTab.tsx` “叠加噪声背景”复选框 | `generateNoise(DEFAULT_NOISE, …)`（`eegRecording.ts`） |
+| 背景驱动（OU） | — | **未采纳**：局部柱不加 OU 背景驱动 | — | 无控件 | 无（实验见 `tests/pr8/methods-baseline-ou.test.mjs`） |
+| 深度指数默认 | depth | [0, 2]，默认 **0.8 不变** | 无量纲 | 无控件（无 UI 入口） | `DEPTH_WEIGHT_DEFAULT`（`depthWeightedInverse.ts`） |
+| FEM/BEM 场 | — | **未实现**：仍用均匀导体解析模型 | — | 无控件 | 无（评估见 `tests/pr8/debug-rounds-d.md`） |
+
+函数映射（前端 → Python 对照）：`tmsFigureEightField` / `figureEightLoopCoils` ↔ `figure_eight_field` / `figure_eight_coils`；`tmsBiphasicPulse` / `biphasicDIdtAt` ↔ `biphasic` fixture 节（`biphasic_didt` + 峰值场 × cos）；`figureEightFieldGrid`（TS 独有逐点对照——网格每点等于单点场）；WAVES 噪声背景 ↔ `generate_noise` + `run_alpha_limit_cycle`（Python 独立算出同一占比）。
+**本批实测数字（采纳项）**：默认目标 [30, 0, 70] 处 8 字形 |E| 131.58 V/m（圆环 84.99）；轴上 [0, 0, 70] 圆环 0、8 字形 178.50 V/m；双相 E(t) 半周期反号、幅值与峰值场一致；WAVES 叠加默认噪声后 10 s 纯极限环 Pz 记录 alpha 占比 99.81% → 13.49%（真实 Pz 30.3%——加过了头，不是校准到 30.3%，见下）。
+**本批实测数字（回退项，不进产品）**：OU 背景（WC σ=0.2、τ=20 ms）基线 Pz RMS 仅 0.043 µV（目标 6.07 µV，差 140 倍），σ=0.5 时 0.152 µV 且脉冲峰降 10%；JR σ=20 1/s 时 0.003 µV；深度指数 depth=1.2 无噪声时深浅同为 0.00 mm，但有噪声 0.5 µV 时深源 96.00 mm（比 plain 78.38 更差）、浅源（另一噪声实现）135.76 mm，组合分数（depth-MNE(1.2)+dSPM(1.2) 均值/乘积）有噪声深源 90.51 mm；dSPM(1.2) 有噪声深源在两个噪声实现下分别是 45.25 与 96.00 mm——结论随实现摆动，不可靠。基线 RMS 0、alpha 占比虚高（无背景时）、深度偏置仍是残留项，不得谎称已修。
+
+### 1.14 PR8-LINK §4.1 统一仿真状态——六实验台接主仿真（2026-11-12）
+
+判定标准（计划 §4.1 与 §23）：每个实验台的数据必须来自同一个带时间戳的主仿真状态；可视化必须能追溯到真实模型状态；只看弹窗能打开、内部算得对，不算做到。接不进来的在界面上如实标注为独立演示，不许看着像联动实际不是。
+
+| 接线 | 数据来源 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|---|
+| EEG 直播推导 | Worker 60 Hz 快照流（`SimClient.getSnapshotHistory()`，600 条≈10 s）→ 线性插值 250 Hz → q(t) → `projectMoments` | `LIVE_DERIVATION_ID = 'live-wc-snapshot-interp-v1'`（`EegRecording.sourceModelId`）；有效采样率 60 Hz（实测值随记录返回，`snapshotHz`）；4 ms 网格上的高频成分为插值产物，不是实测；基线取窗口首样本 E/I；事件只取真实脉冲标记（同脑区、窗内、pulse 才计入，条件按顺序 standard/oddball 交替记账，与 `runExperiment` 同款约定）；源模型与种子对此路无效；时长取历史实际跨度（≥1 s，否则抛错） | `EegAnalysisLab.tsx` “从直播推导记录”按钮 + 来源标注 | `runLiveExperiment` / `deriveLiveMoments` / `clampSourcePositionMm`（`eegRecording.ts`）；`runExperiment` 现有行为与测试一字未动 |
+| EEG 记录持久化 | 模块级 store（最后一份记录 + 事件表 + 分段，两路都进同一份） | 关弹窗、切模式都不丢；挂载时恢复、运行时写回 | `EegAnalysisLab.tsx`（`getLiveRecordingStore` / `setLiveRecordingStore`） | `liveRecordingStore`（`eegRecording.ts`） |
+| 细胞前向 | 选中脑区直播 E（App `selectedE`，约 15 Hz） | 经 `wcToLifCurrentPA` / `wcToHhCurrentDensityUAperCm2`（PR7 增益不变）；手填默认 0.50 已删；未选脑区时无输入、按钮禁用 | `CellularLab.tsx`（`liveE` / `liveP` / `regionLabel` / `regionId` props） | `cellular.ts`（耦合函数未改） |
+| 细胞反向 | 细胞发放率 → dP（`firingRateToPopulationDriveP`）→ `handleBiasChange` → `sim.setBias` | dP 单位 P，与偏置同量纲；`setBias` 钳制 [-1, 1]；只显示不应用的旧行为已删 | `CellularLab.tsx` “把 dP 应用回主仿真（偏置）”按钮 | `SimClient.setBias`（未改）；`App.tsx` 的 `handleBiasChange` 现返回实际存下的偏置值 |
+| HEAD EEG / DIPOLE 直播源 | 选中脑区直播偶极子：位置取 brainData centre，q 由 live E/I 经 PR5 假设链（`equivalentMomentNAm`）算 | 基线 = 选区切换时该脑区的 E/I（App 侧 ref 捕获）；位置钳制进球网格 ±48 mm（HEAD，`clampSourcePositionMm`）/ 长度钳制 55 mm（DIPOLE，与原拖动钳制一致）；TVB 中心未配准 HEAD，属演示映射；偶极矩矢量 = q × 所选方向（法向是假设）；改选区、改 G 后电位跟着变；未接通时标“独立演示” | `HeadSphereLab.tsx` / `DipoleLab.tsx`（`liveSource` prop + “直播源”复选框，默认开） | `localCorticalColumn.ts`（q 链未改） |
+| 刺激目标 | TES/TMS 默认目标 = 选中脑区（brainData centre） | 预设首位是选中脑区；选区一切换目标自动跟过去；TVB 坐标未配准 HEAD 球坐标，演示映射 | `StimLab.tsx`（`selectedRegion` prop） | — |
+| 刺激 Level A/D 直播脉冲 | 驱动同时向主仿真发一次直播脉冲 | 只在 WC 柱时（JR 驱动单位 1/s，进不了 WC 网络）；幅度钳制 [-2, 2]；时长取刺激时长 | `StimLab.tsx`（`onPulse` prop） | `SimClient.pulseAt`（见下） |
+| 感觉输入 | 视觉闪烁 → 双侧 V1（rV1 #35、lV1 #73）周期脉冲；听觉 burst → 双侧 A1（rA1 #0、lA1 #38）burst 节律脉冲 | 闪烁幅度 = 强度×0.5 模型单位（与本地柱驱动同幅），时长 = 半周期（钳制 20–500 ms）；burst 幅度 = 强度×1.0，时长 50 ms；音调 Hz 仍是元数据（kHz 载波未进动力学，与 `stimulation.ts` 原口径一致）；定时器在卸载/停止/重跑时清掉 | `StimLab.tsx`（`regions` + `onPulse` props，状态文案实时报已发次数） | `sensoryTargetNodes`（`eegRecording.ts`，按 label 找，找不到返回空数组、不编造节点） |
+| 对照直播 A | A 取直播：最近响应窗口峰值 ΔE + 同一份直播推导的 Pz 峰值/RMS | B 仍是 JR 柱；两者模型不同，只并列、不作同口径差值 | `ExperimentLab.tsx` “取直播 A” | `runLiveExperiment`（复用 EEG 台管线） |
+| 对照直播回放 | `SimClient.getSnapshotHistory()`（最近约 10 s 真实快照） | 只回放已记录的历史，不改仿真状态；直播引擎不可倒带；分支重跑仍用 JR 柱时间机器（标“独立演示”） | `ExperimentLab.tsx` “载入最近 10 秒直播快照” | `SimClient.getSnapshotHistory`（未改） |
+| 对照直播闭环 | 特征 = 选中脑区 live E（瞬时 / 最近 1 秒 RMS）；反馈经 Worker 脉冲回主仿真 | 每 250 ms 读一次；触发上限（默认 5 次）+ 2 秒冷却 + 手动停止；脉冲幅度默认 2.0 模型单位、时长 100 ms | `ExperimentLab.tsx` “启动直播闭环” | `SimClient.pulseAt` |
+| 新增 Worker 入口 | `SimClient.pulseAt(node, amplitude, durationMs)` | 幅度钳制 [-2, 2]（Rust 端 per-event 幅度不钳制，故客户端钳制），时长钳制 [20, 500] ms；与 `pulse()` 一样记标记（含幅度）、钉响应窗口 | `simClient.ts` + 调试桥 `pulseAt` | Worker `stimulus` 消息（已有处理分支，不新增消息种类；`StimulusMarker` 新增 `amplitude` 字段，`mark()` 三处调用方都传发送时幅度） |
+| 诚实标注 | 未接通的部分在界面上标“独立演示” | HEAD/DIPOLE 手动模式、ExperimentLab 的 JR 柱三节、StimLab 未接直播时的感觉输入本地柱一路；EEG 台独立柱模型一路在页脚写清来源 | 各实验台文案 | — |
+
+方法学测试：`tests/pr8/methods-link.test.mjs`（L1–L9：改 G/换选区/改刺激→记录变化、插值精度、钳制、store、细胞耦合数值、感觉映射、接线存在性）；契约测试：`tests/pr5/contract.test.mjs`（PR8-LINK 一节）。浏览器冒烟：`tests/pr8/link-smoke.py`（六台 1920×1080 与 978px 打开/运行、无横向溢出、无控制台报错）。
+
 ---
+
 
 ## 2. 坐标系
 
@@ -597,7 +720,7 @@ DipoleLab / HeadSphereLab / LocalBEMLab 的全部控件：偶极矩、方向、�
 
 | # | 残留 | 说明 | 归属 / 下一步 |
 |---|---|---|---|
-| R1 | ~~`stim_amplitude` 引擎 clamp（0–4.0）比 UI 暴露范围（0.5–2.0）宽~~ **已解决（2026-11-12，PR6，方案 (a)）** | 全仓 grep 无任何 `set_stim_amplitude` 用例超过 2.0（UI 最大 2.0、测试最大 2.0），WASM clamp 已从 0–4.0 收紧到 **0.5–2.0**，与 UI 相等（`crates/brain-wasm/src/lib.rs` `set_stim_amplitude`）。唯一超 2.0 的幅度是 `reference/python-model/experiments.py` 幅度 sweep 的 4.0，它走 StimulusEvent 直接事件幅度（`add_stimulus` 不钳制），不经过本 setter，不受影响。**待总协调补一处（不在 A2 文件归属内）：** `app/src/worker/protocol.ts` 的 `stim_amplitude` 注释仍写“引擎侧 clamp 是 0–4.0”，须改为 0.5–2.0（exact 文案见 A2 汇报）；漂移测试已按新 clamp 更新，待该注释改完后应追加断言 protocol.ts 不再含 '0–4.0'。 | PR6 A2 已改引擎 + 契约 §1.2 + 漂移测试；protocol.ts 注释待总协调 |
+| R1 | ~~`stim_amplitude` 引擎 clamp（0–4.0）比 UI 暴露范围（0.5–2.0）宽~~ **已解决（2026-11-12，PR6，方案 (a)）** | 全仓 grep 无任何 `set_stim_amplitude` 用例超过 2.0（UI 最大 2.0、测试最大 2.0），WASM clamp 已从 0–4.0 收紧到 **0.5–2.0**，与 UI 相等（`crates/brain-wasm/src/lib.rs` `set_stim_amplitude`）。唯一超 2.0 的幅度是 `reference/python-model/experiments.py` 幅度 sweep 的 4.0，它走 StimulusEvent 直接事件幅度（`add_stimulus` 不钳制），不经过本 setter，不受影响。**尾巴已解决（2026-11-12，PR8-C 核实）：** `app/src/worker/protocol.ts` L14–16 的 `stim_amplitude` 注释现已写“引擎侧 clamp 同样是 0.5–2.0”，与 WASM 侧一致，不再含 '0–4.0'。漂移测试可追加断言 protocol.ts 不再含 '0–4.0'（未追加，留给总协调）。 | PR6 A2 已改引擎 + 契约 §1.2 + 漂移测试；protocol.ts 注释待总协调 |
 | R2 | ~~快照 JSON（Rust `StateSnapshot`）本身无 `version` 字段~~ **已解决（2026-11-12，PR6）** | `StateSnapshot` 加 `version: u32`（`STATE_SNAPSHOT_VERSION = 1`；`#[serde(default = "default_snapshot_version")]`，缺字段的旧 JSON 视为 1 恢复）；`take_snapshot` 写 1；`SimClient.parseSnapshotSummary` 同步读 `snap.version ?? 1` 进 `SnapshotSummary.version`；Rust 单元测试 `pr6_snapshot_version_written_and_old_json_restores_as_v1` 覆盖新旧两路。 | PR6 A2；`cargo test` 通过 |
 | R3 | ~~Jansen–Rit 已定稿但无 UI 入口 + 说明文档未落盘~~ **已解决（2026-11-11）** | UI 入口已接（`LocalBEMLab` 源模型切换），`docs/pr5-jansen-rit.md` 已落盘；契约 §1.5(e) 与 §5.3 U5 已同步更新，漂移测试由“不应已接”改为断言“LocalBEMLab 已接、其余组件未接” | — |
 | R4 | ~~`electrode` 参考方式无 UI 入口~~ **已解决（2026-11-12，PR6 PR-07，B1）** | EEG 分析实验（`EegAnalysisLab` / `EegWaveTab.tsx`）的参考下拉已有 average / infinity / electrode 三种 + 电极选择器（当前导联的通道）；三种参考的数值两两最大差 > 0.01 µV（实测 1.87 / 7.08 / 7.55 µV，`tests/pr6/eeg-recording.test.mjs` R4 测试断言）；切换参考走 `reReferenceRecording`（从 `rawDataUvInfinity` 重算，不重新跑模型）。见 §1.6 / §5.3 U1。三个 PR5 实验的参考下拉仍只有两种（U1 剩余缺口，非本轮范围）。 | PR6 B1；`tests/pr6/eeg-recording.test.mjs` 13/13 + 漂移测试通过 |
@@ -647,3 +770,5 @@ DipoleLab / HeadSphereLab / LocalBEMLab 的全部控件：偶极矩、方向、�
 ### 8.7 回归门槛
 - 跑 `node --experimental-strip-types --test tests/pr5/contract.test.mjs`（Node 24），全绿才算契约未漂移。
 - 同一测试因非产品问题（系统/环境/脚手架）失败超过 3 次即停掉它、在 `tests/pr5/debug-rounds.md` 记原因后继续；产品真问题必须修，不许改期望、删场景、放宽门槛来让测试通过。
+
+---

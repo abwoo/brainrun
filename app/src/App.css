@@ -45,6 +45,9 @@ body {
   height: 100vh;
   min-height: 560px;
   background: var(--bg);
+  /* PR8-LAYOUT：桌面端文档不滚动，右列溢出由 .panels 列内滚动兜底；
+     否则右列内容会把文档撑长，滚到底左列只剩纯黑空地。 */
+  overflow: hidden;
 }
 
 /* ---- 顶栏 ---- */
@@ -55,6 +58,7 @@ body {
   padding: 10px 14px;
   border-bottom: 1px solid var(--frame);
   flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .topbar-title {
@@ -74,6 +78,30 @@ body {
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---- PR8-A：四个模式 + 渐进式展示 ---- */
+.mode-switch {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--frame);
+}
+
+.main-eeg {
+  display: block;
+  overflow-y: auto;
+}
+
+.eeg-lab-inline {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 30px 16px 16px;
+  min-height: 100%;
 }
 
 .chip {
@@ -145,6 +173,10 @@ body {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  /* PR8-LAYOUT：右列本身是滚动容器。旧结构里只有 .region-panel 能滚，
+     其余面板定高约 1700px，REGION 被 flex 压扁到 44px、CONNECTION
+     滚不到也点不到；列内滚动后全部面板都能滚到。 */
+  overflow-y: auto;
 }
 
 .panel {
@@ -153,9 +185,19 @@ body {
 }
 
 .region-panel {
-  flex: 1 1 auto;
-  overflow-y: auto;
+  /* PR8-LAYOUT：不再是唯一的伸缩滚动区，改为普通面板随整列滚动；
+     旧的 flex:1 + overflow-y:auto 是 CONNECTION 被压扁到 44px 的根因。 */
+  flex: 0 0 auto;
+  overflow-y: visible;
   min-height: 0;
+}
+
+/* PR8-LAYOUT：LIVE ACTIVITY 置顶——列滚动到底时实时波形仍可见。 */
+.live-panel {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
 }
 
 .panel-body {
@@ -752,12 +794,40 @@ body {
   max-height: 86vh;
   overflow-y: auto;
   padding: 34px 18px 16px;
+  /* PR8-LAYOUT：弹窗纵向 flex，标题栏与底部按钮固定、只有正文滚。
+     旧结构是整框滚动，“知道了”这类底部按钮初次不可见。 */
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* PR8-LAYOUT：正文是唯一的滚动区，缩到 0 也能让出位置给标题与底部。 */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.modal-foot {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--frame);
+}
+
+.modal-foot .modal-close {
+  margin-top: 0;
+}
+
+/* PR8-LAYOUT L-01：Chromium 给 input[type=range] 默认 margin:2px，
+   width:100% 的滑杆会比容器右缘多出 2px（两侧 margin 共 +4px scrollWidth）。
+   归零后 HeadSphereLab / DipoleLab / StimLab 的控制区溢出消失。 */
+.modal input[type="range"] {
+  margin: 0;
 }
 
 .modal-body .panel-text {
@@ -789,8 +859,61 @@ body {
     flex: none;
   }
 
+  /* PR8-LAYOUT：纵向长页不置顶 LIVE 面板，否则 194px 高的波形
+     会一直盖住视口顶部；桌面端列内滚动时才置顶。
+     注意必须用 relative 而不是 static：.screen-title 是 absolute，
+     面板一旦失去定位，标题会逃到页面左上角。 */
+  .live-panel {
+    position: relative;
+  }
+
   .bottombar {
     flex-wrap: wrap;
+  }
+}
+
+/* ---- PR8-LAYOUT：手机单列断点（≤768px） ----
+   旧结构无手机断点：390px 下顶栏 16 个 chip 折成 7 行、高 273px，
+   占掉三分之一视口。改为顶栏单行横向滚动，舞台与侧栏全宽单列。 */
+@media (max-width: 768px) {
+  .topbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+    letter-spacing: 0.14em;
+  }
+
+  .topbar-sub {
+    display: none;
+  }
+
+  .topbar-controls {
+    flex-wrap: nowrap;
+  }
+
+  .topbar .chip {
+    flex: 0 0 auto;
+  }
+
+  .mode-switch {
+    flex: 0 0 auto;
+  }
+
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal {
+    padding: 30px 12px 12px;
+  }
+
+  .lab-split {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -972,9 +1095,23 @@ body {
 }
 
 /* ---- EEG 分析实验（PR-07，B1） ---- */
+/* PR8-LAYOUT：七实验台弹窗统一封顶 86vh（原 90vh；其余各台内联 94vh
+   同步改到 86vh），关闭按钮在顶部标题栏/页签行，初次即见。 */
 .eeg-lab-modal {
   width: min(1100px, 96vw);
-  max-height: 90vh;
+  max-height: 86vh;
+}
+
+/* PR8-LAYOUT：七实验台共用 3D + 控制区分栏（HeadSphereLab / DipoleLab
+   原先各写一份内联 grid）。窄屏下改为单列，3D 在上、控制区在下。 */
+.lab-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(230px, 1fr);
+  gap: 12px;
+}
+
+.lab-split > * {
+  min-width: 0;
 }
 
 .eeg-tabs {

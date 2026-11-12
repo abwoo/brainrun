@@ -28,6 +28,16 @@
  *   in a uniform infinite conductor there is no surface charge to
  *   cancel the induced field. The thin-wire loop has no skull/brain
  *   boundary either. See docs/pr7-stimulation.md §3.
+ *   PR8-D adds, inside the same analytic framework (no FEM solver):
+ *   a figure-8 coil (two circular loops, centres offset by one radius
+ *   in the coil plane, opposite currents — linear superposition of two
+ *   `tmsInducedField` calls) and a biphasic dI/dt(t) waveform
+ *   (one cosine cycle, `biphasicDIdtAt`); E(t) follows by linearity
+ *   in dI/dt. FEM/BEM fields were evaluated and NOT implemented in
+ *   this batch (see tests/pr8/debug-rounds-d.md): a full FEM solver
+ *   (mesh, tissue conductivities, boundary conditions) is out of
+ *   scope for the polish/release batch; the analytic models above
+ *   remain the documented approximation with their limits stated.
  * - Level D — field to neural response. The cortical-normal component
  *   of the field at the target (V/m) is mapped through a written,
  *   UNCALIBRATED transfer gain onto a WC/JR column's added input P,
@@ -71,6 +81,14 @@ import {
 export const STIMULATION_ID = 'brain-stimulation-lab-pr14-v1';
 export const TES_MODEL_ID = 'tes-uniform-infinite-point-source-v1';
 export const TMS_MODEL_ID = 'tms-circular-coil-uniform-conductor-v1';
+/** PR8-D: figure-8 = two circular loops, opposite currents, linear sum. */
+export const FIGURE_EIGHT_MODEL_ID = 'tms-figure-eight-two-loop-v1';
+/** PR8-D: biphasic dI/dt(t) = peak * cos(2 pi t / T) on [0, T], else 0. */
+export const BIPHASIC_WAVEFORM_ID = 'tms-biphasic-cosine-didt-v1';
+/** PR8-D: default biphasic pulse period, ms (real biphasic TMS ~0.2-0.4 ms). */
+export const DEFAULT_BIPHASIC_PERIOD_MS = 0.3;
+/** PR8-D: biphasic period UI range, ms. */
+export const BIPHASIC_PERIOD_RANGE_MS: readonly [number, number] = [0.1, 1.0];
 export const LEVEL_D_ID = 'field-to-column-uncalibrated-gain-v1';
 export const SENSORY_ID = 'sensory-input-defined-mapping-v1';
 
@@ -382,6 +400,202 @@ export function tmsFieldGrid(
     }
   }
   return pts;
+}
+
+/* ── PR8-D: figure-8 coil (linear superposition of two circular loops) ── */
+
+export type TmsCoilShape = 'circular' | 'figure8';
+
+/**
+ * Figure-8 coil as two circular loops: same radius/turns/axis, centres
+ * offset by one loop radius in the coil plane (along the first basis
+ * vector u of `coilBasis(axis)`), so the loops touch at the original
+ * coil centre; the second loop carries the opposite current
+ * (dI/dt negated). At the junction the two induced fields add
+ * constructively — that is the point of a figure-8 coil (focal field
+ * under the junction, vs zero on the axis of a single circular loop).
+ * Both loops are validated by `tmsInducedField` (radius/turns/dI/dt
+ * ranges, >= 2 mm from the wire), so no new validation is needed here.
+ */
+export function figureEightLoopCoils(coil: TmsCoil): [TmsCoil, TmsCoil] {
+  validateTmsCoil(coil);
+  const [u] = coilBasis(coil.axis);
+  const r = coil.radiusMm;
+  const plus: TmsCoil = {
+    ...coil,
+    centerMm: [
+      coil.centerMm[0] + r * u[0],
+      coil.centerMm[1] + r * u[1],
+      coil.centerMm[2] + r * u[2],
+    ],
+  };
+  const minus: TmsCoil = {
+    ...coil,
+    centerMm: [
+      coil.centerMm[0] - r * u[0],
+      coil.centerMm[1] - r * u[1],
+      coil.centerMm[2] - r * u[2],
+    ],
+    dIdtAPerS: -coil.dIdtAPerS,
+  };
+  return [plus, minus];
+}
+
+/**
+ * Figure-8 induced field: exact linear sum of the two loop fields
+ * (same uniform-conductor analytic model as the circular coil; no new
+ * physics is claimed). E is linear in dI/dt, so negating one loop's
+ * current negates its field contribution.
+ */
+export function tmsFigureEightField(
+  coil: TmsCoil,
+  targetMm: Vec3Mm,
+  segments: number = TMS_LOOP_SEGMENTS_DEFAULT,
+): TmsFieldResult {
+  const [a, b] = figureEightLoopCoils(coil);
+  const fa = tmsInducedField(a, targetMm, segments);
+  const fb = tmsInducedField(b, targetMm, segments);
+  const out: Vec3Mm = [
+    fa.fieldVm[0] + fb.fieldVm[0],
+    fa.fieldVm[1] + fb.fieldVm[1],
+    fa.fieldVm[2] + fb.fieldVm[2],
+  ];
+  return {
+    fieldVm: out, magnitudeVm: Math.hypot(...out),
+    modelId: FIGURE_EIGHT_MODEL_ID, sigmaSPerM: TES_SIGMA_DEFAULT_S_M,
+  };
+}
+
+/** Dispatch on coil shape (UI + Level D share this, so both see the same field). */
+export function tmsFieldForShape(
+  coil: TmsCoil,
+  shape: TmsCoilShape,
+  targetMm: Vec3Mm,
+  segments: number = TMS_LOOP_SEGMENTS_DEFAULT,
+): TmsFieldResult {
+  if (shape !== 'circular' && shape !== 'figure8') {
+    throw new RangeError(`Unknown TMS coil shape ${String(shape)}`);
+  }
+  return shape === 'figure8'
+    ? tmsFigureEightField(coil, targetMm, segments)
+    : tmsInducedField(coil, targetMm, segments);
+}
+
+/** Figure-8 induced field sampled on a cubic grid inside the brain sphere. */
+export function figureEightFieldGrid(
+  coil: TmsCoil,
+  stepMm: number = 20,
+  segments: number = TMS_LOOP_SEGMENTS_DEFAULT,
+): FieldGridPoint[] {
+  if (!Number.isFinite(stepMm) || stepMm <= 0 || stepMm > 40) {
+    throw new RangeError('Figure-8 grid step must be in (0, 40] mm');
+  }
+  const pts: FieldGridPoint[] = [];
+  for (let x = -80; x <= 80; x += stepMm) {
+    for (let y = -80; y <= 80; y += stepMm) {
+      for (let z = -80; z <= 80; z += stepMm) {
+        if (Math.hypot(x, y, z) > BRAIN_INNER_RADIUS_MM) continue;
+        const f = tmsFigureEightField(coil, [x, y, z], segments);
+        pts.push({ positionMm: [x, y, z], fieldVm: f.fieldVm, magnitudeVm: f.magnitudeVm });
+      }
+    }
+  }
+  return pts;
+}
+
+/* ── PR8-D: biphasic TMS waveform ───────────────────────────────────── */
+
+/**
+ * Biphasic current slew rate: one full cosine cycle,
+ *   dI/dt(t) = peak * cos(2 pi t / T) for 0 <= t <= T, else 0.
+ * This is the dI/dt of a sinusoidal coil current I(t) = I0 sin(2 pi t / T)
+ * over one period (first half-cycle positive, second negative — the
+ * defining shape of a biphasic TMS pulse; cf. a monophasic pulse, whose
+ * dI/dt does not reverse sign). The induced field follows by linearity:
+ * E(t) = E_peak * cos(2 pi t / T), where E_peak is the static field at
+ * dI/dt = peak. No capacitive recharge tail or coil resistance is modelled.
+ */
+export function biphasicDIdtAt(
+  tMs: number,
+  peakDIdtAPerS: number,
+  periodMs: number = DEFAULT_BIPHASIC_PERIOD_MS,
+): number {
+  if (!Number.isFinite(tMs) || !Number.isFinite(peakDIdtAPerS) ||
+      Math.abs(peakDIdtAPerS) > 2e8) {
+    throw new RangeError('biphasicDIdtAt: tMs must be finite and |peak dI/dt| <= 2e8 A/s');
+  }
+  if (!Number.isFinite(periodMs) || periodMs < 0.05 || periodMs > 2) {
+    throw new RangeError('biphasicDIdtAt: periodMs must be in [0.05, 2] ms');
+  }
+  if (tMs < 0 || tMs > periodMs) return 0;
+  return peakDIdtAPerS * Math.cos((2 * Math.PI * tMs) / periodMs);
+}
+
+export interface BiphasicPulseResult {
+  shape: TmsCoilShape;
+  timesMs: number[];
+  /** dI/dt(t), A/s. */
+  dIdtAPerS: number[];
+  /** E(t) at the target, V/m (linear in dI/dt). */
+  fieldVm: Vec3Mm[];
+  magnitudeVm: number[];
+  /** |E| at t = 0 (peak of the first half-cycle), V/m. */
+  peakMagnitudeVm: number;
+  peakTimeMs: number;
+  modelId: string;
+  waveformId: string;
+}
+
+/**
+ * E(t) through one biphasic TMS pulse at the target: the static field
+ * at peak dI/dt is computed once (circular or figure-8, same analytic
+ * model), then scaled by cos(2 pi t / T). Exact by linearity — the
+ * pulse is NOT re-integrated per sample.
+ */
+export function tmsBiphasicPulse(
+  coil: TmsCoil,
+  targetMm: Vec3Mm,
+  opts: {
+    shape?: TmsCoilShape;
+    peakDIdtAPerS?: number;
+    periodMs?: number;
+    sampleDtMs?: number;
+    segments?: number;
+  } = {},
+): BiphasicPulseResult {
+  const shape = opts.shape ?? 'circular';
+  const periodMs = opts.periodMs ?? DEFAULT_BIPHASIC_PERIOD_MS;
+  const sampleDtMs = opts.sampleDtMs ?? 0.01;
+  const peak = opts.peakDIdtAPerS ?? coil.dIdtAPerS;
+  if (!Number.isFinite(sampleDtMs) || sampleDtMs <= 0 || sampleDtMs > periodMs / 4) {
+    throw new RangeError('tmsBiphasicPulse: sampleDtMs must be in (0, periodMs/4]');
+  }
+  const nSteps = Math.round(periodMs / sampleDtMs);
+  if (nSteps < 4 || Math.abs(nSteps * sampleDtMs - periodMs) > 1e-9) {
+    throw new RangeError('tmsBiphasicPulse: periodMs must be a multiple of sampleDtMs (>= 4 samples)');
+  }
+  const base = tmsFieldForShape(
+    { ...coil, dIdtAPerS: peak }, shape, targetMm, opts.segments,
+  );
+  const timesMs: number[] = [];
+  const dIdt: number[] = [];
+  const fieldVm: Vec3Mm[] = [];
+  const magnitudeVm: number[] = [];
+  for (let i = 0; i <= nSteps; i++) {
+    const t = i * sampleDtMs;
+    const d = biphasicDIdtAt(t, peak, periodMs);
+    const s = peak === 0 ? 0 : d / peak;
+    timesMs.push(t);
+    dIdt.push(d);
+    const f: Vec3Mm = [base.fieldVm[0] * s, base.fieldVm[1] * s, base.fieldVm[2] * s];
+    fieldVm.push(f);
+    magnitudeVm.push(Math.hypot(...f));
+  }
+  return {
+    shape, timesMs, dIdtAPerS: dIdt, fieldVm, magnitudeVm,
+    peakMagnitudeVm: base.magnitudeVm, peakTimeMs: 0,
+    modelId: base.modelId, waveformId: BIPHASIC_WAVEFORM_ID,
+  };
 }
 
 /* ── Level A: direct drive ──────────────────────────────────────── */
