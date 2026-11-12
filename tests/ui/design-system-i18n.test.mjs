@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = p => readFileSync(p,'utf8');
 test('all scientific lab select elements use the same native Dropdown',()=>{
- const labs=['EegWaveTab','HeadSphereLab','LocalBEMLab','StimLab','ExperimentLab','InverseTab','TfrTab'];
+ const labs=['EegWaveTab','HeadSphereLab','LocalBEMLab','StimLab','ExperimentLab','InverseTab','TfrTab','DipoleLab','TopoTab'];
  let total=0;
  for(const name of labs){
   const s=read('app/src/components/'+name+'.tsx');
@@ -14,7 +14,7 @@ test('all scientific lab select elements use the same native Dropdown',()=>{
   assert.equal(n,(s.match(/<\/Dropdown>/g)||[]).length);
   total+=n;
  }
- assert.equal(total,32);
+ assert.equal(total,36);
 });
 test('shared Dropdown deliberately uses native select and accessible focus behavior',()=>{
  const c=read('app/src/components/ui/Dropdown.tsx'),css=read('app/src/App.css');
@@ -46,10 +46,10 @@ test('workspace layout is visual-only and responds to focus, resize and reset',(
  assert.match(css,/--brain-stage-share/);
  assert.match(css,/\.main.brainrun-focus \.panels \{ display: none; \}/);
 });
-test('control audit is updated, not weakened by migrating 32 selects',()=>{
+test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
  assert.equal(c.counts.total,216);
  assert.equal(c.entries.length,216);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,33);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,37);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
