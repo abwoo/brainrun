@@ -127,7 +127,8 @@ test('L3 直播事件只来自真实脉冲标记（同脑区、窗内、pulse �
     baselineE: BASE_E, baselineI: BASE_I, positionMm: [0, 0, 16], noise: null, markers });
   assert.equal(events.length, 2);
   assert.deepEqual(events.map((e) => e.tMs), [2000, 4000]);
-  assert.deepEqual(events.map((e) => e.condition), ['standard', 'oddball']);
+  assert.deepEqual(events.map((e) => e.condition), ['unclassified', 'unclassified']);
+  assert.ok(events.every(e => e.type === 'pulse'), 'these are arbitrary live pulses, not oddball trials');
   assert.deepEqual(events.map((e) => e.drive), [2, 2]);
   assert.deepEqual(events.map((e) => e.driveUnit), ['wc', 'wc']);
   const none = runLiveExperiment({ fixture: synth, samples: hist, node: NODE,
