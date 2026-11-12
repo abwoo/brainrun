@@ -1,202 +1,80 @@
-# Brain Physics Playground
+# BrainRun
 
-一个可以在浏览器里直接动手玩的 3D 大脑神经动力学模拟器：点一下脑区，
-真实的 Wilson–Cowan 神经群体模型就会算出响应，你能立刻在 3D 大脑和
-实时波形上看到它，并通过滑杆改变刺激、耦合与兴奋/抑制，再点一次比较结果。
+[Open the app](https://abwoo.github.io/brainrun/) · [简体中文](README.zh-CN.md)
 
-在线演示：**https://abwoo.github.io/brainrun/**
+BrainRun is an interactive browser workbench for exploring physical head models and neural dynamics. The physical model is the main interface: move a source, adjust a parameter, and inspect the numerical result. Chinese and English are available throughout the interface.
 
-> 定位：**教学仿真**——CHIMERA 式的直观交互体验，科学计算的真实性是底线。
-> 没有假动画：所有颜色、波形、读数都只读模型快照；
-> 没有教程也能玩：触碰 → 观察 → 调节 → 发现。
-> 但全部 EEG/ERP 输出都是**未校准的模型演示，不是真实人脑的预测**：
-> oddball P300 峰值模型只有 0.174 µV，真实是 8.89 µV（差 51 倍），
-> 详见下面的「已知限制」与 `docs/model-spec.md` §13。
-> 未校准的模型结果不得被表述为真实人脑参数。
->
-> 数据说明：默认连接组是**演示用连接组（Demo Connectome）**——
-> TVB 示例数据的猕猴 CoCoMac + 人类 DSI 混合矩阵，
-> 不是某个真人的个体化连接网络；模拟结果是模型在该演示连接组上的
-> 行为，不代表真实人脑的客观反应。点右上角「模型信息」查看完整说明。
+## Start with the model
 
-## 本地运行
+The home page opens directly to **Currents & sensors**. There is no automatic experiment, setup wizard, or preset dialog in front of the model.
+
+1. Drag the orange current source, or use the three position sliders.
+2. Change its direction or strength.
+3. Select a scalp sensor and inspect its potential. Source changes immediately update the forward calculation, 3D sensor display, and numerical readings.
+4. Expand model details only when you need electrode layout, voltage reference, units, or assumptions.
+
+The **Regions & activity** tab shows the 76-region network. Select a region, adjust input strength and duration, and apply an input explicitly. Selecting a region or rotating the view does not stimulate it. The activity trace reads the same Worker snapshots as the 3D view.
+
+Use **Restore defaults** to return to a known configuration. The language switch changes presentation without resetting model parameters or recordings.
+
+## Advanced tools
+
+The Advanced labs menu keeps additional tools away from the default workbench:
+
+- EEG recordings, spectra, event-related responses, time-frequency analysis, scalp maps and source estimates.
+- LIF, Hodgkin–Huxley and multicompartment neuronal models.
+- TES/TMS field approximations and sensory-input models.
+- Parameter comparisons, saved-state replay and simulated feedback control.
+- Brain regions, coordinate frames and model documentation.
+- Optional presets on a separate page. They run only when requested and do not cover the main model.
+
+## Computation and interface
+
+| Interaction | Numerical path | Display |
+| --- | --- | --- |
+| Move or rotate a dipole; change moment | MNE-derived four-layer spherical lead field | 3D source and sensors; electrode potentials in µV |
+| Apply regional input | React control → SimClient → Worker → Rust/WASM Wilson–Cowan solver | Region activity and the selected activity trace |
+| Change a reference | Recompute from preserved infinity-reference data | Updated channel potentials |
+| Run an EEG experiment | Local source → forward projection → optional measurement noise | Raw, events and derived analyses with run provenance |
+| Restore a snapshot | Restore saved solver state, parameters, random state and history | A new run lineage with the restored model clock |
+
+Shared UI controls include a native accessible Dropdown, labeled range/number controls, and a persistent language switch. Option values, channel names, event codes, numerical arrays and exported schema keys are not translated.
+
+The simulation runs in the browser. There is no hosted numerical API required by the public app. Model assets are generated during the GitHub build.
+
+## Model boundaries
+
+These are educational models, not measurements or predictions for an individual human.
+
+- The four-layer sphere represents brain, CSF, skull and scalp. It uses a 95 mm radius and a finite, interpolated source grid. It is not individual MRI/BEM.
+- The TVB demonstration connectome is a hybrid example, mainly macaque CoCoMac weights with scaled human callosal DSI information. It is not a subject-specific human connectome and is not registered to the head-conductor model.
+- Neural-to-dipole gains remain explicit assumptions. Absolute EEG/ERP amplitudes are uncalibrated; the known amplitude and inverse-depth limitations remain documented.
+- A live recording derived from roughly 60 Hz visualization snapshots is not native 250/500 Hz acquisition.
+- Optional MRI/BEM models must be obtained and generated separately. Simulation feedback does not control human-use equipment.
+
+See [model specification](docs/model-spec.md), [frontend/solver contract](docs/frontend-backend-contract.md), [scientific validation](docs/validation.md), and [data licensing](docs/data-license.md).
+
+## Development
+
+Requirements: Node.js 24, Python 3.12, Rust with the WebAssembly target, and wasm-pack.
 
 ```bash
-# 1. 准备脑数据（构建时下载 TVB 示例数据并生成资产，不提交进仓库）
+python3 -m pip install numpy mne==1.11.0
 python3 scripts/prepare-brain-data/fetch.py
 python3 scripts/prepare-brain-data/prepare.py
-
-# 1b. 构建 PR5 的 MNE 四层球形 EEG 正向模型（无须下载人类 MRI）
-python3 -m pip install mne==1.11.0
 python3 scientific/forward/generate_sphere_model.py
-
-# 2. 编译 Rust 引擎为 WASM（需要 cargo + wasm-pack）
 bash scripts/build-wasm.sh
-
-# 3. 安装前端依赖并启动
 cd app
-npm install
+npm ci
 npm run dev
 ```
 
-打开 http://127.0.0.1:5173/ 即可玩。生产构建：`npm run build`；
-GitHub Pages 构建：`npm run build:pages`（基路径 `/brainrun/`）。
+Open the Vite URL printed by the command. Production build: `npm run build`. GitHub Pages build: `npm run build:pages`, using the `/brainrun/` base path.
 
-## 玩法
+Pull requests use GitHub Actions for type checks, focused numerical regressions and browser interaction checks. The manual-workbench checks verify source controls against actual potentials, network inputs against Worker acknowledgements, both languages, and mobile layout.
 
-- **点击脑区**：施加一次短暂刺激，看活动变化与网络响应。
-- **HEAD EEG**：独立的四层球形物理头模型，直接拖动电流源、改变方向/强度、切换标准电极布局，看 MNE 预计算的电位实时变化；不是人类 MRI/BEM。
-- **DIPOLE LAB**：均匀无限导体解析物理基线（12 个示意传感器），用于比较边界条件的影响。
-- **EEG 分析**：多导 EEG 实验台（柱模型 → 球形正向模型 → 噪声，250 Hz），同一份记录上做频谱（WAVES）、ERP、时频、地形、源定位五个 tab；参考可在平均 / 无限远 / 电极三者间切换，噪声分白 / 粉红 / 50 Hz / 慢漂移四成分（默认 RMS 2 / 1 / 0.5 / 0.5 µV）。
-- **细胞实验**：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合；可向神经元注电流、看膜电位与动作电位。注意 HH 是枪乌贼 6.3 °C 模型，不是 37 °C 人脑神经元。
-- **刺激实验**：TES / TMS 电场与感觉输入，按物理完备程度分 A–D 四级（直接驱动、电场解析解、电场 → 未校准增益 → 柱响应）；TES 默认目标处约 0.79 V/m，TMS 约 85 V/m，相差约 107 倍是真实量级关系。
-- **对照实验**：双脑 A/B 对照（只改一个条件）、时间机器（暂停 / 单步 / 回放 / 分支）、闭环控制（阈值 / PID）。闭环只在模拟环境里跑，不控制人体设备。
-- **按住脑区**：持续输入，松开即停（按住过久会把网络锁在高活动态——这是网络进入了新的稳定状态，不是软件卡住；横幅上点「恢复到按住前」可一键回到按住前，或点 RESET）。
-- **背景活动**：安静 / 自发 / 振荡三档，默认自发——每脑区持续收到 Ornstein–Uhlenbeck 背景输入（τ = 100 ms、σ = 0.10），同一随机种子重跑逐值相同；振荡档是明确标注的 10 Hz 正弦外部驱动（不是自发节律，见 `docs/model-spec.md` §9）。
-- **实验快照**：保存当前完整实验状态（一键恢复，恢复后继续跑的轨迹与不恢复逐值一致）；手动快照存浏览器本地，刷新后还在，按住开始时另存一份自动快照，不覆盖手动快照。
-- **四个滑杆**（不是旋钮；横向滑杆 + 数字框 + −/+ 步进 + 双击恢复默认值）：刺激强度（0.5–2.0）、持续时间（20–500 ms）、兴奋/抑制 c_ei（3–8）、连接强度 G（0–0.4）——全部直通模型参数。
-- **CONNECT**：只看选中脑区的主要连接；**PLAY**：暂停/继续仿真时钟；
-  **RESET**：恢复默认参数与确定性初始状态。
+## Data and license
 
-> 模式说明：总规范里的 PLAY / WAVES / EEG / EXPLORE 四个模式名，
-> 目前没有作为四个并列模式入口实现。PLAY 是顶栏的暂停/继续开关；
-> WAVES（频谱）、EEG（多导记录）、ERP、时频、地形、源定位都在
-> 「EEG 分析」实验台的五个 tab 里；EXPLORE 对应的双脑对照、时间机器、
-> 闭环在「对照实验」里，细胞与刺激各有自己的实验台。模式名与入口的
-> 对齐是 PR8 之后的待定项，见 `docs/pr8-acceptance.md`。
+Code: [MIT](LICENSE). Third-party notices: [NOTICE.md](NOTICE.md).
 
-## 技术栈
-
-| 模块 | 技术 |
-| --- | --- |
-| 前端 | React 19 + TypeScript + Vite |
-| 3D 渲染 | Three.js（TVB 示例数据皮层网格，16,384 顶点） |
-| 波形 | Canvas 2D（示波器风） |
-| 计算核心 | Rust（Wilson–Cowan 模型，Heun 积分，1 ms 步长） |
-| 浏览器计算 | WebAssembly + Web Worker（模型按真实时间推进，与渲染解耦） |
-| 科学参考实现 | Python / NumPy（与 Rust 实现逐数对照，最大偏差 3.4e-16） |
-
-## 模型
-
-每个脑区是一对兴奋/抑制神经群体（Wilson–Cowan），76 个脑区通过
-TVB 示例数据（Demo Connectome）的结构连接矩阵耦合，延迟由纤维长度 /
-3.0 mm/ms 传导速度决定。该连接矩阵权重主要来自猕猴 CoCoMac 示踪数据，
-胼胝体连接是人类 DSI 纤维束宽度缩放后填入的双半球混合矩阵，
-皮层下结构未包含；TVB 官方声明该数据集为数值测试与理论探索定制，
-生物物理真实性有限。详见 `docs/model-spec.md` 与应用内「模型信息」。
-
-**默认预设**：TVB 的 A-set 参数只改一个值——θ_e 从 0 改为 1.0，
-全局耦合 G = 0.35。原因：纯 A-set 本身是双稳态的（三个不动点，
-两个稳定），幅度 ≥ 0.1 的点击会让被点脑区永久锁在高活动态，
-“点击—响应—恢复—再点击”的循环转不起来；改一个 θ_e 后单节点只剩
-一个稳定点，100 ms 脉冲峰值 ΔE = 0.482、72 ms 内恢复，
-8/75 个脑区瞬态响应。纯 A-set 仍保留在代码里作参考配置。
-详见 `docs/model-spec.md` 与 `docs/validation.md`。
-
-## 数据来源与引用
-
-脑结构与连接数据来自 The Virtual Brain 的示例数据（`tvb-data`）：
-76 节点连接矩阵、16,384 顶点皮层网格、脑区映射三者配套对齐。
-**这是演示用连接组（Demo Connectome），不是真人个体化连接网络**：
-权重主要来自猕猴 CoCoMac 神经示踪数据，胼胝体连接是人类 DSI 纤维束
-宽度缩放后填入的双半球混合矩阵，皮层下结构未包含；TVB 官方声明该
-数据集“为数值测试与理论探索定制，生物物理真实性有限，
-不应以此为依据”。原始数据文件不进仓库，构建时下载、预处理脚本见
-`scripts/prepare-brain-data/`。引用：
-
-> Sanz-Leon, P., Knock, S. A., Spiegler, A., & Jirsa, V. K. (2015).
-> Mathematical framework for large-scale brain network modeling in
-> The Virtual Brain. *NeuroImage*, 111, 385–430.
-> 数据：Sanz-Leon et al. (2013), *Front. Neuroinform.* 7:10.
-
-## 许可
-
-- 代码以 MIT 许可发布，见根目录 `LICENSE` 文件；第三方说明见 `NOTICE.md`。
-- 脑数据许可：核查结论见 `docs/data-license.md`。`tvb-data` 仓库的
-  LICENSE 为 GPLv3，但未单独说明数据文件是否同样适用，再分发许可
-  目前未完全明确；原始数据与预处理衍生资产均不进仓库，构建时下载
-  并生成（见 `docs/data-license.md`），引用与来源见
-  `app/public/brain-assets/meta.json`（构建时生成）。
-  公开使用前请自行确认数据许可。
-
-## PR #5：局部神经群体到真实 MRI/BEM EEG
-
-真实 MRI/BEM 的**进阶物理源模式**新增局部 Wilson–Cowan E/I 神经群体演示：
-按下“施加局部刺激”后，仿真积分改变 E/I，依据**明确标注为假设**的有效突触电流、锥体细胞数量、同步比例与源汇距离计算 nA·m 电流偶极矩，再沿真实皮层源空间法向投影，通过同一个 MNE 三层 BEM 矩阵得到 EEG（µV），并提供暂停/重置。计算链条由独立 SciPy ODE 参考与浏览器真实交互测试校验。
-
-**这不是对真实受试者生理参数的标定，更不是把原有 TVB 76 区混合数据强行映射到 fsaverage。**完整模型方程、量纲与误差说明见 [PR5 神经群体→电流源的机制假设](docs/pr5-neural-source-coupling.md)。
-
-## PR #5 的科学与发布边界
-
-当前新增的 HEAD EEG 使用 MNE 的四层同心球近似，不是个体化头部 BEM 或真实人类图谱。10–20 基础 19 点、扩展 10–10 94 点、10–05 343 点由 MNE 模板电极方向径向投影到同一球面，**不能将投影点直接称为实际个体头皮位置**。源空间为球心附近的有限三维立方网格，源移动时采用经过 MNE 数值比对的三线性插值；**不代表已将 TVB 76 区 E/I 神经活动映射成具有单位的皮层电流源**。模型来源、限定参数、可复现实验、未完成的 MRI/图谱/BEM/许可门槛详见 [`docs/pr5-acceptance.md`](docs/pr5-acceptance.md)。
-
-
-### PR #5：真实 MRI/BEM 的本地科学实验（未作为公开资产发布）
-
-新增 **HEAD EEG → 进阶：真实 MRI/BEM**。用户可以加载**自行获取并生成**的
-FreeSurfer fsaverage 模板数据，在真实皮层/颅骨/头皮三维网格上选取皮层源，
-使用 MNE 计算的三层 BEM lead-field 产生 EEG 电极电位。支持真实模板的
-`aparc` 分区，以及严格标注的 **MNI305** 坐标（不等于 MNI152/Talairach）。
-皮层源目前吸附到已经求解的离散位置；不允许在未经验证的位置伪造插值。
-已通过 CI 的 MRI/BEM 科学、浏览器和数值验收。
-
-**请注意**：fsaverage 源自 FreeSurfer，衍生几何与 EEG forward 数据的公开传播
-仍须审查许可、署名及分发条件。公开 GitHub Pages **不会自动发布这些资产**。
-本地获取、生成、使用与风险说明见
-[真实 fsaverage BEM 实验规范](docs/pr5-fsaverage-bem.md)；
-正式合并条件见 [PR #5 验收门槛](docs/pr5-acceptance.md)。
-
-## PR6：EEG 分析（多导 / 频谱 / ERP / 时频 / 地形 / 源定位）
-
-「EEG 分析」实验台共用同一份记录：柱模型（WC/JR）→ 四层球形头
-正向模型 → 噪声，250 Hz 多导 µV。频段定义 delta 0.5–4、theta 4–8、
-alpha 8–13、beta 13–30、gamma 30–45 Hz，全部来自同一份信号。
-ERP 用 MNE 口径（分段 −200–800 ms、基线 −200–0 ms、峰峰值 > 150 µV
-剔除）；晚期成分机制是慢突触电流 + 延迟再入（τ = 200 ms、延迟 100 ms、
-增益 2.5），让 oddball 在 300–500 ms 窗内从约 0 µV 变为 0.070 µV
-（峰 0.174 µV @352 ms），但与真实 P300（8.89 µV）仍差 51 倍——
-形态修好了，幅度没修好。时频三种方法（STFT / Morlet / multitaper）
-的结果不直接混比；地形 2D 图是球面样条插值、3D 图是 345 个传感器位置
-的正向计算值，两者分开展示；源定位是盲测：偶极子拟合无噪声时误差
-0.0 mm，MNE 无深度加权时深部源误差 32–96 mm（深度偏置，见下）。
-详见 `docs/model-spec.md` §11 与 `docs/pr6-acceptance.md`。
-
-## PR7：多尺度与高级实验（细胞 / 刺激 / 对照）
-
-- **细胞实验**：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合
-  （`docs/pr7-cellular.md`）。细胞路线没有弥合幅度缺口：持续 PSP
-  只有 −0.059 µV，80,000 细胞完全同步齐射峰值 2.50 µV 且仅 1 ms 瞬态。
-- **刺激实验**：TES / TMS / 感觉输入，分 A–D 四级
-  （`docs/pr7-stimulation.md`）。电场到神经响应的增益未经校准；
-  电场强不等于真实大脑必然兴奋或抑制。
-- **对照实验**：双脑 A/B、时间机器、闭环控制、跨试次适应
-  （`docs/pr7-experiments.md`）。适应已实现（有效驱动 300 → 177 →
-  127 → 106 → 98 1/s）；深度加权 / dSPM / eLORETA 没有一种方法同时
-  修好深浅两端（无噪声深源 dSPM 0.00 mm 但浅源变坏到 55.43 mm；
-  有噪声深源 depth 96.00 mm 比 plain 78.38 mm 更差）。
-详见 `docs/model-spec.md` §12。
-
-## 已知限制（摘要，当前数字，2026-11-12）
-
-完整版见 `docs/model-spec.md` §13。这里只列最容易被误读的五条，
-每一处都不得被说成“已解决”或“真实人脑预测”：
-
-1. **幅度差 51 倍**：oddball P300 峰值模型 0.174 µV vs 真实 8.89 µV；
-   300–500 ms 均值模型 0.070 µV vs 真实 6.94 µV（差 99 倍）。
-   WC 路线需放大 12.6 倍、JR 需放大 53.8 倍才能对上峰值——
-   但放大乘积不等于校准（乘积结构不可辨识），所以不放大。
-2. **基线 RMS 仍为 0**：模型刺激前 RMS 0 vs 真实 6.07 µV；
-   JR 极限环 Pz RMS 0.017 µV（差约 360 倍）。
-3. **alpha 占比 99.8%**：纯极限环、无宽带背景；真实 Pz 只有 30.3%。
-   频率对上量级（10.99 vs 10.00 Hz），占比数字不能直接比。
-4. **深度偏置未根治**：无一种逆解方法同时修好深浅两端
-   （dSPM 修深坏浅，depth 加权有噪声时更差）；MNE 峰值幅度被压缩到
-   真值的 4–53%，不得把峰值读作真值幅度。
-5. **演示连接组与假设链**：连接权重主要来自猕猴 CoCoMac + 人类 DSI
-   混合，TVB 官方声明生物物理真实性有限；偶极矩的 N = 1,000,000、
-   同步比例 0.08、200/100 pA、0.5 mm 全是假设，未经人体数据校准。
-
-## 验收
-
-- 科学验证与对照：`docs/validation.md`
-- MVP 最终验收（五个演示场景 + A/B/C/D 清单）：`docs/acceptance.md`
+TVB source data and derived brain assets are generated at build time rather than committed. Template redistribution and data-license boundaries are described in [docs/data-license.md](docs/data-license.md). Scientific references and method-specific details are linked from the model documentation.

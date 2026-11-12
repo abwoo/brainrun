@@ -14,7 +14,7 @@ test('all scientific lab select elements use the same native Dropdown',()=>{
   assert.equal(n,(s.match(/<\/Dropdown>/g)||[]).length);
   total+=n;
  }
- assert.equal(total,36);
+ assert.equal(total,40);
 });
 test('shared Dropdown deliberately uses native select and accessible focus behavior',()=>{
  const c=read('app/src/components/ui/Dropdown.tsx'),css=read('app/src/App.css');
@@ -32,9 +32,10 @@ test('i18n has stable key coverage and separate saved locale choice',()=>{
  assert.match(i,/document.documentElement.lang = locale/);
  const app=read('app/src/App.tsx');
  assert.match(app,/useI18n\(\)/);
- assert.match(app,/aria-label=\{t\('lang.label'\)\}/);
- assert.match(app,/value=\{locale\}/);
- assert.match(app,/setLocale\(e.target.value as 'zh-CN' \| 'en-US'\)/);
+ assert.match(app,/<LanguageSwitch/);
+ const language=read('app/src/components/ui/LanguageSwitch.tsx');
+ assert.ok(language.includes("setLocale('en-US')"));
+ assert.ok(language.includes("setLocale('zh-CN')"));
 });
 test('workspace layout is visual-only and responds to focus, resize and reset',()=>{
  const app=read('app/src/App.tsx'),css=read('app/src/App.css');
@@ -48,9 +49,9 @@ test('workspace layout is visual-only and responds to focus, resize and reset',(
 });
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
- assert.equal(c.counts.total,216);
- assert.equal(c.entries.length,216);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,37);
+ assert.equal(c.counts.total,235);
+ assert.equal(c.entries.length,235);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,42);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
 

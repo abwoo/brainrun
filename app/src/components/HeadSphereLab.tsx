@@ -1,4 +1,6 @@
 import Dropdown from './ui/Dropdown';
+import { ControlField, RangeControl } from './ui/ControlField';
+import { useI18n } from '../lib/i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -15,7 +17,11 @@ import type { Vec3Mm } from '../lib/volumeConduction';
  * NOT to the TVB demo cortex. This is deliberately independent from
  * BrainScene: none of its cortical vertices are claimed to be MNI.
  */
-export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:()=>void;onOpenReal?:()=>void;
+let manualHeadState: {
+ position:Vec3Mm;axis:'X'|'Y'|'Z';moment:number;montage:MontageKey;
+ reference:'average'|'infinity';electrode:string;
+} = {position:[16,0,16],axis:'X',moment:10,montage:'10-20',reference:'average',electrode:'Cz'};
+export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=false}:{onClose:()=>void;onOpenReal?:()=>void;embedded?:boolean;
   /**
    * PR8-LINK 直播源（App 传）：选中脑区的 TVB 中心 + 由直播 E/I 经 PR5
    * q 链算出的偶极矩（基线 = 选区切换时该脑区的 E/I）。不传时只有手动
@@ -23,14 +29,16 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
    */
   liveSource?: { positionMm: Vec3Mm; momentNAm: number; regionLabel: string; regionId: number } | null;
 }) {
+  const {locale}=useI18n();
+  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   const [data,setData]=useState<SphereFixture|null>(null);
   const [error,setError]=useState<string|null>(null);
-  const [position,setPosition]=useState<Vec3Mm>([0,0,16]);
-  const [axis,setAxis]=useState<'X'|'Y'|'Z'>('X');
-  const [moment,setMoment]=useState(10);
-  const [montage,setMontage]=useState<MontageKey>('10-20');
-  const [reference,setReference]=useState<'average'|'infinity'>('average');
-  const [selectedElectrode,setSelectedElectrode]=useState('Cz');
+  const [position,setPosition]=useState<Vec3Mm>(embedded?manualHeadState.position:[0,0,16]);
+  const [axis,setAxis]=useState<'X'|'Y'|'Z'>(embedded?manualHeadState.axis:'X');
+  const [moment,setMoment]=useState(embedded?manualHeadState.moment:10);
+  const [montage,setMontage]=useState<MontageKey>(embedded?manualHeadState.montage:'10-20');
+  const [reference,setReference]=useState<'average'|'infinity'>(embedded?manualHeadState.reference:'average');
+  const [selectedElectrode,setSelectedElectrode]=useState(embedded?manualHeadState.electrode:'Cz');
   // PR8-LINK：直播模式（默认开，只要传了 liveSource）；开着时位置与偶极矩
   // 跟随直播源，手动滑杆与拖动被直播值覆盖（拖动后下一帧即恢复）。
   const [liveMode,setLiveMode]=useState(liveSource != null);
@@ -47,8 +55,11 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
     const q = liveSource.momentNAm;
     setMoment((prev) => (prev === q ? prev : q));
   },[liveMode,liveSource,data]);
+  useEffect(()=>{
+    if(embedded)manualHeadState={position:[position[0],position[1],position[2]],axis,moment,montage,reference,electrode:selectedElectrode};
+  },[embedded,position,axis,moment,montage,reference,selectedElectrode]);
   const mount=useRef<HTMLDivElement>(null);
-  const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>)=>void)|null>(null);
+  const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>,q:number)=>void)|null>(null);
   useEffect(()=>{
     const controller=new AbortController();
     fetch(import.meta.env.BASE_URL+'forward-assets/sphere-model.json',{signal:controller.signal})
@@ -117,6 +128,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
       ray.setFromCamera(xy,camera);
     };
     const down=(e:PointerEvent)=>{
+      if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
       pick(e);
       if(ray.intersectObject(source).length===0)return;
       dragging=true;orbit.enabled=false;
@@ -141,15 +153,18 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
       const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);
       camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);
     });resize.observe(host);
-    sceneUpdate.current=(p,dir,voltage)=>{
+    sceneUpdate.current=(p,dir,voltage,q)=>{
       source.position.set(...p);arrow.position.copy(source.position);
-      arrow.setDirection(new THREE.Vector3(...dir));
+      const sign=q<0?-1:1;
+      arrow.setDirection(new THREE.Vector3(dir[0]*sign,dir[1]*sign,dir[2]*sign));
+      arrow.visible=Math.abs(q)>1e-9;
+      arrow.setLength(8+Math.min(42,Math.abs(q)*1.2));
       const m=Math.max(0.001,...[...voltage.values()].map(Math.abs));
       dots.forEach((dot,label)=>{
         const v=voltage.get(label);
         dot.visible=v!==undefined;
         if(v!==undefined){
-          (dot.material as THREE.MeshBasicMaterial).color.set(v>=0?0xffb340:0x4fb6f2);
+          (dot.material as THREE.MeshBasicMaterial).color.set(Math.abs(v)<1e-9?0x6c8191:v>0?(embedded?0xff7b6a:0xffb340):0x4fb6f2);
           dot.scale.setScalar(1+1.3*Math.abs(v)/m);
         }
       });
@@ -170,10 +185,62 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
     // Scene lifecycle only on fixture load; all dynamical updates via sceneUpdate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[data]);
-  useEffect(()=>sceneUpdate.current?.(position,direction,voltageMap),
-    [position,direction,voltageMap]);
+  useEffect(()=>sceneUpdate.current?.(position,direction,voltageMap,moment),
+    [position,direction,voltageMap,moment]);
   const vSelected=voltageMap.get(selectedElectrode);
   const max=Math.max(.001,...peaks.map(s=>Math.abs(s.v)));
+  if (embedded) return <div className="manual-electric" data-testid="manual-electric">
+    <section className="electric-model-view">
+      <div className="model-instruction">{text('拖动橙色源点 · 拖动空白处旋转 · 滚轮缩放','Drag the orange source · drag empty space to rotate · scroll to zoom')}</div>
+      <div ref={mount} className="electric-canvas" role="img" aria-label={text('可拖动电流源的三维头部模型','3D head model with draggable current source')}/>
+      <div className="electric-legend"><span className="legend-source"/>{text('橙色源点：电流源','Orange source: current dipole')}
+       <span className="legend-positive"/>{text('正电位','Positive potential')}<span className="legend-negative"/>{text('负电位','Negative potential')}</div>
+      <div className="electric-results" aria-label={text('实际计算的电极读数','Computed electrode readings')}>
+       <div><span>{text('所选测量点','Selected sensor')} · {selectedElectrode}</span>
+        <output data-testid="selected-potential" data-voltage={vSelected??''}>{vSelected===undefined?'—':vSelected.toFixed(4)} <small>µV</small></output></div>
+       <div><span>{text('幅度最大的测量点','Largest-magnitude sensor')} · {peaks[0]?.label??'—'}</span>
+        <output data-testid="peak-potential" data-voltage={peaks[0]?.v??''}>{peaks[0]?.v.toFixed(4)??'—'} <small>µV</small></output></div>
+      </div>
+      <p className="plain-explanation">{text('改变源的位置、方向或强度，比较同一个测量点的读数。圆点大小表示同一时刻不同电极的相对幅度。','Change the source position, orientation or strength, then compare the same sensor. Dot sizes show relative amplitudes across electrodes at the current moment.')}</p>
+    </section>
+    <aside className="physics-controls">
+      <div className="control-step"><span>1</span><h2>{text('移动电流源','Move the source')}</h2></div>
+      <p className="plain-explanation">{text('直接拖动橙色源点；也可以用下面三个滑杆精确调整。','Drag the orange point, or use these sliders for precise positioning.')}</p>
+      {([0,1,2] as const).map(i=><RangeControl key={i} disabled={!data} label={text(['左右位置','前后位置','上下位置'][i],['Left–right position','Front–back position','Vertical position'][i])}
+        value={position[i]} min={-48} max={48} step={1} unit="mm" onChange={value=>setPosition(prev=>[i===0?value:prev[0],i===1?value:prev[1],i===2?value:prev[2]])}/>)}
+      <div className="control-step"><span>2</span><h2>{text('调整方向与强度','Set direction and strength')}</h2></div>
+      <ControlField label={text('电流方向','Current direction')} hint={text('箭头表示方向；改变方向会改变各测量点的电位。','The arrow shows direction. Changing it changes the measured potentials.')}>
+        <Dropdown disabled={!data} aria-label={text('电流方向','Current direction')} value={axis} onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
+          <option value="X">{text('左右方向','Left–right')}</option><option value="Y">{text('前后方向','Front–back')}</option><option value="Z">{text('上下方向','Up–down')}</option>
+        </Dropdown>
+      </ControlField>
+      <RangeControl disabled={!data} label={text('源强度','Source strength')} value={moment} min={0} max={30} step={0.5} unit="nA·m" onChange={setMoment}/>
+      <div className="control-step"><span>3</span><h2>{text('选择测量点','Choose a sensor')}</h2></div>
+      <ControlField label={text('查看电极','Sensor to inspect')} hint={text('电极是放在头皮上的测量点。左侧读数随你的改动即时更新。','An electrode is a measurement point on the scalp. Readings update as you make changes.')}>
+        <Dropdown aria-label={text('查看电极','Sensor to inspect')} value={selectedElectrode} onChange={e=>setSelectedElectrode(e.target.value)}>
+          {(readings?.sensors??[]).map(s=><option key={s.label} value={s.label}>{s.label}</option>)}
+        </Dropdown>
+      </ControlField>
+      <details className="physics-details"><summary>{text('更多设置与模型说明','More settings and model details')}</summary>
+       <ControlField label={text('电极布局','Electrode layout')}>
+        <Dropdown aria-label={text('电极布局','Electrode layout')} value={montage} onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedElectrode('Cz');}}>
+          <option value="10-20">10–20 · 19</option><option value="10-10">10–10 · 94</option><option value="10-05">10–05 · 343</option>
+        </Dropdown>
+       </ControlField>
+       <ControlField label={text('参考方式','Voltage reference')}>
+        <Dropdown aria-label={text('参考方式','Voltage reference')} value={reference} onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
+         <option value="average">{text('所有电极的平均值','Average over electrodes')}</option><option value="infinity">{text('理论无限远参考','Theoretical infinity reference')}</option>
+        </Dropdown>
+       </ControlField>
+       <p>{text('四层球形导体依次表示脑组织、脑脊液、颅骨与头皮。MNE 计算的正向模型把源的位置、方向和强度转换为电极电位。坐标为毫米，源强度为纳安米，电位为微伏。','Four conducting layers represent brain, cerebrospinal fluid, skull and scalp. The MNE forward model converts source position, orientation and moment into sensor potentials. Position is in mm, moment in nA·m, and voltage in µV.')}</p>
+       <p>{text('这是半径 95 mm 的球形教学模型，源限制在 ±48 mm 的已计算网格内；它不是个体 MRI，也没有与另一页的脑区网络做解剖配准。','This is a spherical teaching model with radius 95 mm and a precomputed source grid within ±48 mm. It is not individual MRI and is not anatomically registered to the separate region network.')}</p>
+       <code>{SPHERE_MODEL_ID}</code>
+      </details>
+      <button type="button" className="ui-button" onClick={()=>{setPosition([16,0,16]);setMoment(10);setAxis('X');setMontage('10-20');setReference('average');setSelectedElectrode('Cz');setLiveMode(false);}}>{text('恢复默认','Restore defaults')}</button>
+      {!data&&!error&&<p role="status">{text('正在加载物理模型…','Loading the physical model…')}</p>}
+      {error&&<div className="physics-error" role="alert"><p>{text('物理模型没有加载成功，请刷新重试。','The physical model could not load. Reload to retry.')}</p><details><summary>{text('技术信息','Technical details')}</summary>{error}</details></div>}
+    </aside>
+  </div>;
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true"
       aria-label="分层球形头EEG物理实验" onClick={e=>e.stopPropagation()}

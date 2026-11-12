@@ -8,7 +8,8 @@
  * PLAY 控制仿真时钟；相机自动旋转是独立的“旋转”开关。
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import Dropdown from './components/ui/Dropdown';
+import PhysicsHome, { type AdvancedDestination } from './components/PhysicsHome';
+import LanguageSwitch from './components/ui/LanguageSwitch';
 import { useI18n, type MessageKey } from './lib/i18n';
 import BrainScene from './components/BrainScene';
 import ActivityChart from './components/ActivityChart';
@@ -182,7 +183,13 @@ function ValueSlider({
 }
 
 export default function App() {
-  const { locale, setLocale, t } = useI18n();
+  const { locale, t } = useI18n();
+  const [workspace, setWorkspace] = useState<'basic'|'advanced'>(() => window.location.hash.startsWith('#advanced') ? 'advanced' : 'basic');
+  useEffect(() => {
+    const route = () => setWorkspace(window.location.hash.startsWith('#advanced') ? 'advanced' : 'basic');
+    window.addEventListener('hashchange', route);
+    return () => window.removeEventListener('hashchange', route);
+  }, []);
   // Workspace layout is purely visual and never changes the physics solver.
   const [focus3D, setFocus3D] = useState(false);
   const [stageWidth, setStageWidth] = useState(() => {
@@ -969,10 +976,43 @@ export default function App() {
   const locked = snap?.locked ?? false;
   const simTimeS = snap ? (snap.t_ms / 1000).toFixed(1) : '0.0';
 
+  const openAdvanced = (target: AdvancedDestination) => {
+    window.location.hash = 'advanced';
+    setWorkspace('advanced');
+    setShowScenarioLauncher(false);
+    if (target === 'signals') { setMode('eeg'); setEegInitialTab('eeg'); }
+    if (target === 'cellular') setShowCellularLab(true);
+    if (target === 'stimulation') setShowStimLab(true);
+    if (target === 'comparison') setShowExperimentLab(true);
+    if (target === 'atlas') setMode('explore');
+    if (target === 'presets') setShowScenarioLauncher(true);
+    if (target === 'model') setShowModelInfo(true);
+  };
+  if (workspace === 'basic') return <PhysicsHome
+    data={data} selectedId={selectedId} onSelect={setSelectedId}
+    sim={simRef.current} ready={simReady} error={simError??loadError}
+    strength={Number(KNOB_MAP.stimulusAmplitude(kStim).toFixed(2))} durationMs={Math.round(KNOB_MAP.durationMs(kDur))}
+    onStrength={value=>{setKStim(KNOB_MAP.stimulusK(value));simRef.current?.setParams({stim_amplitude:value});}}
+    onDuration={value=>{setKDur(KNOB_MAP.durationK(value));simRef.current?.setParams({stim_duration_ms:value});}}
+    onPulse={()=>{if(selectedId!==null)handlePulse(selectedId);}}
+    onReset={()=>{handleWeightResetAll();handleBackgroundMode(DEFAULT_BACKGROUND_MODE);handleReset();}}
+    onPause={handlePlayPause} paused={paused} background={bgMode} onBackground={handleBackgroundMode}
+    response={resp.summary} onAdvanced={openAdvanced}
+    networkView={data?<BrainScene pointerStimulates={false} data={data} autoRotate={false}
+      showConnections={true} selectedId={selectedId} resetSignal={resetSignal} onSelect={setSelectedId}
+      sim={simRef.current} onPulse={handlePulse} onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd}
+      onHoldRetract={handleHoldRetract} colorMode="delta" baselineE={resp.baselineE} replayE={null}
+      responseGroups={resp.summary?resp.groups:null} biasList={biasList}/>:
+      <p className="model-loading">{locale==='zh-CN'?'正在加载脑区模型…':'Loading the region model…'}</p>}
+  />;
+
   return (
     <div className="app">
       <header className="topbar">
-        <div className="topbar-title">BRAIN PHYSICS</div>
+        <a className="topbar-title" href="#" onClick={()=>setWorkspace('basic')}>BrainRun</a>
+        <button type="button" className="chip" onClick={()=>{window.location.hash='';setWorkspace('basic');}}>
+          {locale==='zh-CN'?'返回物理模型':'Back to physical models'}
+        </button>
         <div className="topbar-sub">{t('shell.subtitle')}</div>
         {showMore && runOverview && (
           <div className="topbar-sub" role="status"
@@ -1068,13 +1108,7 @@ export default function App() {
           >
             {t('shell.modelInfo')}
           </button>
-          <div className="locale-picker">
-            <Dropdown aria-label={t('lang.label')} value={locale}
-              onChange={e => setLocale(e.target.value as 'zh-CN' | 'en-US')}>
-              <option value="zh-CN">{t('lang.zh')}</option>
-              <option value="en-US">{t('lang.en')}</option>
-            </Dropdown>
-          </div>
+          <div className="global-language-switch"><LanguageSwitch/></div>
           <button type="button" className={'chip' + (focus3D ? ' chip-on' : '')}
             aria-pressed={focus3D}
             aria-label={t(focus3D ? 'workspace.exitFocus' : 'workspace.focus')}
@@ -1097,7 +1131,18 @@ export default function App() {
         </div>
       </header>
 
-      {mode === 'eeg' ? (
+      {showScenarioLauncher ? (<main className="main main-eeg">        <ScenarioLauncher inline
+          onClose={() => setShowScenarioLauncher(false)}
+          records={scenarioRecords}
+          onClearRecords={() => setScenarioRecords([])}
+          runningId={runningScenarioId}
+          runError={scenarioError}
+          onRunScenario={runScenarioById}
+          onOpenLab={handleOpenLab}
+          fixtureReady={scenarioFixture !== null}
+          fixtureError={scenarioFixtureError}
+        />
+</main>) : mode === 'eeg' ? (
         <main className="main main-eeg">
           <EegAnalysisLab
             inline
@@ -1875,19 +1920,6 @@ export default function App() {
         <span className="mono">TIME {simTimeS} S</span>
       </footer>
 
-      {showScenarioLauncher && (
-        <ScenarioLauncher
-          onClose={() => setShowScenarioLauncher(false)}
-          records={scenarioRecords}
-          onClearRecords={() => setScenarioRecords([])}
-          runningId={runningScenarioId}
-          runError={scenarioError}
-          onRunScenario={runScenarioById}
-          onOpenLab={handleOpenLab}
-          fixtureReady={scenarioFixture !== null}
-          fixtureError={scenarioFixtureError}
-        />
-      )}
       {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} onOpenReal={() => {
         setShowHeadSphereLab(false);
         setShowLocalBEM(true);

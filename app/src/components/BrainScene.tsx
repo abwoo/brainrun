@@ -1,3 +1,5 @@
+import { localizeText } from '../lib/localizedText';
+import { useI18n } from '../lib/i18n';
 /**
  * BrainScene — 真实皮层网格的 Three.js 渲染与拾取（Phase 3，Phase 4 打磨）。
  *
@@ -77,6 +79,8 @@ const DEFAULT_CAMERA_POS = new THREE.Vector3(75, 95, 245);
 const FLY_DURATION_MS = 600; // 双击/RESET 恢复视角的平滑飞行时长
 
 interface BrainSceneProps {
+  /** Basic workspace separates selection from applied input. */
+  pointerStimulates?: boolean;
   data: BrainData;
   autoRotate: boolean;
   showConnections: boolean;
@@ -105,6 +109,7 @@ interface BrainSceneProps {
 }
 
 export default function BrainScene({
+  pointerStimulates = true,
   data,
   autoRotate,
   showConnections,
@@ -122,6 +127,7 @@ export default function BrainScene({
   responseGroups,
   biasList,
 }: BrainSceneProps) {
+  const {locale}=useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [hoverId, setHoverId] = useState<number | null>(null);
@@ -162,6 +168,8 @@ export default function BrainScene({
   /** PR3：偏置列表的 ref（渲染循环与调试桥只读 ref，不触发渲染）。 */
   const biasListRef = useRef(biasList);
   biasListRef.current = biasList;
+  const pointerStimulatesRef = useRef(pointerStimulates);
+  pointerStimulatesRef.current = pointerStimulates;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const onPulseRef = useRef(onPulse);
@@ -707,7 +715,7 @@ export default function BrainScene({
     };
     /** 启动按住：只在计时器到时调用（见 HOLD_DELAY_MS 说明）。 */
     const startHold = () => {
-      if (downRegion === null) return;
+      if (!pointerStimulatesRef.current || downRegion === null) return;
       // PR1 小修：引擎未就绪时不画确认标记、不发持续输入。之前这里会
       // 先画圆环再由 App 侧丢掉刺激，造成“点了却没反应”的假反馈。
       if (!simRef.current?.isReady()) return;
@@ -773,7 +781,7 @@ export default function BrainScene({
       if (tip) {
         if (id !== null) {
           tip.style.display = 'block';
-          tip.textContent = `${data.regions[id].label} — 点击刺激 · 按住持续输入`;
+          tip.textContent = localizeText(pointerStimulatesRef.current ? `${data.regions[id].label} — 点击刺激 · 按住持续输入` : `${data.regions[id].label} — 点击选择位置`);
           moveTooltip(e.clientX, e.clientY);
         } else {
           tip.style.display = 'none';
@@ -825,6 +833,7 @@ export default function BrainScene({
       if (moved) return; // 拖拽旋转：既不刺激也不改变选中脑区
       const id = downRegion;
       if (id === null) return; // background-down may not become a cortex pulse
+      if (!pointerStimulatesRef.current) { onSelectRef.current(id); return; }
       // PR4：慢机器上的短点击纠正——计时器任务可能在松开事件被处理
       // 之前就已触发（主线程卡顿时输入事件按帧投递、计时器先跑），
       // 按住因此“提前”启动；但松开事件的时间戳证明这次按压实际短于
@@ -1149,6 +1158,13 @@ export default function BrainScene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (tooltipRef.current && hoverId !== null) {
+      tooltipRef.current.textContent = localizeText(pointerStimulates
+        ? `${data.regions[hoverId].label} — 点击刺激 · 按住持续输入`
+        : `${data.regions[hoverId].label} — 点击选择位置`);
+    }
+  }, [locale, hoverId, data, pointerStimulates]);
   return (
     <div className="brain-scene" ref={containerRef}>
       <div className="brain-tooltip" ref={tooltipRef} style={{ display: 'none' }} />

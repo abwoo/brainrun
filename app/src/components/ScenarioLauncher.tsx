@@ -82,6 +82,7 @@ const note: React.CSSProperties = { margin: '4px 0', fontSize: 12, lineHeight: 1
 
 export default function ScenarioLauncher({
   onClose,
+  inline = false,
   records,
   onClearRecords,
   runningId,
@@ -92,6 +93,7 @@ export default function ScenarioLauncher({
   fixtureError,
 }: {
   onClose: () => void;
+  inline?: boolean;
   records: ExperimentRecord[];
   onClearRecords: () => void;
   runningId: number | null;
@@ -113,10 +115,10 @@ export default function ScenarioLauncher({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className={inline ? 'scenario-inline' : 'modal-backdrop'} onClick={inline ? undefined : onClose}>
       <div
-        className="modal screen eeg-lab-modal"
-        role="dialog"
+        className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'}
+        role={inline ? 'region' : 'dialog'}
         aria-label="一键科学场景"
         onClick={(e) => e.stopPropagation()}
       >

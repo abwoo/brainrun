@@ -15,6 +15,7 @@ const WINDOW_MS = 10_000;
 const Y_MAX = 0.6;
 
 interface Props {
+  simple?: boolean;
   sim: SimClient | null;
   selectedId: number | null;
   resetSignal: number;
@@ -36,7 +37,7 @@ interface Props {
 
 type Trace = 'E' | 'I' | 'BOTH';
 
-export default function ActivityChart({ sim, selectedId, resetSignal, replay }: Props) {
+export default function ActivityChart({ sim, selectedId, resetSignal, replay, simple = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [trace, setTrace] = useState<Trace>('E');
@@ -297,7 +298,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
         <span className="chart-label">
           {replay?.active
             ? `回放 REPLAY · ${replay.speed}× · 录制窗口（真实快照）`
-            : 'REGIONAL NEURAL ACTIVITY · a.u. · 10 S'}
+            : '当前脑区活动 · 模型值 · 10 秒'}
         </span>
         <span className="chart-toggles">
           {(['E', 'I', 'BOTH'] as Trace[]).map((t) => (
@@ -307,13 +308,13 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
               className={`chart-toggle ${trace === t ? 'chart-toggle-on' : ''}`}
               onClick={() => setTrace(t)}
             >
-              {t}
+              {simple ? ({E:'兴奋',I:'抑制',BOTH:'一起看'} as const)[t] : t}
             </button>
           ))}
         </span>
       </div>
       <p className="panel-text chart-note">
-        纵轴为神经群体活动（任意单位），不是微伏级 EEG 电压。
+        {simple ? '橙线表示兴奋活动，蓝线表示抑制活动；这里显示的是模型活动值，不是电压。' : '纵轴为神经群体活动（任意单位），不是微伏级 EEG 电压。'}
       </p>
     </div>
   );

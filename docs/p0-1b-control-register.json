@@ -1,9 +1,9 @@
 {
-  "auditVersion": "P0-1B-2026-11-12",
-  "base": "PR10 head 6be676e8",
+  "auditVersion": "manual-physics-workbench-v1",
+  "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
   "disclaimer": "216 static JSX controls including 36 native Dropdown lab instances and locale switch; all are source-classified, not all runtime proven.",
   "counts": {
-    "total": 216,
+    "total": 235,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -16,26 +16,28 @@
       "TopoTab": 8,
       "InverseTab": 9,
       "WavesTab": 1,
-      "HeadSphereLab": 9,
+      "HeadSphereLab": 14,
       "LocalBEMLab": 14,
       "DipoleLab": 7,
       "StimLab": 29,
       "ExperimentLab": 34,
-      "BrainScene": 0,
       "ActivityChart": 1,
-      "ParamControl": 4
+      "ParamControl": 4,
+      "PhysicsHome": 10,
+      "ControlField": 2,
+      "LanguageSwitch": 2
     },
     "byScope": {
-      "VISUAL": 20,
-      "LIVE": 17,
-      "NAV": 27,
+      "VISUAL": 23,
+      "LIVE": 21,
+      "NAV": 31,
       "MIXED": 17,
-      "SELECTION": 3,
-      "CONFIG": 45,
-      "INDEPENDENT": 69,
-      "DERIVED": 13,
+      "SELECTION": 4,
+      "DIAGNOSTIC": 2,
+      "CONFIG": 47,
+      "INDEPENDENT": 74,
       "EXPORT": 3,
-      "DIAGNOSTIC": 2
+      "DERIVED": 13
     }
   },
   "nativeCanvas": {
@@ -65,7 +67,7 @@
     {
       "controlId": "App:button:1",
       "path": "app/src/App.tsx",
-      "line": 121,
+      "line": 122,
       "element": "button",
       "visibleName": "减小",
       "events": [
@@ -79,7 +81,7 @@
     {
       "controlId": "App:input:2",
       "path": "app/src/App.tsx",
-      "line": 131,
+      "line": 132,
       "element": "input",
       "visibleName": "拖动改值 · 双击恢复原始值",
       "events": [
@@ -89,12 +91,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:3",
       "path": "app/src/App.tsx",
-      "line": 148,
+      "line": 149,
       "element": "button",
       "visibleName": "增大",
       "events": [
@@ -108,7 +110,7 @@
     {
       "controlId": "App:input:4",
       "path": "app/src/App.tsx",
-      "line": 158,
+      "line": 159,
       "element": "input",
       "visibleName": "{value.toFixed(decima",
       "events": [
@@ -124,7 +126,21 @@
     {
       "controlId": "App:button:5",
       "path": "app/src/App.tsx",
-      "line": 946,
+      "line": 1013,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:6",
+      "path": "app/src/App.tsx",
+      "line": 1029,
       "element": "button",
       "visibleName": "{t(('mode.' + m) as MessageKey)}",
       "events": [
@@ -136,9 +152,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:6",
+      "controlId": "App:button:7",
       "path": "app/src/App.tsx",
-      "line": 959,
+      "line": 1042,
       "element": "button",
       "visibleName": "渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设",
       "events": [
@@ -150,9 +166,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:7",
+      "controlId": "App:button:8",
       "path": "app/src/App.tsx",
-      "line": 968,
+      "line": 1051,
       "element": "button",
       "visibleName": "一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录",
       "events": [
@@ -164,9 +180,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:8",
+      "controlId": "App:button:9",
       "path": "app/src/App.tsx",
-      "line": 976,
+      "line": 1059,
       "element": "button",
       "visibleName": "PLAY — {simReady ? t(paused ? 'shell.paused' : 'she",
       "events": [
@@ -175,12 +191,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:9",
+      "controlId": "App:button:10",
       "path": "app/src/App.tsx",
-      "line": 985,
+      "line": 1068,
       "element": "button",
       "visibleName": "显示 / 隐藏选中脑区的主要连接弧线",
       "events": [
@@ -192,9 +208,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:10",
+      "controlId": "App:button:11",
       "path": "app/src/App.tsx",
-      "line": 993,
+      "line": 1076,
       "element": "button",
       "visibleName": "恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）",
       "events": [
@@ -203,12 +219,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:11",
+      "controlId": "App:button:12",
       "path": "app/src/App.tsx",
-      "line": 996,
+      "line": 1079,
       "element": "button",
       "visibleName": "MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位",
       "events": [
@@ -220,9 +236,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:12",
+      "controlId": "App:button:13",
       "path": "app/src/App.tsx",
-      "line": 1000,
+      "line": 1083,
       "element": "button",
       "visibleName": "EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。",
       "events": [
@@ -234,9 +250,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:13",
+      "controlId": "App:button:14",
       "path": "app/src/App.tsx",
-      "line": 1004,
+      "line": 1087,
       "element": "button",
       "visibleName": "独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG",
       "events": [
@@ -248,9 +264,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:14",
+      "controlId": "App:button:15",
       "path": "app/src/App.tsx",
-      "line": 1008,
+      "line": 1091,
       "element": "button",
       "visibleName": "细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）",
       "events": [
@@ -262,9 +278,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:15",
+      "controlId": "App:button:16",
       "path": "app/src/App.tsx",
-      "line": 1012,
+      "line": 1095,
       "element": "button",
       "visibleName": "脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）",
       "events": [
@@ -276,9 +292,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:16",
+      "controlId": "App:button:17",
       "path": "app/src/App.tsx",
-      "line": 1016,
+      "line": 1099,
       "element": "button",
       "visibleName": "对照实验：双脑 A/B、时间机器、闭环控制（PR-15）",
       "events": [
@@ -290,9 +306,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "App:button:17",
+      "controlId": "App:button:18",
       "path": "app/src/App.tsx",
-      "line": 1020,
+      "line": 1103,
       "element": "button",
       "visibleName": "模型、数据来源与许可说明",
       "events": [
@@ -305,21 +321,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1029,
-      "element": "Dropdown",
-      "visibleName": "{t('lang.zh')}",
-      "events": [
-        "onChange"
-      ],
-      "controlId": "App:Dropdown:18",
-      "category": "VISUAL",
-      "modelBoundary": "Locale/layout preference only; does not change neural solver",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "path": "app/src/App.tsx",
-      "line": 1035,
+      "line": 1112,
       "element": "button",
       "visibleName": "{t(focus3D ? 'workspace.exitFocus' : 'workspace.foc",
       "events": [
@@ -333,7 +335,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1044,
+      "line": 1121,
       "element": "input",
       "visibleName": "stage-share",
       "events": [
@@ -347,7 +349,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1048,
+      "line": 1125,
       "element": "button",
       "visibleName": "{t('workspace.resetLayout')} </bu",
       "events": [
@@ -362,7 +364,7 @@
     {
       "controlId": "App:button:22",
       "path": "app/src/App.tsx",
-      "line": 1082,
+      "line": 1165,
       "element": "button",
       "visibleName": "按兴奋活动 E 着色（固定色标：底色 E≈0.011 → 琥珀 E≈0.5）",
       "events": [
@@ -376,7 +378,7 @@
     {
       "controlId": "App:button:23",
       "path": "app/src/App.tsx",
-      "line": 1090,
+      "line": 1173,
       "element": "button",
       "visibleName": "按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）",
       "events": [
@@ -390,7 +392,7 @@
     {
       "controlId": "App:button:24",
       "path": "app/src/App.tsx",
-      "line": 1098,
+      "line": 1181,
       "element": "button",
       "visibleName": "相机自动缓慢旋转（只是相机运动，不是神经活动）",
       "events": [
@@ -404,7 +406,7 @@
     {
       "controlId": "App:button:25",
       "path": "app/src/App.tsx",
-      "line": 1115,
+      "line": 1198,
       "element": "button",
       "visibleName": "恢复到这次按住开始前的完整状态",
       "events": [
@@ -413,12 +415,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:26",
       "path": "app/src/App.tsx",
-      "line": 1125,
+      "line": 1208,
       "element": "button",
       "visibleName": "恢复仿真状态",
       "events": [
@@ -427,12 +429,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:27",
       "path": "app/src/App.tsx",
-      "line": 1206,
+      "line": 1289,
       "element": "button",
       "visibleName": "运行一键场景 4：JR p0=220 极限环跑 12 s，生成 Pz 记录供下方的 WavesTab 分析",
       "events": [
@@ -441,12 +443,12 @@
       "category": "MIXED",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:28",
       "path": "app/src/App.tsx",
-      "line": 1242,
+      "line": 1325,
       "element": "button",
       "visibleName": "{t('scene.absolute')} </butto",
       "events": [
@@ -460,7 +462,7 @@
     {
       "controlId": "App:button:29",
       "path": "app/src/App.tsx",
-      "line": 1249,
+      "line": 1332,
       "element": "button",
       "visibleName": "{t('scene.delta')}",
       "events": [
@@ -474,7 +476,7 @@
     {
       "controlId": "App:button:30",
       "path": "app/src/App.tsx",
-      "line": 1282,
+      "line": 1365,
       "element": "button",
       "visibleName": "从窗口起点回放录下来的快照（不重算）",
       "events": [
@@ -488,7 +490,7 @@
     {
       "controlId": "App:button:31",
       "path": "app/src/App.tsx",
-      "line": 1292,
+      "line": 1375,
       "element": "button",
       "visibleName": "{replay.playing ? '暂停' : '继续播放'}",
       "events": [
@@ -502,7 +504,7 @@
     {
       "controlId": "App:button:32",
       "path": "app/src/App.tsx",
-      "line": 1304,
+      "line": 1387,
       "element": "button",
       "visibleName": "{s}× </button",
       "events": [
@@ -516,7 +518,7 @@
     {
       "controlId": "App:button:33",
       "path": "app/src/App.tsx",
-      "line": 1316,
+      "line": 1399,
       "element": "button",
       "visibleName": "回到直播",
       "events": [
@@ -530,7 +532,7 @@
     {
       "controlId": "App:input:34",
       "path": "app/src/App.tsx",
-      "line": 1321,
+      "line": 1404,
       "element": "input",
       "visibleName": "回放进度",
       "events": [
@@ -544,7 +546,7 @@
     {
       "controlId": "App:button:35",
       "path": "app/src/App.tsx",
-      "line": 1370,
+      "line": 1453,
       "element": "button",
       "visibleName": "dynamic",
       "events": [
@@ -558,7 +560,7 @@
     {
       "controlId": "App:button:36",
       "path": "app/src/App.tsx",
-      "line": 1396,
+      "line": 1479,
       "element": "button",
       "visibleName": "dynamic",
       "events": [
@@ -572,7 +574,7 @@
     {
       "controlId": "App:button:37",
       "path": "app/src/App.tsx",
-      "line": 1432,
+      "line": 1515,
       "element": "button",
       "visibleName": "{label}",
       "events": [
@@ -581,12 +583,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:input:38",
       "path": "app/src/App.tsx",
-      "line": 1480,
+      "line": 1563,
       "element": "input",
       "visibleName": "bg-seed",
       "events": [
@@ -595,12 +597,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:39",
       "path": "app/src/App.tsx",
-      "line": 1504,
+      "line": 1587,
       "element": "button",
       "visibleName": "手动保存当前状态到浏览器 localStorage（关掉页面还在，RESET 不清）",
       "events": [
@@ -609,12 +611,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:40",
       "path": "app/src/App.tsx",
-      "line": 1513,
+      "line": 1596,
       "element": "button",
       "visibleName": "恢复手动保存的快照",
       "events": [
@@ -623,12 +625,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:41",
       "path": "app/src/App.tsx",
-      "line": 1522,
+      "line": 1605,
       "element": "button",
       "visibleName": "恢复这次按住开始前的状态",
       "events": [
@@ -637,12 +639,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:42",
       "path": "app/src/App.tsx",
-      "line": 1729,
+      "line": 1812,
       "element": "button",
       "visibleName": "恢复原始值",
       "events": [
@@ -651,12 +653,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:43",
       "path": "app/src/App.tsx",
-      "line": 1746,
+      "line": 1829,
       "element": "button",
       "visibleName": "恢复全部原始值（{modifiedWeightCount} 条已改）",
       "events": [
@@ -665,12 +667,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:44",
       "path": "app/src/App.tsx",
-      "line": 1770,
+      "line": 1853,
       "element": "button",
       "visibleName": "偏置 {selectedBias !== 0 ? '开' : '关'}",
       "events": [
@@ -679,12 +681,12 @@
       "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "App:button:45",
       "path": "app/src/App.tsx",
-      "line": 1818,
+      "line": 1901,
       "element": "button",
       "visibleName": "展开更多：参数、背景活动、脑区与连接",
       "events": [
@@ -698,7 +700,7 @@
     {
       "controlId": "App:button:46",
       "path": "app/src/App.tsx",
-      "line": 1885,
+      "line": 1955,
       "element": "button",
       "visibleName": "关闭 <div className=\"modal",
       "events": [
@@ -712,7 +714,7 @@
     {
       "controlId": "App:button:47",
       "path": "app/src/App.tsx",
-      "line": 1917,
+      "line": 1987,
       "element": "button",
       "visibleName": "关闭 <div className=\"modal",
       "events": [
@@ -726,7 +728,7 @@
     {
       "controlId": "App:button:48",
       "path": "app/src/App.tsx",
-      "line": 2066,
+      "line": 2136,
       "element": "button",
       "visibleName": "知道了",
       "events": [
@@ -734,1084 +736,6 @@
       ],
       "category": "NAV",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "ActivityChart:button:1",
-      "path": "app/src/components/ActivityChart.tsx",
-      "line": 292,
-      "element": "button",
-      "visibleName": "{t} ))} </span",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Read-only LIVE E/I chart",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:1",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 283,
-      "element": "button",
-      "visibleName": "LIF <button type=\"button\" style={btn(model === 'hh",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:2",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 284,
-      "element": "button",
-      "visibleName": "Hodgkin–Huxley <button type=\"button\" style={btn(mo",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:3",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 285,
-      "element": "button",
-      "visibleName": "多房室神经元 {model === 'lif' && (",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:4",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 295,
-      "element": "input",
-      "visibleName": "lif-amp",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:5",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 300,
-      "element": "input",
-      "visibleName": "pA <",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:6",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 309,
-      "element": "input",
-      "visibleName": "{' '}改用突触驱动（100 ms AMPA + 200 ms GABA，各 2 nS，无恒定电流）",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:7",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 323,
-      "element": "input",
-      "visibleName": "hh-amp",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:8",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 328,
-      "element": "input",
-      "visibleName": "uA/cm^2",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:9",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 346,
-      "element": "button",
-      "visibleName": "胞体 <button type=\"button\" style={btn(mcTarget =",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:10",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 347,
-      "element": "button",
-      "visibleName": "顶树突 <button type=\"button\" style={btn(mcTarget",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:11",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 348,
-      "element": "button",
-      "visibleName": "基树突",
-      "events": [
-        "onClick"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:12",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 352,
-      "element": "input",
-      "visibleName": "mc-amp",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:input:13",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 357,
-      "element": "input",
-      "visibleName": "pA <",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "CellularLab:button:14",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 367,
-      "element": "button",
-      "visibleName": "运行仿真 {result && ( <span style={{ fontS",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "CellularLab:button:15",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 420,
-      "element": "button",
-      "visibleName": "用该电流跑 LIF <button",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "CellularLab:button:16",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 433,
-      "element": "button",
-      "visibleName": "用该电流跑 HH <p s",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "CellularLab:button:17",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 459,
-      "element": "button",
-      "visibleName": "把 dP 经 App 的 handleBiasChange 真实应用回主仿真（setBias），不是只显示",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "CellularLab:button:18",
-      "path": "app/src/components/CellularLab.tsx",
-      "line": 489,
-      "element": "button",
-      "visibleName": "计算细胞路线幅度 {ampNumbers ? ( <d",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:button:1",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 147,
-      "element": "button",
-      "visibleName": "关闭",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "DipoleLab:input:2",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 152,
-      "element": "input",
-      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:Dropdown:3",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 174,
-      "element": "Dropdown",
-      "visibleName": "电流源方向",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:input:4",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 179,
-      "element": "input",
-      "visibleName": "偶极矩强度",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:input:5",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 182,
-      "element": "input",
-      "visibleName": "导电率",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:Dropdown:6",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 185,
-      "element": "Dropdown",
-      "visibleName": "参考方式",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "DipoleLab:button:7",
-      "path": "app/src/components/DipoleLab.tsx",
-      "line": 191,
-      "element": "button",
-      "visibleName": "重置实验（回到手动偶极子） 示",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "EegAnalysisLab:button:1",
-      "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 236,
-      "element": "button",
-      "visibleName": "{t.label} ))} {!inli",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegAnalysisLab:button:2",
-      "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 248,
-      "element": "button",
-      "visibleName": "关闭 )} {",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegAnalysisLab:button:3",
-      "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 262,
-      "element": "button",
-      "visibleName": "用最近约 10 秒的直播快照推导一份 EEG 记录（六个 tab 共用）；改 G、换选区、改刺激强度后重跑，数值跟着变",
-      "events": [
-        "onClick"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:1",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 157,
-      "element": "Dropdown",
-      "visibleName": "eeg-source-model",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:2",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 171,
-      "element": "Dropdown",
-      "visibleName": "eeg-duration",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:input:3",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 185,
-      "element": "input",
-      "visibleName": "eeg-seed",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:4",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 198,
-      "element": "Dropdown",
-      "visibleName": "eeg-reference",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:5",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 219,
-      "element": "Dropdown",
-      "visibleName": "eeg-reference-electrode",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:6",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 236,
-      "element": "Dropdown",
-      "visibleName": "eeg-montage",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:Dropdown:7",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 251,
-      "element": "Dropdown",
-      "visibleName": "eeg-channel",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:input:8",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 268,
-      "element": "input",
-      "visibleName": "添加噪声（伪迹，非神经源） {noise && (",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:input:9",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 287,
-      "element": "input",
-      "visibleName": "{noise[key].toFixed(1)}",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:button:10",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 305,
-      "element": "button",
-      "visibleName": "{running ? '运行中…' : '运行实验'}",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "EegWaveTab:button:11",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 314,
-      "element": "button",
-      "visibleName": "导出 CSV <button ty",
-      "events": [
-        "onClick"
-      ],
-      "category": "EXPORT",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "EegWaveTab:button:12",
-      "path": "app/src/components/EegWaveTab.tsx",
-      "line": 322,
-      "element": "button",
-      "visibleName": "导出 JSON {fixtureError && <s",
-      "events": [
-        "onClick"
-      ],
-      "category": "EXPORT",
-      "modelBoundary": "Independent Raw producer and transforms",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "ErpTab:button:1",
-      "path": "app/src/components/ErpTab.tsx",
-      "line": 165,
-      "element": "button",
-      "visibleName": "切分试次（MNE 口径） <button t",
-      "events": [
-        "onClick"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Derived epochs or independent late oddball (not shared Raw)",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ErpTab:button:2",
-      "path": "app/src/components/ErpTab.tsx",
-      "line": 182,
-      "element": "button",
-      "visibleName": "运行独立 oddball（替换 ERP/TFR 试次） <p s",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Derived epochs or independent late oddball (not shared Raw)",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:1",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 428,
-      "element": "input",
-      "visibleName": "驱动 B（1/s） <input",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:2",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 430,
-      "element": "input",
-      "visibleName": "时长（ms） <input st",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:3",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 432,
-      "element": "input",
-      "visibleName": "运行对照</bu",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:4",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 433,
-      "element": "button",
-      "visibleName": "运行对照 {abError && <p style={note}",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:5",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 450,
-      "element": "button",
-      "visibleName": "源定位对照（深源 vs 浅源） <butt",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:6",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 453,
-      "element": "button",
-      "visibleName": "深度偏置对照（plain / depth / dSPM / eLORETA） </",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:7",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 472,
-      "element": "button",
-      "visibleName": "取直播 A（最近响应窗口） {liveAError && <p",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:8",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 487,
-      "element": "button",
-      "visibleName": "载入最近 10 秒直播快照 {liveTmError && <p",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:9",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 493,
-      "element": "input",
-      "visibleName": "E = {fmt(liveTm[",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:10",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 521,
-      "element": "button",
-      "visibleName": "跑到 2000 ms（事件 1000 ms，驱动 120 1/s） <button sty",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:11",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 522,
-      "element": "button",
-      "visibleName": "单步 +0.5 ms <button style={button} disabled={!",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:12",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 523,
-      "element": "button",
-      "visibleName": "恢复到回放点 {tmError && <p style={not",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:13",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 536,
-      "element": "input",
-      "visibleName": "y0 = {fmt(replay",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:14",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 551,
-      "element": "input",
-      "visibleName": "分支后驱动（1/s） <inpu",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:15",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 553,
-      "element": "input",
-      "visibleName": "<button style={button} disabled={!tm} onClick={handle",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:16",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 554,
-      "element": "button",
-      "visibleName": "从该点改参数重跑（分支） {tmBranchResult &&",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:Dropdown:17",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 571,
-      "element": "Dropdown",
-      "visibleName": "关（无控制对照） <",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:Dropdown:18",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 577,
-      "element": "Dropdown",
-      "visibleName": "瞬时 Pz（µV）",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:19",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 583,
-      "element": "input",
-      "visibleName": "测量噪声 RMS（µV） <in",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:20",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 585,
-      "element": "input",
-      "visibleName": "{clMode === 'threshold' && ( <",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:21",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 590,
-      "element": "input",
-      "visibleName": "触发输出（1/s，负值 = 抑制）",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:22",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 592,
-      "element": "input",
-      "visibleName": ")} {clMode === 'pid' && (",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:23",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 598,
-      "element": "input",
-      "visibleName": "Ki <input st",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:24",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 600,
-      "element": "input",
-      "visibleName": "Kd <input st",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:25",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 602,
-      "element": "input",
-      "visibleName": "设定点（特征单位） <i",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:26",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 604,
-      "element": "input",
-      "visibleName": ")}",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:27",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 608,
-      "element": "button",
-      "visibleName": "运行闭环（3 s，事件 1000 ms，驱动 300 1/s）",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:Dropdown:28",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 626,
-      "element": "Dropdown",
-      "visibleName": "瞬时 E（无量纲）",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:29",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 631,
-      "element": "input",
-      "visibleName": "反馈脉冲幅度（模型单位） <in",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:30",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 633,
-      "element": "input",
-      "visibleName": "触发上限（次） <input s",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:input:31",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 635,
-      "element": "input",
-      "visibleName": "{!clLiveRunning ? ( <button",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:32",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 637,
-      "element": "button",
-      "visibleName": "启动直播闭环 ) : (",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:33",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 649,
-      "element": "button",
-      "visibleName": "停止直播闭环 )} {(!liveSim || liveNode ==",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ExperimentLab:button:34",
-      "path": "app/src/components/ExperimentLab.tsx",
-      "line": 658,
-      "element": "button",
-      "visibleName": "关闭 ); }",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1900,130 +824,760 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:1",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 183,
+      "controlId": "CellularLab:button:1",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 290,
       "element": "button",
-      "visibleName": "关闭",
+      "visibleName": "LIF <button type=\"button\" style={btn(model === 'hh",
       "events": [
         "onClick"
       ],
-      "category": "NAV",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:2",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 186,
+      "controlId": "CellularLab:button:2",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 291,
       "element": "button",
-      "visibleName": "打开本地真实 MRI BEM",
+      "visibleName": "Hodgkin–Huxley <button type=\"button\" style={btn(mo",
       "events": [
         "onClick"
       ],
-      "category": "NAV",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:input:3",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 192,
+      "controlId": "CellularLab:button:3",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 292,
+      "element": "button",
+      "visibleName": "多房室神经元 {model === 'lif' && (",
+      "events": [
+        "onClick"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:4",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 302,
       "element": "input",
-      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
+      "visibleName": "lif-amp",
       "events": [
         "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:5",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 307,
+      "element": "input",
+      "visibleName": "pA <",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:6",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 316,
+      "element": "input",
+      "visibleName": "{' '}改用突触驱动（100 ms AMPA + 200 ms GABA，各 2 nS，无恒定电流）",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:7",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 330,
+      "element": "input",
+      "visibleName": "hh-amp",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:8",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 335,
+      "element": "input",
+      "visibleName": "uA/cm^2",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:9",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 353,
+      "element": "button",
+      "visibleName": "胞体 <button type=\"button\" style={btn(mcTarget =",
+      "events": [
+        "onClick"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:10",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 354,
+      "element": "button",
+      "visibleName": "顶树突 <button type=\"button\" style={btn(mcTarget",
+      "events": [
+        "onClick"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:11",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 355,
+      "element": "button",
+      "visibleName": "基树突",
+      "events": [
+        "onClick"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:12",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 359,
+      "element": "input",
+      "visibleName": "mc-amp",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:input:13",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 364,
+      "element": "input",
+      "visibleName": "pA <",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:14",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 374,
+      "element": "button",
+      "visibleName": "运行仿真 {result && ( <span style={{ fontS",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:15",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 428,
+      "element": "button",
+      "visibleName": "用该电流跑 LIF <button",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:16",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 441,
+      "element": "button",
+      "visibleName": "用该电流跑 HH <p s",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "CellularLab:button:17",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 467,
+      "element": "button",
+      "visibleName": "把 dP 经 App 的 handleBiasChange 真实应用回主仿真（setBias），不是只显示",
+      "events": [
+        "onClick"
       ],
       "category": "MIXED",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:4",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 216,
-      "element": "Dropdown",
-      "visibleName": "电极布局",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:5",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 224,
-      "element": "Dropdown",
-      "visibleName": "球形头电流源方向",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "HeadSphereLab:input:6",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 230,
-      "element": "input",
-      "visibleName": "球形头偶极矩",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:7",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 233,
-      "element": "Dropdown",
-      "visibleName": "球形头参考方式",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:8",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 240,
-      "element": "Dropdown",
-      "visibleName": "选中电极",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "HeadSphereLab:button:9",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 250,
+      "controlId": "CellularLab:button:18",
+      "path": "app/src/components/CellularLab.tsx",
+      "line": 497,
       "element": "button",
-      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
+      "visibleName": "计算细胞路线幅度 {ampNumbers ? ( <d",
       "events": [
         "onClick"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "modelBoundary": "Independent LIF/HH/multicompartment; conditional uncalibrated dP->LIVE bias",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ScenarioLauncher:button:1",
+      "path": "app/src/components/ScenarioLauncher.tsx",
+      "line": 127,
+      "element": "button",
+      "visibleName": "导出实验记录 JSON（{records.length} 条）",
+      "events": [
+        "onClick"
+      ],
+      "category": "EXPORT",
+      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ScenarioLauncher:button:2",
+      "path": "app/src/components/ScenarioLauncher.tsx",
+      "line": 130,
+      "element": "button",
+      "visibleName": "清空记录 <button type=\"button\"",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ScenarioLauncher:button:3",
+      "path": "app/src/components/ScenarioLauncher.tsx",
+      "line": 133,
+      "element": "button",
+      "visibleName": "关闭 {fixtureEr",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ScenarioLauncher:button:4",
+      "path": "app/src/components/ScenarioLauncher.tsx",
+      "line": 166,
+      "element": "button",
+      "visibleName": "{running ? '运行中…' : `运行 S${s.id}`}",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ScenarioLauncher:button:5",
+      "path": "app/src/components/ScenarioLauncher.tsx",
+      "line": 177,
+      "element": "button",
+      "visibleName": "仅导航到独立实验台；不会自动载入本次场景的模型状态、记录或计算结果",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegAnalysisLab:button:1",
+      "path": "app/src/components/EegAnalysisLab.tsx",
+      "line": 307,
+      "element": "button",
+      "visibleName": "{t.label} ))} {!inli",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegAnalysisLab:button:2",
+      "path": "app/src/components/EegAnalysisLab.tsx",
+      "line": 319,
+      "element": "button",
+      "visibleName": "关闭 )} {",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegAnalysisLab:button:3",
+      "path": "app/src/components/EegAnalysisLab.tsx",
+      "line": 333,
+      "element": "button",
+      "visibleName": "用最近约 10 秒的直播快照推导一份 EEG 记录（六个 tab 共用）；改 G、换选区、改刺激强度后重跑，数值跟着变",
+      "events": [
+        "onClick"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:1",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 157,
+      "element": "Dropdown",
+      "visibleName": "eeg-source-model",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:2",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 171,
+      "element": "Dropdown",
+      "visibleName": "eeg-duration",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:input:3",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 185,
+      "element": "input",
+      "visibleName": "eeg-seed",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:4",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 198,
+      "element": "Dropdown",
+      "visibleName": "eeg-reference",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:5",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 219,
+      "element": "Dropdown",
+      "visibleName": "eeg-reference-electrode",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:6",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 236,
+      "element": "Dropdown",
+      "visibleName": "eeg-montage",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:Dropdown:7",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 251,
+      "element": "Dropdown",
+      "visibleName": "eeg-channel",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:input:8",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 268,
+      "element": "input",
+      "visibleName": "添加噪声（伪迹，非神经源） {noise && (",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:input:9",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 287,
+      "element": "input",
+      "visibleName": "{noise[key].toFixed(1)}",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:button:10",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 305,
+      "element": "button",
+      "visibleName": "{running ? '运行中…' : '运行实验'}",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:button:11",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 314,
+      "element": "button",
+      "visibleName": "导出 CSV <button ty",
+      "events": [
+        "onClick"
+      ],
+      "category": "EXPORT",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegWaveTab:button:12",
+      "path": "app/src/components/EegWaveTab.tsx",
+      "line": 322,
+      "element": "button",
+      "visibleName": "导出 JSON {fixtureError && <s",
+      "events": [
+        "onClick"
+      ],
+      "category": "EXPORT",
+      "modelBoundary": "Independent Raw producer and transforms",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ErpTab:button:1",
+      "path": "app/src/components/ErpTab.tsx",
+      "line": 168,
+      "element": "button",
+      "visibleName": "切分试次（MNE 口径） <button t",
+      "events": [
+        "onClick"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derived epochs or independent late oddball (not shared Raw)",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ErpTab:button:2",
+      "path": "app/src/components/ErpTab.tsx",
+      "line": 185,
+      "element": "button",
+      "visibleName": "运行独立 oddball（替换 ERP/TFR 试次） <p s",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Derived epochs or independent late oddball (not shared Raw)",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:Dropdown:1",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 202,
+      "element": "Dropdown",
+      "visibleName": "Morlet 小波",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:Dropdown:2",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 210,
+      "element": "Dropdown",
+      "visibleName": "{(Object.keys(EEG_BANDS) as EegBandName[]).map((b)",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:input:3",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 261,
+      "element": "input",
+      "visibleName": "区域起始时间",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:input:4",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 262,
+      "element": "input",
+      "visibleName": "区域结束时间",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:input:5",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 268,
+      "element": "input",
+      "visibleName": "区域起始频率",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TfrTab:input:6",
+      "path": "app/src/components/TfrTab.tsx",
+      "line": 269,
+      "element": "input",
+      "visibleName": "区域结束频率",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Derivative EpochSet power/ITC",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:input:1",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 148,
+      "element": "input",
+      "visibleName": "地形时刻",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:button:2",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 161,
+      "element": "button",
+      "visibleName": "跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {ma",
+      "events": [
+        "onClick"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:input:3",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 240,
+      "element": "input",
+      "visibleName": "源 Y：",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:input:4",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 244,
+      "element": "input",
+      "visibleName": "源 Z：",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:input:5",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 248,
+      "element": "input",
+      "visibleName": "矩方向：",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:Dropdown:6",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 252,
+      "element": "Dropdown",
+      "visibleName": "X <o",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:input:7",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 260,
+      "element": "input",
+      "visibleName": "偶极矩",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "TopoTab:Dropdown:8",
+      "path": "app/src/components/TopoTab.tsx",
+      "line": 265,
+      "element": "Dropdown",
+      "visibleName": "average（减 345 点均值）</opt",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:1",
@@ -2037,7 +1591,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:2",
@@ -2051,7 +1605,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:3",
@@ -2065,7 +1619,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:Dropdown:4",
@@ -2079,7 +1633,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:5",
@@ -2093,7 +1647,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:Dropdown:6",
@@ -2107,7 +1661,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:7",
@@ -2121,7 +1675,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:8",
@@ -2135,7 +1689,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "InverseTab:input:9",
@@ -2149,7 +1703,217 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Independent inverse/source experiment",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "WavesTab:input:1",
+      "path": "app/src/components/WavesTab.tsx",
+      "line": 141,
+      "element": "input",
+      "visibleName": "叠加噪声背景",
+      "events": [
+        "onChange"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "PSD from current recording",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:1",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 203,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE four-layer forward model; rendered source controls update computed sensor potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:2",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 210,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE four-layer forward model; rendered source controls update computed sensor potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:3",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 216,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE four-layer forward model; rendered source controls update computed sensor potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:4",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 221,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE four-layer forward model; rendered source controls update computed sensor potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:5",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 229,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE four-layer forward model; rendered source controls update computed sensor potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:6",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 240,
+      "element": "button",
+      "visibleName": "关闭",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:7",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 243,
+      "element": "button",
+      "visibleName": "打开本地真实 MRI BEM",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:input:8",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 249,
+      "element": "input",
+      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:9",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 273,
+      "element": "Dropdown",
+      "visibleName": "电极布局",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:10",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 281,
+      "element": "Dropdown",
+      "visibleName": "球形头电流源方向",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:input:11",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 287,
+      "element": "input",
+      "visibleName": "球形头偶极矩",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:12",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 290,
+      "element": "Dropdown",
+      "visibleName": "球形头参考方式",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:13",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 297,
+      "element": "Dropdown",
+      "visibleName": "选中电极",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:14",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 307,
+      "element": "button",
+      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:button:1",
@@ -2177,7 +1941,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:3",
@@ -2191,7 +1955,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:4",
@@ -2205,7 +1969,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:5",
@@ -2219,7 +1983,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:input:6",
@@ -2233,7 +1997,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:7",
@@ -2247,7 +2011,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:button:8",
@@ -2261,7 +2025,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:button:9",
@@ -2275,7 +2039,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:button:10",
@@ -2289,7 +2053,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:input:11",
@@ -2303,7 +2067,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:12",
@@ -2317,7 +2081,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:Dropdown:13",
@@ -2331,7 +2095,7 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "LocalBEMLab:button:14",
@@ -2345,135 +2109,103 @@
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ParamControl:button:1",
-      "path": "app/src/components/ParamControl.tsx",
-      "line": 125,
-      "element": "button",
-      "visibleName": "减小",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Reusable slider delegate to App network parameter commands",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ParamControl:input:2",
-      "path": "app/src/components/ParamControl.tsx",
-      "line": 135,
-      "element": "input",
-      "visibleName": "<button type=\"button\" className=\"param-s",
-      "events": [
-        "onChange",
-        "onDoubleClick",
-        "onKeyDown"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Reusable slider delegate to App network parameter commands",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ParamControl:button:3",
-      "path": "app/src/components/ParamControl.tsx",
-      "line": 153,
-      "element": "button",
-      "visibleName": "增大",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Reusable slider delegate to App network parameter commands",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ParamControl:input:4",
-      "path": "app/src/components/ParamControl.tsx",
-      "line": 163,
-      "element": "input",
-      "visibleName": "{modelText}</di",
-      "events": [
-        "onChange",
-        "onBlur",
-        "onKeyDown"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Reusable slider delegate to App network parameter commands",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "ScenarioLauncher:button:1",
-      "path": "app/src/components/ScenarioLauncher.tsx",
-      "line": 125,
-      "element": "button",
-      "visibleName": "导出实验记录 JSON（{records.length} 条）",
-      "events": [
-        "onClick"
-      ],
-      "category": "EXPORT",
-      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
-      "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
-      "controlId": "ScenarioLauncher:button:2",
-      "path": "app/src/components/ScenarioLauncher.tsx",
-      "line": 128,
+      "controlId": "DipoleLab:button:1",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 147,
       "element": "button",
-      "visibleName": "清空记录 <button type=\"button\"",
+      "visibleName": "关闭",
       "events": [
         "onClick"
       ],
       "category": "NAV",
-      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
-      "controlId": "ScenarioLauncher:button:3",
-      "path": "app/src/components/ScenarioLauncher.tsx",
-      "line": 131,
-      "element": "button",
-      "visibleName": "关闭 {fixtureEr",
+      "controlId": "DipoleLab:input:2",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 152,
+      "element": "input",
+      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
       "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "ScenarioLauncher:button:4",
-      "path": "app/src/components/ScenarioLauncher.tsx",
-      "line": 164,
-      "element": "button",
-      "visibleName": "{running ? '运行中…' : `运行 S${s.id}`}",
-      "events": [
-        "onClick"
+        "onChange"
       ],
       "category": "MIXED",
-      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "ScenarioLauncher:button:5",
-      "path": "app/src/components/ScenarioLauncher.tsx",
-      "line": 175,
+      "controlId": "DipoleLab:Dropdown:3",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 174,
+      "element": "Dropdown",
+      "visibleName": "电流源方向",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "DipoleLab:input:4",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 179,
+      "element": "input",
+      "visibleName": "偶极矩强度",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "DipoleLab:input:5",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 182,
+      "element": "input",
+      "visibleName": "导电率",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "DipoleLab:Dropdown:6",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 185,
+      "element": "Dropdown",
+      "visibleName": "参考方式",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "DipoleLab:button:7",
+      "path": "app/src/components/DipoleLab.tsx",
+      "line": 191,
       "element": "button",
-      "visibleName": "仅导航到独立实验台；不会自动载入本次场景的模型状态、记录或计算结果",
+      "visibleName": "重置实验（回到手动偶极子） 示",
       "events": [
         "onClick"
       ],
-      "category": "NAV",
-      "modelBoundary": "S1-3 LIVE; S4-15 independent summarized experiments, navigation only to labs",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -2769,7 +2501,7 @@
       "category": "MIXED",
       "modelBoundary": "Analytic field and optional simplified LIVE pulse under uncertain coupling",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "StimLab:input:22",
@@ -2811,7 +2543,7 @@
       "category": "MIXED",
       "modelBoundary": "Analytic field and optional simplified LIVE pulse under uncertain coupling",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
       "controlId": "StimLab:button:25",
@@ -2881,217 +2613,755 @@
       "category": "MIXED",
       "modelBoundary": "Analytic field and optional simplified LIVE pulse under uncertain coupling",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TfrTab:Dropdown:1",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 202,
-      "element": "Dropdown",
-      "visibleName": "Morlet 小波",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "TfrTab:Dropdown:2",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 210,
-      "element": "Dropdown",
-      "visibleName": "{(Object.keys(EEG_BANDS) as EegBandName[]).map((b)",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "TfrTab:input:3",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 261,
+      "controlId": "ExperimentLab:input:1",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 428,
       "element": "input",
-      "visibleName": "区域起始时间",
+      "visibleName": "驱动 B（1/s） <input",
       "events": [
         "onChange"
       ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TfrTab:input:4",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 262,
+      "controlId": "ExperimentLab:input:2",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 430,
       "element": "input",
-      "visibleName": "区域结束时间",
+      "visibleName": "时长（ms） <input st",
       "events": [
         "onChange"
       ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TfrTab:input:5",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 268,
+      "controlId": "ExperimentLab:input:3",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 432,
       "element": "input",
-      "visibleName": "区域起始频率",
+      "visibleName": "运行对照</bu",
       "events": [
         "onChange"
       ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TfrTab:input:6",
-      "path": "app/src/components/TfrTab.tsx",
-      "line": 269,
-      "element": "input",
-      "visibleName": "区域结束频率",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Derivative EpochSet power/ITC",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "TopoTab:input:1",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 145,
-      "element": "input",
-      "visibleName": "地形时刻",
-      "events": [
-        "onChange"
-      ],
-      "category": "DERIVED",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "TopoTab:button:2",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 158,
+      "controlId": "ExperimentLab:button:4",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 433,
       "element": "button",
-      "visibleName": "跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {ma",
+      "visibleName": "运行对照 {abError && <p style={note}",
       "events": [
         "onClick"
       ],
-      "category": "DERIVED",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TopoTab:input:3",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 237,
+      "controlId": "ExperimentLab:button:5",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 450,
+      "element": "button",
+      "visibleName": "源定位对照（深源 vs 浅源） <butt",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:6",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 453,
+      "element": "button",
+      "visibleName": "深度偏置对照（plain / depth / dSPM / eLORETA） </",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:7",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 472,
+      "element": "button",
+      "visibleName": "取直播 A（最近响应窗口） {liveAError && <p",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:8",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 487,
+      "element": "button",
+      "visibleName": "载入最近 10 秒直播快照 {liveTmError && <p",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:9",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 493,
       "element": "input",
-      "visibleName": "源 Y：",
+      "visibleName": "E = {fmt(liveTm[",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:10",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 521,
+      "element": "button",
+      "visibleName": "跑到 2000 ms（事件 1000 ms，驱动 120 1/s） <button sty",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:11",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 522,
+      "element": "button",
+      "visibleName": "单步 +0.5 ms <button style={button} disabled={!",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:12",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 523,
+      "element": "button",
+      "visibleName": "恢复到回放点 {tmError && <p style={not",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:13",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 536,
+      "element": "input",
+      "visibleName": "y0 = {fmt(replay",
       "events": [
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TopoTab:input:4",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 241,
+      "controlId": "ExperimentLab:input:14",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 551,
       "element": "input",
-      "visibleName": "源 Z：",
+      "visibleName": "分支后驱动（1/s） <inpu",
       "events": [
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TopoTab:input:5",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 245,
+      "controlId": "ExperimentLab:input:15",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 553,
       "element": "input",
-      "visibleName": "矩方向：",
+      "visibleName": "<button style={button} disabled={!tm} onClick={handle",
       "events": [
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TopoTab:Dropdown:6",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 249,
+      "controlId": "ExperimentLab:button:16",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 554,
+      "element": "button",
+      "visibleName": "从该点改参数重跑（分支） {tmBranchResult &&",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:Dropdown:17",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 571,
       "element": "Dropdown",
-      "visibleName": "X <o",
+      "visibleName": "关（无控制对照） <",
       "events": [
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "TopoTab:input:7",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 257,
-      "element": "input",
-      "visibleName": "偶极矩",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
-    },
-    {
-      "controlId": "TopoTab:Dropdown:8",
-      "path": "app/src/components/TopoTab.tsx",
-      "line": 262,
+      "controlId": "ExperimentLab:Dropdown:18",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 577,
       "element": "Dropdown",
-      "visibleName": "average（减 345 点均值）</opt",
+      "visibleName": "瞬时 Pz（µV）",
       "events": [
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
     },
     {
-      "controlId": "WavesTab:input:1",
-      "path": "app/src/components/WavesTab.tsx",
-      "line": 141,
+      "controlId": "ExperimentLab:input:19",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 583,
       "element": "input",
-      "visibleName": "叠加噪声背景",
+      "visibleName": "测量噪声 RMS（µV） <in",
       "events": [
         "onChange"
       ],
-      "category": "DERIVED",
-      "modelBoundary": "PSD from current recording",
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
       "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": true
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:20",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 585,
+      "element": "input",
+      "visibleName": "{clMode === 'threshold' && ( <",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:21",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 590,
+      "element": "input",
+      "visibleName": "触发输出（1/s，负值 = 抑制）",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:22",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 592,
+      "element": "input",
+      "visibleName": ")} {clMode === 'pid' && (",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:23",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 598,
+      "element": "input",
+      "visibleName": "Ki <input st",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:24",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 600,
+      "element": "input",
+      "visibleName": "Kd <input st",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:25",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 602,
+      "element": "input",
+      "visibleName": "设定点（特征单位） <i",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:26",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 604,
+      "element": "input",
+      "visibleName": ")}",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:27",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 608,
+      "element": "button",
+      "visibleName": "运行闭环（3 s，事件 1000 ms，驱动 300 1/s）",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:Dropdown:28",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 626,
+      "element": "Dropdown",
+      "visibleName": "瞬时 E（无量纲）",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:29",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 631,
+      "element": "input",
+      "visibleName": "反馈脉冲幅度（模型单位） <in",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:30",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 633,
+      "element": "input",
+      "visibleName": "触发上限（次） <input s",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:input:31",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 635,
+      "element": "input",
+      "visibleName": "{!clLiveRunning ? ( <button",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:32",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 637,
+      "element": "button",
+      "visibleName": "启动直播闭环 ) : (",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:33",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 649,
+      "element": "button",
+      "visibleName": "停止直播闭环 )} {(!liveSim || liveNode ==",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ExperimentLab:button:34",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 658,
+      "element": "button",
+      "visibleName": "关闭 ); }",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ActivityChart:button:1",
+      "path": "app/src/components/ActivityChart.tsx",
+      "line": 304,
+      "element": "button",
+      "visibleName": "{t} ))} </span",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Read-only LIVE E/I chart",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ParamControl:button:1",
+      "path": "app/src/components/ParamControl.tsx",
+      "line": 125,
+      "element": "button",
+      "visibleName": "减小",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Reusable slider delegate to App network parameter commands",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ParamControl:input:2",
+      "path": "app/src/components/ParamControl.tsx",
+      "line": 135,
+      "element": "input",
+      "visibleName": "<button type=\"button\" className=\"param-s",
+      "events": [
+        "onChange",
+        "onDoubleClick",
+        "onKeyDown"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Reusable slider delegate to App network parameter commands",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ParamControl:button:3",
+      "path": "app/src/components/ParamControl.tsx",
+      "line": 153,
+      "element": "button",
+      "visibleName": "增大",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Reusable slider delegate to App network parameter commands",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ParamControl:input:4",
+      "path": "app/src/components/ParamControl.tsx",
+      "line": 163,
+      "element": "input",
+      "visibleName": "{modelText}</di",
+      "events": [
+        "onChange",
+        "onBlur",
+        "onKeyDown"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Reusable slider delegate to App network parameter commands",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:1",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 41,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:2",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 42,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:3",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 51,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:4",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 61,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:5",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 62,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:6",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 76,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "SELECTION",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:7",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 85,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:8",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 93,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:9",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 100,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:10",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 101,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ControlField:input:1",
+      "path": "app/src/components/ui/ControlField.tsx",
+      "line": 14,
+      "element": "input",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Shared input primitive; forwards committed bounded values to the caller's numerical model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "ControlField:input:2",
+      "path": "app/src/components/ui/ControlField.tsx",
+      "line": 16,
+      "element": "input",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange",
+        "onBlur",
+        "onKeyDown"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Shared input primitive; forwards committed bounded values to the caller's numerical model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LanguageSwitch:button:1",
+      "path": "app/src/components/ui/LanguageSwitch.tsx",
+      "line": 6,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LanguageSwitch:button:2",
+      "path": "app/src/components/ui/LanguageSwitch.tsx",
+      "line": 8,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
     }
   ]
 }
