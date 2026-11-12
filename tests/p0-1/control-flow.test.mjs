@@ -138,8 +138,8 @@ test('P0-1B: explicit non-JSX gesture, wheel, and multi-view causal observers re
   const scene = source('app/src/components/BrainScene.tsx');
   for (const name of ['pointermove', 'pointerrawupdate', 'pointerdown', 'pointerup',
                       'pointercancel', 'pointerleave', 'dblclick']) {
-    assert.match(scene, new RegExp('addEventListener\\\\(\\\\s*[\\\"\\\']' + name + '[\\\"\\\']'),
-      `3D canvas missing native ${name} registration`);
+    const nativeListener = new RegExp(String.raw`addEventListener\s*\(\s*['"]${name}['"]`);
+    assert.match(scene, nativeListener, `3D canvas missing native ${name} registration`);
   }
   assert.match(scene, /if \(!e\.isPrimary \|\| \(e\.pointerType === 'mouse' && e\.button !== 0\)\) return;/);
   assert.match(scene, /if \(!pointerDown \|\| !e\.isPrimary\) return;/);
