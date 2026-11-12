@@ -27,14 +27,13 @@
     },
     "byScope": {
       "VISUAL": 16,
-      "REVIEW": 1,
+      "LIVE": 17,
       "NAV": 27,
-      "LIVE": 16,
-      "MIXED": 19,
+      "MIXED": 17,
       "SELECTION": 3,
       "DIAGNOSTIC": 2,
       "CONFIG": 45,
-      "INDEPENDENT": 67,
+      "INDEPENDENT": 69,
       "EXPORT": 3,
       "DERIVED": 13
     }
@@ -87,7 +86,7 @@
         "onChange",
         "onDoubleClick"
       ],
-      "category": "REVIEW",
+      "category": "LIVE",
       "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": true
@@ -729,7 +728,7 @@
       "path": "app/src/components/ExplorePanel.tsx",
       "line": 217,
       "element": "button",
-      "visibleName": "试解析 mni152-mm <button type",
+      "visibleName": "调试：拒绝未配准的 MNI152",
       "events": [
         "onClick"
       ],
@@ -743,7 +742,7 @@
       "path": "app/src/components/ExplorePanel.tsx",
       "line": 220,
       "element": "button",
-      "visibleName": "试解析 talairach-mm",
+      "visibleName": "调试：拒绝未配准的 Talairach",
       "events": [
         "onClick"
       ],
@@ -1741,7 +1740,7 @@
       "events": [
         "onChange"
       ],
-      "category": "MIXED",
+      "category": "INDEPENDENT",
       "modelBoundary": "Independent MNE sphere forward; optionally uncalibrated LIVE source",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": true
@@ -2035,7 +2034,7 @@
       "events": [
         "onChange"
       ],
-      "category": "MIXED",
+      "category": "INDEPENDENT",
       "modelBoundary": "Analytic infinite conductor source; optionally uncalibrated LIVE source",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": true
