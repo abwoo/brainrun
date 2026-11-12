@@ -125,6 +125,6 @@ export type WorkerOutMessage =
       phase: 'accepted' | 'applied' }
   | Snapshot
   | { type: 'mode_applied'; params: ModeParams }
-  | { type: 'snapshot_saved'; id: string; t_ms: number; json: string }
-  | { type: 'snapshot_restored'; id: string; t_ms: number }
+  | { type: 'snapshot_saved'; id: string; t_ms: number; json: string; run_id?: string }
+  | { type: 'snapshot_restored'; id: string; t_ms: number; run_id?: string }
   | { type: 'error'; message: string };
