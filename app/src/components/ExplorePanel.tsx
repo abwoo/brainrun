@@ -215,10 +215,10 @@ export default function ExplorePanel({
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="chip chip-small" onClick={() => probeDisabledSpace('mni152-mm')}>
-            试解析 mni152-mm
+            调试：拒绝未配准的 MNI152
           </button>
           <button type="button" className="chip chip-small" onClick={() => probeDisabledSpace('talairach-mm')}>
-            试解析 talairach-mm
+            调试：拒绝未配准的 Talairach
           </button>
         </div>
         {coordProbe && <p style={note}>{coordProbe}</p>}
