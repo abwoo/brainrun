@@ -51,13 +51,18 @@ function fmtVec(v: readonly number[]): string {
 
 export default function ExplorePanel({
   data,
+  selectedRegionId,
+  onSelectRegion,
   onOpenCellular,
 }: {
   data: BrainData | null;
+  /** Main-scene selection is the single source of truth. */
+  selectedRegionId: number | null;
+  onSelectRegion: (id: number) => void;
   onOpenCellular: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<number | null>(40);
+  const selectedId = selectedRegionId;
   const [src, setSrc] = useState<Vec3Mm>([0, 0, 16]);
   const [coordProbe, setCoordProbe] = useState<string | null>(null);
 
@@ -95,6 +100,7 @@ export default function ExplorePanel({
     <div>
       <div style={panel}>
         <h3 style={title}>脑区浏览器 — TVB 演示连接组（76 区）</h3>
+        <p style={note}>点选下面的脑区会同步选中主三维大脑与 LIVE ACTIVITY；仅选择，不施加刺激。</p>
         <p style={note}>
           数据：TVB 示例 connectivity_76（权重主要来自猕猴 CoCoMac，胼胝体为人类 DSI 缩放；
           不是某个真人的连接网络）。中心坐标是 TVB 演示坐标（tvb-demo-mm），
@@ -115,7 +121,9 @@ export default function ExplorePanel({
               <button
                 key={r.id}
                 type="button"
-                onClick={() => setSelectedId(r.id)}
+                onClick={() => onSelectRegion(r.id)}
+                aria-pressed={selectedId === r.id}
+                title="同步选中主三维大脑中的同一脑区（不施加刺激）"
                 style={{
                   display: 'block', width: '100%', textAlign: 'left',
                   background: selectedId === r.id ? '#13293a' : 'transparent',
