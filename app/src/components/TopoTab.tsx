@@ -69,7 +69,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
   }, [fixture, fetchedFixture]);
 
   const topo = useMemo(() => {
-    if (!recording) return null;
+    if (!recording || recording.channels.length < 3) return null;
     try {
       return topoAtTime(recording, atTimeMs);
     } catch {
@@ -128,6 +128,9 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
       </div>
     );
   }
+  if (recording.channels.length < 3) return (
+    <div role="status">当前记录只有单通道；需要多电极数据才能计算头皮地形。请在 EEG 页运行多导实验。</div>
+  );
   const tMin = recording.timesMs[0];
   const tMax = recording.timesMs[recording.timesMs.length - 1];
   const maxAbsTopo = topo ? Math.max(0.001, ...topo.electrodeValues.map((e) => Math.abs(e.valueUv))) : 1;

@@ -341,7 +341,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
               ? 'WC'
               : recording.sourceModelId === 'local-jansen-rit-assumed-dipole-v1'
                 ? 'JR'
-                : 'WC + JR'} · 种子 {recording.seed}
+                : recording.sourceModelId.includes('late') ? 'JR + late' : 'WC + JR'} · 种子 {recording.seed}
             {selectedStats && (
               <>
                 {' '}· {selectedChannel}：最大 |V| {selectedStats.maxAbs.toFixed(2)} µV，

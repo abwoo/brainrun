@@ -75,7 +75,7 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
 
   // 对当前记录：全通道 RMS 最大的采样点。
   const onRecording = useMemo(() => {
-    if (!recording || !fixture) return null;
+    if (!recording || !fixture || recording.channels.length < 3) return null;
     try {
       const nT = recording.timesMs.length;
       let bestJ = 0;
