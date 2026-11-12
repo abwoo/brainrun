@@ -13,7 +13,7 @@ try {
  const page=await browser.newPage({viewport:{width:1600,height:900}});
  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
  await page.goto(url,{waitUntil:'domcontentloaded'});
- await page.waitForFunction(()=>window.__brainSim?.isReady?.()===true,null,{timeout:60000});
+ await page.waitForFunction(()=>window.__brainSim?.isReady?.()===true && window.__brainSim.getSnapshot()?.t_ms>=0,null,{timeout:60000});
  const get=()=>page.evaluate(()=>window.__brainSim.getExperimentSession());
  const first=await get();
  assert.equal(first.provenance.origin,'live-wasm');
