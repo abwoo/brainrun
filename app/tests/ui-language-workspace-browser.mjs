@@ -21,8 +21,8 @@ try {
  }
  await page.addStyleTag({content:fontCss});
  await page.evaluate(()=>{
-  document.documentElement.style.setProperty('--sans','system-ui, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif');
-  document.documentElement.style.setProperty('--mono','ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans SC", monospace');
+  document.documentElement.style.setProperty('--sans','"Noto Sans SC", system-ui, "Helvetica Neue", Arial, sans-serif');
+  document.documentElement.style.setProperty('--mono','"Noto Sans SC", ui-monospace, "SF Mono", Menlo, Consolas, monospace');
  });
  await page.evaluate(()=>document.fonts.load('16px "Noto Sans SC"','中文物理模型'));
  await page.getByTestId('physics-home').waitFor();
@@ -66,7 +66,13 @@ try {
  await collect('manual-electric');
  await mkdir('../tests/ui/screenshots',{recursive:true});
  const shot=async(name,embed=false)=>{
-  await page.evaluate(async()=>{ await document.fonts.ready; });
+  await page.evaluate(async()=>{
+   document.body.getBoundingClientRect();
+   for(const weight of [400,600,700]){
+    await document.fonts.load(weight+' 16px "Noto Sans SC"',document.body.innerText);
+   }
+   await document.fonts.ready;
+  });
   const bytes=await page.screenshot({type:'jpeg',quality:55,fullPage:true});
   await writeFile('../tests/ui/screenshots/'+name+'.jpg',bytes);
   if(embed)console.log('SCREENSHOT_'+name.toUpperCase()+'='+bytes.toString('base64'));
