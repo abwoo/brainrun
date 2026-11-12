@@ -197,7 +197,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
       <div className="control-step"><span>1</span><h2>{text('移动电流源','Move the source')}</h2></div>
       <p className="plain-explanation">{text('直接拖动橙色源点；也可以用下面三个滑杆精确调整。','Drag the orange point, or use these sliders for precise positioning.')}</p>
       {([0,1,2] as const).map(i=><RangeControl key={i} label={text(['左右位置','前后位置','上下位置'][i],['Left–right position','Front–back position','Vertical position'][i])}
-        value={position[i]} min={-48} max={48} step={1} unit="mm" onChange={value=>setPosition(prev=>prev.map((v,k)=>k===i?value:v) as Vec3Mm)}/>)}
+        value={position[i]} min={-48} max={48} step={1} unit="mm" onChange={value=>setPosition(prev=>[i===0?value:prev[0],i===1?value:prev[1],i===2?value:prev[2]])}/>)}
       <div className="control-step"><span>2</span><h2>{text('调整方向与强度','Set direction and strength')}</h2></div>
       <ControlField label={text('电流方向','Current direction')} hint={text('箭头表示方向；改变方向会改变各测量点的电位。','The arrow shows direction. Changing it changes the measured potentials.')}>
         <Dropdown aria-label={text('电流方向','Current direction')} value={axis} onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>

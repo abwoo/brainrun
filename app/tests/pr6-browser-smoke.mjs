@@ -85,7 +85,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.goto(BASE+'#advanced', { waitUntil: 'domcontentloaded' });
 
   await page.getByRole('button', { name: 'EEG 分析', exact: true }).click({ timeout: 60000 });
   const dialog = page.getByRole('dialog', { name: 'EEG 分析实验' });
