@@ -126,7 +126,9 @@ try {
   assert.match(edgeName,/^\d+-\d+$/);
   const [targetNode,sourceNode]=edgeName.split('-').map(Number);
   const wBefore=await sim(([i,j])=>window.__brainSim.getWeight(i,j),[targetNode,sourceNode]);
-  await edge.locator('button.edge-step').last().click();
+  // Top-weight edge is guaranteed >0 but may already be at max=3;
+  // decrement is a valid, non-clamped UI edit in either case.
+  await edge.locator('button.edge-step').first().click();
   const wAfter=await sim(([i,j])=>window.__brainSim.getWeight(i,j),[targetNode,sourceNode]);
   assert.notEqual(wAfter,wBefore,'edge plus button must update the actual network adjacency');
   await edge.getByRole('button',{name:'恢复原始值'}).click();
