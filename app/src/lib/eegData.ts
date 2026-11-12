@@ -11,6 +11,7 @@
  */
 import type { Vec3Mm } from './volumeConduction.ts';
 import type { MontageKey } from './sphereForward.ts';
+import type { ExperimentProvenance } from './experimentSession';
 
 export interface EegChannel {
   label: string;
@@ -34,6 +35,13 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  /** Optional P0-2 provenance; absent in legacy scientific fixtures. */
+  provenance?: ExperimentProvenance & {
+    /** Derived/live signal origin in absolute Worker ms, not resampled time. */
+    upstreamStartMs?: number;
+    /** Observed display-snapshot rate, NOT native EEG source sample rate. */
+    effectiveSourceSnapshotHz?: number;
+  };
   /** 采样率，Hz（默认 250，与 ds003061 一致）。 */
   sfreqHz: number;
   /** 采样时刻，ms。 */
@@ -63,6 +71,8 @@ export interface EegRecording {
 
 export interface EegEvent {
   id: number;
+  /** Source run lineage. For recordings, tMs remains recording-relative. */
+  runId?: string;
   type: 'standard' | 'oddball' | 'noise' | 'pulse';
   /** 仿真时钟上的时间戳，ms（不是浏览器墙钟）。 */
   tMs: number;
@@ -74,6 +84,8 @@ export interface EegEvent {
 }
 
 export interface EpochSet {
+  /** Parent run of the original Raw, or a separate independent late-ERP run. */
+  provenance?: ExperimentProvenance;
   tminMs: number;
   tmaxMs: number;
   /** 基线窗，ms，如 [-200, 0]。 */
