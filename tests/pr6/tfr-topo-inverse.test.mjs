@@ -283,7 +283,7 @@ test('PR-12 盲测无噪声配置：与 Python fixture 逐项对照（偶极子�
     assertCloseArray(r.dipole.estimatedMomentNAm, cfg.dipole.estimated_moment_nAm, 0, 1e-6, `${cfg.montage} dipole moment`);
     assert.ok(r.dipole.residualRmsUv < 1e-9, `${cfg.montage} dipole residual ${r.dipole.residualRmsUv}`);
     assert.equal(r.dipole.localizationErrorMm, 0, `${cfg.montage} dipole error`);
-    // MNE：峰值位置精确相等、峰值相对 1e-4、分布范围相对 1e-5
+    // MNE：峰值位置精确相等、峰值相对 1e-4、分布范围相对 1e-4
     // （2026-11-12 PR7 CI 再修：峰值原 1e-5 不够。CI 现场重算的
     // 球形正向模型在不同 CPU 上的增益差异是非均匀的，约 3e-6
     // 相对；8 种子非均匀扰动实测峰值相对误差最大 1.92e-5，6/8
@@ -291,11 +291,17 @@ test('PR-12 盲测无噪声配置：与 Python fixture 逐项对照（偶极子�
     // 1e-4 留约 5 倍余量，仍比盲测的科学量级——峰值网格点相等、
     // 相关 > 0.98——严得多，位置断言仍精确相等，真实回归会被
     // 位置断言抓住）。
+    // 2026-11-12 PR8 CI 再修：spread 原 1e-5 也不够。PR #9 的 CI
+    // 上 spread 相对误差 1.49e-05；PR7 的 8 种子只测到最大 4.4e-6，
+    // 64 种子 σ=3.2e-6 最大 6.1e-6，σ=1e-5 扰动最大 1.67e-05，与
+    // CI 值同量级；逆解求解路径本身已证稳定（条件数 21–4052、
+    // 不同求解驱动逐位相同），漂移只来自 CI 现场重算的球形增益。
+    // spread 与峰值同改 1e-4，约 6 倍余量；位置/矩/残差断言不动。
     assert.deepEqual(r.mne.estimatedPositionMm, cfg.mne.estimated_position_mm, `${cfg.montage} MNE position`);
     const peakErr = Math.abs(r.mne.peakValue - cfg.mne.peak_value) / Math.max(1e-12, Math.abs(cfg.mne.peak_value));
     assert.ok(peakErr <= 1e-4, `${cfg.montage} MNE peak rel err ${peakErr}`);
     const spreadErr = Math.abs(r.mne.spreadMm - cfg.mne.spread_mm) / Math.max(1e-12, cfg.mne.spread_mm);
-    assert.ok(spreadErr <= 1e-5, `${cfg.montage} MNE spread rel err ${spreadErr}`);
+    assert.ok(spreadErr <= 1e-4, `${cfg.montage} MNE spread rel err ${spreadErr}`);
     assert.equal(r.mne.localizationErrorMm, cfg.mne.localization_error_mm, `${cfg.montage} MNE error`);
   }
 });

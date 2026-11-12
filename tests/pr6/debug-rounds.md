@@ -268,3 +268,73 @@ python3 scripts/push-to-pr6-branch.py
   失败、job 长时间停在 in_progress（27 个测试步骤全 success）——
   与日志下载 502 同期，疑似 GitHub Actions 基础设施抖动，待
   后续复核。
+
+## 2026-11-12 PR8 CI 再修：fixture atol 1e-12 → 1e-7、盲测 spread 1e-5 → 1e-4（修补执行人）
+- 现象：PR #9（分支 pr8-polish-release，提交 5b275f6）的 CI run
+  43117093094 failure，唯一失败点仍是 eeg-analysis job 第 8 步
+  「PR6 Python methodology tests」，2 个用例失败；另一路 PR5 基线
+  run 43117093169 success。其余步骤因该步失败被跳过。本地
+  （eeg-venv）Python 45/45 全绿。
+- 2 个失败用例（CI 日志原文，把关人已核实）：
+  1. test_regenerated_fixture_matches_stored：fixture.run_wc.q_nAm[20]
+     4.800215780420558e-12 vs -1.1102230246251565e-16（容差 atol 1e-12）；
+  2. test_blind_table_freshness：mne spread rel err 1.49e-05（容差 1e-5）。
+- 先查是否 PR8 回归：`git diff 453e5707..HEAD` 在 WC→q 管线
+  （scientific/eeg/eeg_reference.py）、球形正向模型
+  （scientific/forward/generate_sphere_model.py、
+  scientific/eeg/inverse_reference.py）、两个测试文件、fixture、
+  forward-assets 上全部为空；PR8 只新增了 TES/TMS 的
+  scientific/forward/stimulation_reference.py。本地重算 fixture
+  与存量逐位相同（差 0）。不是代码回归，是跨环境浮点确定性。
+- 根本原因 1（fixture q_nAm）：PR6 修补取 atol=1e-12 的理由
+  （“DOP853 自己的 atol”）是错的——atol 是单步误差控制，不保证
+  不同 CPU 上两次运行的累积差。实测：WC 柱模型基线（root 解）
+  ±1 ulp 扰动（20 变体，E0/I0/双向），q 轨迹最大漂移 1.28e-09…
+  1.66e-08（最大值 -1ulp 双向，idx 77，刺激前；中位数 ~3e-9）；
+  rtol 收紧对照（1e-10→1e-12）最大 6.58e-09（idx 483，该点存量
+  本就是 6.58e-09、真值 ~0）；漂移不随扰动大小缩放（1/10/100 ulp
+  同为 ~1e-9 量级）——是 DOP853 自适应步长控制器把末位差异放大
+  到积分器误差底，不是输入差异本身。CI 在 q_nAm[20] 的 4.8e-12
+  落在该误差底内。E 分量单独扰动几乎无影响（~3e-16），I 分量
+  主导放大。
+- 根本原因 2（盲测 spread）：CI 的 spread 1.49e-05 超出 PR7 的
+  8 种子模型（最大 4.4e-6）。复测：64 种子 σ=3.2e-6 非均匀增益
+  扰动 spread 最大 6.1e-06（分条目最大在 λ²=0.01 的深源条目），
+  σ=1e-5 扰动最大 1.67e-05，与 CI 值同量级；行/列相关扰动反而
+  更小（最大 6.5e-06/5.6e-06），解释不了 CI 值——CI 现场重算的
+  球形增益漂移的逐轮差异大于 PR6 单轮推断的 σ≈3.2e-6（不同
+  GitHub runner 的 CPU 不同）。逆解求解路径本身已证稳定：正则化
+  矩阵 (LLᵀ+λ²σ²I) 条件数仅 21–4052，四种求解驱动（numpy solve /
+  scipy pos / lstsq / Cholesky）spread 逐位相同，ulp 级 L 扰动
+  spread 变化 ≤2.3e-14——漂移只来自增益，不来自求解。
+- 改了什么（只改测试容差与注释，未动任何产品代码、fixture、科学门槛）：
+  - tests/pr6/test_eeg_recording.py：fixture 新鲜度 (1e-9, 1e-12) →
+    (1e-9, 1e-7)（20 变体 ulp 误差底最大值 1.66e-08 之上约 6 倍；
+    仍比有意义的 q 量级（响应 ≥0.01 nA·m）严 5 个量级，O(1) 项
+    仍由 rtol 1e-9 卡住）。
+  - tests/pr6/test_tfr_topo_inverse.py：盲测 spread 相对 1e-5 → 1e-4
+    （CI 值 1.49e-05、σ=1e-5 括号最大值 1.67e-05 之上约 6 倍；仍
+    比分布范围科学量级（几十 mm，1e-4 相对 ≈ 0.008 mm）严 4 个
+    量级）；地形电极电位 atol 1e-5 → 5e-5、网格值 1e-5 → 5e-5
+    （预防性：同一根因，64 种子模型最大值地形 8.48e-06/网格
+    4.60e-06，原容差只剩 1.18/2.2 倍余量；仍比样条复现容差
+    0.02 µV 严 400 倍）。
+  - tests/pr6/tfr-topo-inverse.test.mjs（TS 盲测，同根因、预先修掉，
+    否则 CI 第 9 步会倒在这里）：spread 相对 1e-5 → 1e-4（与 Python
+    同口径）；TS 地形/网格用存量 fixture 值作输入，不依赖 CI 现场
+    重算的球形模型，不受影响，不动。
+  - 其余断言一字未动：位置分量精确相等、偶极子矩 1e-9、残差
+    places=9、峰值 1e-4、JR q (1e-9, 1e-9)、样条复现 ≤ 0.02 µV 等
+    全部保留，真实回归仍会被位置断言抓住。
+- 验证（本地，eeg-venv / node）：
+  - 干净基线：Python 45/45、TS pr6 59/59 全绿。
+  - CI 模拟（σ=1e-5 非均匀增益扰动）：量值计算 16 种子（spread
+    最大 1.67e-05 < 1e-4，地形最大 2.23e-05 < 5e-5，峰值最大
+    7.53e-05 < 1e-4）；真实测试方法 4 种子盲测+地形 8/8 通过。
+  - WC 基线 ±1 ulp 扰动 20 变体：量值最大漂移 1.66e-08 < 1e-7；
+    真实 fixture 新鲜度测试方法 4 变体全过。
+  - 每次模拟后 sphere-model.json 均从字节备份恢复（逐位相同；
+    一次重序列化恢复曾导致字节格式不同，已改用字节备份并重新
+    生成验证，内容与字节均与原生成一致）。
+- 推送：（修补提交 SHA 与新 CI 结果待填）。
+- 推送：（修补提交 SHA 与新 CI 结果待填）。

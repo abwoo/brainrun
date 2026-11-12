@@ -240,12 +240,18 @@ class TestFixtureFreshness(unittest.TestCase):
     def test_regenerated_fixture_matches_stored(self):
         stored = json.loads(FIXTURE_PATH.read_text())
         fresh = er.generate_fixture()
-        # (rtol 1e-9, atol 1e-12)：atol 取 DOP853 自己的 atol=1e-12
-        #（积分器合同内的噪声量级；刺激前 q_nAm[4] 本就是精确零，
-        # 存量 -1.11e-16 与 CI 的 -1.67e-15 都是该量级的噪声）；
-        # rtol 取 JR 误差底 2.19e-10 之上的 1e-9。本地重算与存量
-        # 逐位相同（差 0），CI 漂移纯属跨环境浮点确定性，不是回归。
-        assert_close_recursive(self, fresh, stored, 1e-9, 1e-12, "fixture")
+        # (rtol 1e-9, atol 1e-7)：atol 由跨环境浮点确定性实测定，不
+        # 是 DOP853 自己的 atol——PR6 修补时取 1e-12 的理由（“积分器
+        # 自己的 atol”）已被 PR8 复测推翻：DOP853 的 atol 是单步误差
+        # 控制，不保证不同 CPU 上两次运行的累积差；基线 ±1 ulp 扰动
+        # （20 变体）实测 WC q 最大漂移 1.66e-08（DOP853 自适应步长
+        # 控制器把末位差异放大到积分器误差底 ~1e-8 量级，与 rtol
+        # 收紧对照 6.58e-09 同量级；CI 本轮在 q_nAm[20] 已漂 4.8e-12）。
+        # 1e-7 留约 6 倍余量；仍比有意义的 q 量级（响应 ≥0.01 nA·m）
+        # 严 5 个量级，O(1) 项仍由 rtol 1e-9 卡住，真实回归仍会被
+        # 抓住。本地重算与存量逐位相同（差 0），代码未回归。
+        # 依据与实测见 tests/pr6/debug-rounds.md（2026-11-12 PR8 CI 再修）。
+        assert_close_recursive(self, fresh, stored, 1e-9, 1e-7, "fixture")
 
 
 if __name__ == "__main__":
