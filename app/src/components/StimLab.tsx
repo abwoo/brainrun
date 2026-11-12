@@ -168,14 +168,22 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const tms = useMemo(() => {
     try { return tmsFieldForShape(coil, coilShape, target); } catch { return null; }
   }, [coil, coilShape, target]);
-  const field = fieldSource === 'tes' ? tes : tms;
+  // PR8-NUMFIX：目标处电场与网格必须跟随当前级别，不能跟默认的场来源。
+  // 旧代码 `field = fieldSource === 'tes' ? tes : tms`，而 fieldSource 默认
+  // 是 'tms'：Level B（TES）读数栏显示的却是 TMS 场——默认目标 [0,0,70]
+  // 在圆环线圈轴上，感应电场按对称性恰为 0.000 V/m，而同页 TMS 网格最大
+  // 32.631 V/m（偏轴点），造成“目标点 0.000、网格 32.631”的假异常。
+  // 修后：B 级固定 TES（默认目标 |E| = 0.793 V/m），C 级固定 TMS，
+  // fieldSource 只在 Level D（电场→响应映射）里起作用。
+  const activeFieldSource: 'tes' | 'tms' = level === 'B' ? 'tes' : level === 'C' ? 'tms' : fieldSource;
+  const field = activeFieldSource === 'tes' ? tes : tms;
   const normalField = field ? normalComponentVm(field.fieldVm, normal) : null;
   const grid = useMemo(() => {
     try {
-      if (fieldSource === 'tes') return tesFieldGrid(electrodes, sigma, 40);
+      if (activeFieldSource === 'tes') return tesFieldGrid(electrodes, sigma, 40);
       return coilShape === 'figure8' ? figureEightFieldGrid(coil, 40) : tmsFieldGrid(coil, 40);
     } catch { return []; }
-  }, [fieldSource, electrodes, sigma, coil, coilShape]);
+  }, [activeFieldSource, electrodes, sigma, coil, coilShape]);
   const gridMax = grid.length ? Math.max(...grid.map(p => p.magnitudeVm)) : 0;
   const biphasic = useMemo(() => {
     try {
@@ -307,6 +315,12 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
             <p className="panel-text">E = ({field.fieldVm.map(v => v.toFixed(3)).join(', ')}) V/m，|E| = {field.magnitudeVm.toFixed(3)} V/m</p>
             <p className="panel-text">沿皮层法向（{NORMALS[normalIdx].label}）分量：{normalField !== null ? normalField.toFixed(3) : '—'} V/m</p>
             <p className="panel-text">网格场分布（脑内 {grid.length} 点，步长 40 mm）：最大 |E| {gridMax.toFixed(3)} V/m</p>
+            {level === 'C' && field && field.magnitudeVm < 1e-9 && (
+              <p className="panel-text">
+                目标在圆环线圈轴上，感应电场按对称性为零是正确结果，不是计算失败；
+                把目标移到偏轴预设（如 [30, 0, 70]，|E| ≈ 85 V/m）可见非零场。
+              </p>
+            )}
           </div> : <p className="panel-text">目标离电极/线圈太近或超出脑球，无法计算（点源奇点保护）。</p>}
           <label className="panel-text">皮层法向
             <select aria-label="皮层法向" value={normalIdx} onChange={e => setNormalIdx(Number(e.target.value))}>

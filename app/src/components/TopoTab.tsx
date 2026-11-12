@@ -14,7 +14,7 @@
  *   [0, 10, 0] nA·m），与 2D 图的记录数据无关——两张图的数据来源
  *   本来就不一样，不要混读。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EegRecording } from '../lib/eegData';
 import { topoAtTime, forwardHeadPotential, TOPO_HEAD_RADIUS_MM } from '../lib/topography';
 import type { SphereFixture } from '../lib/sphereForward';
@@ -76,6 +76,38 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
     }
   }, [recording, atTimeMs]);
 
+  // PR8-NUMFIX：默认时刻 400 ms 落在第一事件（默认实验 1000 ms）之前，
+  // 记录处于静息态、全部电极值恰为 0，2D 图是一张全白圆盘（“400 ms 全空白”
+  // 的根因）。全记录最大响应时刻（默认实验：1028 ms，最大 |V| 0.234 µV）。
+  const maxResponse = useMemo(() => {
+    if (!recording) return null;
+    let bestT = recording.timesMs[0];
+    let bestV = -1;
+    for (let j = 0; j < recording.timesMs.length; j++) {
+      let m = 0;
+      for (let c = 0; c < recording.dataUv.length; c++) {
+        m = Math.max(m, Math.abs(recording.dataUv[c][j]));
+      }
+      if (m > bestV) {
+        bestV = m;
+        bestT = recording.timesMs[j];
+      }
+    }
+    return { tMs: bestT, maxAbsUv: bestV };
+  }, [recording]);
+
+  // 记录一到就检查一次：若当前时刻全部电极 |值| < 1e-9 µV（静息态、无响应），
+  // 自动跳到最大响应时刻。只在 recording 对象变化时做一次，不干扰用户
+  // 手动拖动滑杆（拖到静息时刻是用户自己的选择，不自动跳走）。
+  const lastSeenRecordingRef = useRef<EegRecording | null>(null);
+  useEffect(() => {
+    if (!recording || !maxResponse) return;
+    if (lastSeenRecordingRef.current === recording) return;
+    lastSeenRecordingRef.current = recording;
+    const cur = topo ? Math.max(...topo.electrodeValues.map((e) => Math.abs(e.valueUv))) : 0;
+    if (cur < 1e-9) onAtTimeMsChange(maxResponse.tMs);
+  }, [recording, maxResponse, topo, onAtTimeMsChange]);
+
   const forward = useMemo(() => {
     if (!loadedFixture) return null;
     try {
@@ -120,6 +152,15 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
           aria-label="地形时刻"
         />
       </label>
+      {maxResponse && (
+        <p className="panel-text">
+          <button type="button" onClick={() => onAtTimeMsChange(maxResponse.tMs)}>
+            跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {maxResponse.maxAbsUv.toFixed(3)} µV）
+          </button>
+          {' '}刺激前（第一事件前）记录处于静息态、全部电极值为 0，地形图是空白的——
+          默认时刻 400 ms 就落在刺激前，所以本页在记录到达时会自动跳到最大响应时刻。
+        </p>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, marginTop: 8 }}>
         <div style={{ minWidth: 0 }}>

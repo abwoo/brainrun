@@ -676,8 +676,13 @@ test('PR6 WAVES/ERP（B2）：晚期机制默认 = Python 对照 = fixture；Pz 
   const wavesTest = src('tests/pr6/waves-erp.test.mjs');
   assert.ok(wavesTest.includes('assert.equal(recording.sourceModelId, LATE_RESPONSE_ID)'),
     'waves-erp.test.mjs 应动态断言 sourceModelId');
-  // 5. 两 tab 存在且 props 与设计稿 §1.3 一致；两文件均不 import 实验运行器
-  // （WavesTab 不跑 runAlphaLimitCycle，ErpTab 不跑 runOddballExperiment）。
+  // 5. 两 tab 存在且 props 与设计稿 §1.3 一致；WavesTab 不 import 实验运行器
+  // （不跑 runAlphaLimitCycle）。ErpTab 自 PR8-NUMFIX 起允许跑
+  // runOddballExperiment，但只限显式按钮（“运行 oddball 实验（late 机制）并切分”），
+  // 且只改 epochs、不碰壳的 recording/events：理由是壳实验记录是 plain
+  // WC/JR、无 late 机制，ERP 窗内峰 ≈0、文案 0.17 µV 与实际算出脱节；
+  // 只有 late 路径算出的 oddball 峰才是 0.174 µV @352 ms（见契约 §1.8
+  // 末尾与 docs/pr6-erp-mechanism.md §7）。ErpTab 仍不跑 runAlphaLimitCycle。
   const wavesTab = src('app/src/components/WavesTab.tsx');
   const erpTab = src('app/src/components/ErpTab.tsx');
   const lab = src('app/src/components/EegAnalysisLab.tsx');
@@ -692,15 +697,19 @@ test('PR6 WAVES/ERP（B2）：晚期机制默认 = Python 对照 = fixture；Pz 
   assert.ok(erpTab.includes('onEpochsChange: (epochs: EpochSet) => void;'));
   assert.ok(lab.includes('<ErpTab'), '壳应挂载 ErpTab');
   for (const f of [wavesTab, erpTab]) {
-    assert.ok(!f.includes('runOddballExperiment'), 'tab 不应跑 oddball 实验');
     assert.ok(!f.includes('runAlphaLimitCycle'), 'tab 不应跑极限环实验');
   }
+  assert.ok(!wavesTab.includes('runOddballExperiment'), 'WavesTab 不应跑 oddball 实验');
+  assert.ok(erpTab.includes('runOddballExperiment'), 'ErpTab 应经显式按钮跑 late oddball 实验（PR8-NUMFIX）');
+  assert.ok(erpTab.includes('运行 oddball 实验（late 机制）并切分'), 'ErpTab late 路径应有显式按钮');
+  assert.ok(erpTab.includes("epochSource?.kind === 'late'"), 'ErpTab 文案应按 epochs 来源条件化（诚实性）');
   // 契约 §1.8 已登记本节参数表（不是只写在代码注释里）。
   const contract = src('docs/frontend-backend-contract.md');
   assert.ok(contract.includes('### 1.8 PR6 WAVES / ERP / 晚期机制参数（B2，2026-11-12）'));
   assert.ok(contract.includes('DEFAULT_LATE_RESPONSE_PARAMS'));
   assert.ok(contract.includes('PZ_GAIN_UV_PER_NAM'));
   assert.ok(contract.includes("LATE_RESPONSE_ID = 'local-jansen-rit-slow-late-v1'"));
+  assert.ok(contract.includes('PR8-NUMFIX'), '契约 §1.8 应登记 ErpTab late 按钮的例外与理由');
 });
 
 test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记；App 已挂载', () => {

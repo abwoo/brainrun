@@ -316,9 +316,23 @@ JR p0=220；其余频段只作同一份信号的频段功率读数；Oscillatory
 
 **前端入口：已有。** `WavesTab.tsx`（PSD/频段/峰值/预设，只显示与计算，不跑模型）、
 `ErpTab.tsx`（切分试次按钮 + ERP 波形 + 峰值/潜伏期/差异波/条件对照表，只做
-分段/平均/显示，不重新跑模型）。两 tab 均为 §5.2 的前端本地计算（后端在
-`app/src/lib`，不在 WASM 引擎——符合设计，不是空壳）；“运行实验”按钮在 EEG 页
-（B1 的壳），不在本 tab 内。
+分段/平均/显示；另有一个显式按钮可跑 late 机制 oddball 实验，见下段）。
+两 tab 均为 §5.2 的前端本地计算（后端在 `app/src/lib`，不在 WASM 引擎——符合设计，
+不是空壳）；“运行实验”按钮在 EEG 页（B1 的壳），不在本 tab 内。
+
+**PR8-NUMFIX（2026-11-12）：ErpTab 允许跑 `runOddballExperiment`，只限显式按钮。**
+理由：壳实验记录是 plain WC/JR 模型、无 late 机制，ERP 250–600 ms 窗内峰实测
+0.000061 µV @252 ms（WC 默认，窗首——窗内只有早期峰的衰减尾巴；JR 默认
+−0.00143 µV @252 ms），而旧文案无条件写“模型峰约 0.17 µV”，界面写的数与 tab
+实际算出的数脱节。修法：ErpTab 加显式按钮“运行 oddball 实验（late 机制）并切分”，
+点后跑 `runOddballExperiment({})`（默认 40 试次、单通道 Pz）并切分，只改 epochs、
+不碰壳的 recording/events（壳仍由 B1 持有；“全批只用一份记录”在此让位于诚实性——
+两条路径的来源与文案都条件化标明，不假装同一份记录）；late 路径算出的 oddball 峰
+0.174 µV @352 ms、窗均值 0.0697 µV，与机制文档 §4 一致。壳记录路径下文案如实写
+“窗内基本无响应、峰 <0.001 µV、潜伏期落在窗首”。幅度缺口仍 51 倍（0.174 vs 真实
+8.89 µV），定位仍是教学仿真，不在本批修。`WavesTab` 仍不跑任何实验运行器；
+`ErpTab` 仍不跑 `runAlphaLimitCycle`。对应断言已在
+`tests/pr5/contract.test.mjs`（B2 节）中更新，旧断言“ErpTab 不跑 oddball 实验”作废。
 
 **漂移测试断言（待总协调追加进 `tests/pr5/contract.test.mjs`——该文件属 A2，
 B2 只在此登记断言文本，不越界改文件）：**
@@ -335,8 +349,10 @@ B2 只在此登记断言文本，不越界改文件）：**
   `runOddballExperiment` 返回的 `recording.sourceModelId` 等于它；
 - `WavesTab.tsx` / `ErpTab.tsx` 存在且 props 与设计稿 §1.3 一致
   （WavesTab `{ recording, channel }`、ErpTab `{ recording, events, epochs,
-  onEpochsChange, channel }`），且两文件均不 import 柱模型之外的实验运行器
-  （ErpTab 不跑模型）。
+  onEpochsChange, channel }`），且 WavesTab 不 import 实验运行器；
+  ErpTab 自 PR8-NUMFIX 起允许 import `runOddballExperiment`，只限显式按钮
+  （“运行 oddball 实验（late 机制）并切分”），且只改 epochs、不碰壳的
+  recording/events（ErpTab 仍不跑 `runAlphaLimitCycle`）。
 
 ### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）
 

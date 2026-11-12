@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EpochSet, EegBandName } from '../lib/eegData';
 import { EEG_BANDS } from '../lib/eegData';
-import { erspItc, morletTfr } from '../lib/signalProcessing';
+import { erspItc, ITC_DEGENERATE_THRESHOLD_UV, maxTrialDifferenceUv, morletTfr } from '../lib/signalProcessing';
 
 export interface TfrTabProps {
   epochs: EpochSet | null;
@@ -67,6 +67,19 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
       return null;
     }
   }, [epochs, channel, method]);
+
+  // PR8-NUMFIX：无噪声时各试次完全相同（试次间最大差 <1e-6 µV），各试次
+  // TFR 相位全同，ITC 恒为 1.000——是退化值，不是锁相证据。此时不展示
+  // ITC 数值（ERSP 是功率比，仍有意义）；加测量噪声后试次有了差异，
+  // ITC 才恢复为可读的测量。阈值与实测见 signalProcessing.ts。
+  const itcDegenerate = useMemo(() => {
+    if (!epochs || epochs.trials.length < 2) return false;
+    try {
+      return maxTrialDifferenceUv(epochs, channel) < ITC_DEGENERATE_THRESHOLD_UV;
+    } catch {
+      return false;
+    }
+  }, [epochs, channel]);
 
   // 频段功率随时间：逐试次 Morlet 功率 → 频段内平均 → 试次平均（µV²）。
   const bandPower = useMemo(() => {
@@ -176,6 +189,12 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
         ERSP = 10·log10(试次平均功率 / 基线功率)，基线 {epochs.baselineMs[0]}–{epochs.baselineMs[1]} ms；ITC = |试次平均 e^(iφ)|（0–1）。
         三种方法的结果不直接混比：同一份数据、不同方法算出的 ERSP 峰值本来就不一样（实测 ERP：Morlet 3.36 dB、STFT 5.37 dB）。
       </p>
+      {itcDegenerate && (
+        <p className="panel-text" style={{ color: '#ffb340' }}>
+          注意：当前试次完全相同（无测量噪声、确定性模型），ITC 恒为 1.000 是退化值、不是锁相证据，
+          本页不展示 ITC 数值。想看有意义的 ITC，请在 EEG tab 加测量噪声（如白噪声 0.25 µV）后重新运行实验。
+        </p>
+      )}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
         <label>
           方法：
@@ -251,7 +270,13 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
           </label>
           {regionStats && (
             <span className="panel-text">
-              区域内平均 ERSP <b>{regionStats.meanErspDb.toFixed(2)} dB</b>，平均 ITC <b>{regionStats.meanItc.toFixed(3)}</b>（{regionStats.n} 个时频格点）。
+              区域内平均 ERSP <b>{regionStats.meanErspDb.toFixed(2)} dB</b>，平均 ITC{' '}
+              {itcDegenerate ? (
+                <b>不适用（试次完全相同，ITC 恒为 1.000 是退化值）</b>
+              ) : (
+                <b>{regionStats.meanItc.toFixed(3)}</b>
+              )}
+              （{regionStats.n} 个时频格点）。
             </span>
           )}
         </div>
