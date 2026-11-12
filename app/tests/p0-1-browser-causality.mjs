@@ -78,7 +78,10 @@ try {
   // P0-1B: old numerical curves MUST disappear when an input slider changes.
   // Otherwise an interactive slider misleadingly displays results from
   // parameters that are no longer selected.
-  await lab.locator('#hh-amp').fill('12');
+  const hhSlider = lab.locator('#hh-amp');
+  await hhSlider.focus();
+  await hhSlider.press('Home');
+  await hhSlider.press('ArrowUp'); // native range keyboard change triggers React onChange
   await page.waitForFunction(() =>
     [...document.querySelectorAll('[role="dialog"]')].some(d =>
       d.getAttribute('aria-label') === '细胞级实验' &&
