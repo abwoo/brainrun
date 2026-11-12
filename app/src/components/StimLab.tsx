@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AUDITORY_BURST_DRIVE,
@@ -354,24 +355,24 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
       <div className="modal-body">
         <p className="panel-text" style={{ color: '#ffb340' }}>{STIMULATION_LIMITATION}</p>
         <label className="panel-text">级别
-          <select aria-label="刺激级别" value={level} onChange={e => setLevel(e.target.value as StimLevel)}>
+          <Dropdown aria-label="刺激级别" value={level} onChange={e => setLevel(e.target.value as StimLevel)}>
             <option value="A">Level A · 直接神经模型输入</option>
             <option value="B">Level B · TES 电场</option>
             <option value="C">Level C · TMS 电磁场</option>
             <option value="D">Level D · 电场到神经响应</option>
-          </select>
+          </Dropdown>
         </label>
         <p className="panel-text">{LEVEL_MEANING[level]}</p>
         <label className="panel-text">柱模型
-          <select aria-label="柱模型" value={model} onChange={e => setModel(e.target.value as ColumnModel)}>
+          <Dropdown aria-label="柱模型" value={model} onChange={e => setModel(e.target.value as ColumnModel)}>
             <option value="wc">Wilson–Cowan 柱</option>
             <option value="jr">Jansen–Rit 柱</option>
-          </select>
+          </Dropdown>
         </label>
         <label className="panel-text">目标位置（球心坐标，mm）
-          <select aria-label="目标位置" value={targetIdx} onChange={e => setTargetIdx(Number(e.target.value))}>
+          <Dropdown aria-label="目标位置" value={targetIdx} onChange={e => setTargetIdx(Number(e.target.value))}>
             {TARGETS.map((t, i) => <option key={t.label} value={i}>{t.label}</option>)}
-          </select>
+          </Dropdown>
         </label>
         {selectedRegion && (
           <p className="panel-text">默认目标 = 选中脑区 #{selectedRegion.id} {selectedRegion.label}（brainData 中心，TVB 坐标、未配准 HEAD 球坐标，演示映射）；换选区后目标自动跟过去。</p>
@@ -380,14 +381,14 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
         {(level === 'B' || (level === 'D' && fieldSource === 'tes')) && <div>
           <div className="conn-title">TES 电极配置 · 电流 mA</div>
           <label className="panel-text">阳极位置
-            <select aria-label="阳极位置" value={anodePosIdx} onChange={e => setAnodePosIdx(Number(e.target.value))}>
+            <Dropdown aria-label="阳极位置" value={anodePosIdx} onChange={e => setAnodePosIdx(Number(e.target.value))}>
               {ELECTRODE_POSITIONS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
-            </select>
+            </Dropdown>
           </label>
           <label className="panel-text">阴极位置
-            <select aria-label="阴极位置" value={cathodePosIdx} onChange={e => setCathodePosIdx(Number(e.target.value))}>
+            <Dropdown aria-label="阴极位置" value={cathodePosIdx} onChange={e => setCathodePosIdx(Number(e.target.value))}>
               {ELECTRODE_POSITIONS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
-            </select>
+            </Dropdown>
           </label>
           <p className="panel-text">电流 {tesCurrentMA.toFixed(1)} mA（阳极 +，阴极 −，总和为零）</p>
           <input aria-label="TES 电流" type="range" min="0.5" max="4" step="0.1" value={tesCurrentMA}
@@ -400,10 +401,10 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
         {(level === 'C' || (level === 'D' && fieldSource === 'tms')) && <div>
           <div className="conn-title">TMS 线圈配置</div>
           <label className="panel-text">线圈形状
-            <select aria-label="线圈形状" value={coilShape} onChange={e => setCoilShape(e.target.value as TmsCoilShape)}>
+            <Dropdown aria-label="线圈形状" value={coilShape} onChange={e => setCoilShape(e.target.value as TmsCoilShape)}>
               <option value="circular">圆环线圈（单环）</option>
               <option value="figure8">8 字形线圈（双环反向电流，线性叠加）</option>
-            </select>
+            </Dropdown>
           </label>
           <p className="panel-text">线圈半径 {coil.radiusMm.toFixed(0)} mm</p>
           <input aria-label="线圈半径" type="range" min="10" max="100" step="1" value={coil.radiusMm}
@@ -436,9 +437,9 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
             )}
           </div> : <p className="panel-text">目标离电极/线圈太近或超出脑球，无法计算（点源奇点保护）。</p>}
           <label className="panel-text">皮层法向
-            <select aria-label="皮层法向" value={normalIdx} onChange={e => setNormalIdx(Number(e.target.value))}>
+            <Dropdown aria-label="皮层法向" value={normalIdx} onChange={e => setNormalIdx(Number(e.target.value))}>
               {NORMALS.map((n, i) => <option key={n.label} value={i}>{n.label}</option>)}
-            </select>
+            </Dropdown>
           </label>
           <label className="panel-text">
             <input aria-label="显示场箭头" type="checkbox" checked={showFieldArrows}
@@ -450,10 +451,10 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
         {level === 'D' && <div>
           <div className="conn-title">Level D · 电场到神经响应（增益未校准）</div>
           <label className="panel-text">场来源
-            <select aria-label="Level D 场来源" value={fieldSource} onChange={e => setFieldSource(e.target.value as 'tes' | 'tms')}>
+            <Dropdown aria-label="Level D 场来源" value={fieldSource} onChange={e => setFieldSource(e.target.value as 'tes' | 'tms')}>
               <option value="tms">TMS 感应电场</option>
               <option value="tes">TES 电场</option>
-            </select>
+            </Dropdown>
           </label>
           {field && <p className="panel-text">目标处 |E| {field.magnitudeVm.toFixed(3)} V/m，法向分量 {normalField !== null ? normalField.toFixed(3) : '—'} V/m</p>}
           <p className="panel-text">WC 增益 {wcGain} 模型单位/(V/m)（默认 {FIELD_TO_WC_GAIN_DEFAULT}）</p>
@@ -499,11 +500,11 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
           <input aria-label="听觉强度" type="range" min="0" max="1" step="0.05" value={audIntensity}
             onChange={e => setAudIntensity(Number(e.target.value))} style={{ width: '100%' }} />
           <label className="panel-text">ISI
-            <select aria-label="听觉 ISI" value={isiMs} onChange={e => setIsiMs(Number(e.target.value))}>
+            <Dropdown aria-label="听觉 ISI" value={isiMs} onChange={e => setIsiMs(Number(e.target.value))}>
               <option value="250">250 ms</option>
               <option value="500">500 ms</option>
               <option value="1000">1000 ms</option>
-            </select>
+            </Dropdown>
           </label>
           <button className="chip" type="button" onClick={runAuditory}>运行听觉实验</button>
           {audLive && <p className="panel-text">{audLive}</p>}

@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-11 地形 tab（B3）。
  *
@@ -68,7 +69,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
   }, [fixture, fetchedFixture]);
 
   const topo = useMemo(() => {
-    if (!recording) return null;
+    if (!recording || recording.channels.length < 3) return null;
     try {
       return topoAtTime(recording, atTimeMs);
     } catch {
@@ -127,6 +128,9 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
       </div>
     );
   }
+  if (recording.channels.length < 3) return (
+    <div role="status">当前记录只有单通道；需要多电极数据才能计算头皮地形。请在 EEG 页运行多导实验。</div>
+  );
   const tMin = recording.timesMs[0];
   const tMax = recording.timesMs[recording.timesMs.length - 1];
   const maxAbsTopo = topo ? Math.max(0.001, ...topo.electrodeValues.map((e) => Math.abs(e.valueUv))) : 1;
@@ -245,11 +249,11 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               矩方向：
-              <select value={srcAxis} onChange={(e) => setSrcAxis(e.target.value as 'X' | 'Y' | 'Z')}>
+              <Dropdown value={srcAxis} onChange={(e) => setSrcAxis(e.target.value as 'X' | 'Y' | 'Z')}>
                 <option value="X">X</option>
                 <option value="Y">Y</option>
                 <option value="Z">Z</option>
-              </select>
+              </Dropdown>
             </label>
             <label>
               矩（nA·m）：
@@ -258,10 +262,10 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               参考：
-              <select value={reference} onChange={(e) => setReference(e.target.value as 'average' | 'infinity')}>
+              <Dropdown value={reference} onChange={(e) => setReference(e.target.value as 'average' | 'infinity')}>
                 <option value="average">average（减 345 点均值）</option>
                 <option value="infinity">infinity</option>
-              </select>
+              </Dropdown>
             </label>
           </div>
           <p className="panel-text">源位置限制在 ±48 mm（lead-field 网格边界，越界抛错）；矩 ±30 nA·m 与 PR5 的 HeadSphereLab 同范围。</p>

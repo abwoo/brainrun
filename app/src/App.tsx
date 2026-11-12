@@ -7,7 +7,9 @@
  * 所有颜色、波形、读数都只读快照，没有第二套活动生成逻辑。
  * PLAY 控制仿真时钟；相机自动旋转是独立的“旋转”开关。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import Dropdown from './components/ui/Dropdown';
+import { useI18n, type MessageKey } from './lib/i18n';
 import BrainScene from './components/BrainScene';
 import ActivityChart from './components/ActivityChart';
 import ParamControl from './components/ParamControl';
@@ -28,8 +30,6 @@ import WavesTab from './components/WavesTab';
 import type { EegRecording } from './lib/eegData';
 import {
   APP_MODES,
-  MODE_DESCRIPTIONS,
-  MODE_LABELS,
   getScenario,
   runScenarioCompute,
   transitionMode,
@@ -182,6 +182,37 @@ function ValueSlider({
 }
 
 export default function App() {
+  const { locale, setLocale, t } = useI18n();
+  // Workspace layout is purely visual and never changes the physics solver.
+  const [focus3D, setFocus3D] = useState(false);
+  const [stageWidth, setStageWidth] = useState(() => {
+    try {
+      const n = Number(localStorage.getItem('brainrun.stage-share.v1'));
+      return Number.isFinite(n) && n >= 45 && n <= 85 ? n : 68;
+    } catch { return 68; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('brainrun.stage-share.v1', String(stageWidth)); }
+    catch { /* storage may be unavailable */ }
+  }, [stageWidth]);
+  // Keyboard layout actions never change model parameters.
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key === 'Escape') {
+        setShowModelInfo(false); setShowDipoleLab(false); setShowHeadSphereLab(false);
+        setShowEegLab(false); setShowCellularLab(false); setShowStimLab(false);
+        setShowExperimentLab(false); setShowLocalBEM(false); setShowScenarioLauncher(false);
+        setFocus3D(false);
+      } else if (event.key.toLowerCase() === 'f' && !event.metaKey && !event.ctrlKey &&
+                 !document.querySelector('[role="dialog"]')) {
+        setFocus3D(v => !v);
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, []);
   const [data, setData] = useState<BrainData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -189,6 +220,9 @@ export default function App() {
   const [showConnections, setShowConnections] = useState(true);
   const [resetSignal, setResetSignal] = useState(0);
   const [simReady, setSimReady] = useState(false);
+  const [runOverview, setRunOverview] = useState<{
+    runId: string; tMs: number | null; confirmed: number;
+  } | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showDipoleLab, setShowDipoleLab] = useState(false);
@@ -356,7 +390,14 @@ export default function App() {
         windowT1_ms: w?.t1_ms ?? null,
       };
     });
-    sim.onReady(() => setSimReady(true));
+    sim.onReady(() => {
+      setSimReady(true);
+      const session = sim.getExperimentSession();
+      setRunOverview({
+        runId: session.provenance.runId,
+        tMs: session.lastModelTimeMs, confirmed: session.commands.length,
+      });
+    });
     sim.start(data.connectivity.weights, data.connectivity.lengths);
     // 约 15 Hz 更新 React 面板（时间、读数、锁定横幅）；快照本身 60 Hz，
     // 3D 着色与波形由各自订阅直接消费，不经过 React。
@@ -366,6 +407,11 @@ export default function App() {
         lastUiUpdateRef.current = now;
         setSnap(s);
         setPaused(s.paused);
+        const session = sim.getExperimentSession();
+        setRunOverview({
+          runId: session.provenance.runId,
+          tMs: session.lastModelTimeMs, confirmed: session.commands.length,
+        });
         const hold = sim.getHold();
         setHoldMs(hold ? hold.heldMs : null);
       }
@@ -380,6 +426,7 @@ export default function App() {
       unsub();
       sim.stop();
       simRef.current = null;
+      setRunOverview(null);
     };
   }, [data]);
 
@@ -926,7 +973,16 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-title">BRAIN PHYSICS</div>
-        <div className="topbar-sub">PLAYGROUND · LIVE SIMULATION</div>
+        <div className="topbar-sub">{t('shell.subtitle')}</div>
+        {showMore && runOverview && (
+          <div className="topbar-sub" role="status"
+            data-live-run-id={runOverview.runId}
+            title="Worker 确认的实验会话 ID 与模型时间；不是 EEG 采样率">
+            LIVE Run {runOverview.runId.slice(0, 8)}
+            {' · '}t={runOverview.tMs === null ? '—' : (runOverview.tMs / 1000).toFixed(2)} s
+            {' · '}Worker ACK {runOverview.confirmed}
+          </div>
+        )}
         <div className="topbar-controls">
           <div className="mode-switch" role="group" aria-label="模式">
             {APP_MODES.map((m) => (
@@ -937,9 +993,9 @@ export default function App() {
                 data-mode={m}
                 aria-pressed={mode === m}
                 onClick={() => setMode(transitionMode(mode, m))}
-                title={MODE_DESCRIPTIONS[m]}
+                title={t(('mode.' + m + 'Desc') as MessageKey)}
               >
-                {MODE_LABELS[m]}
+                {t(('mode.' + m) as MessageKey)}
               </button>
             ))}
           </div>
@@ -950,7 +1006,7 @@ export default function App() {
             onClick={() => setShowMore((v) => !v)}
             title="渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设"
           >
-            更多 {showMore ? '▲' : '▼'}
+            {t(showMore ? 'shell.less' : 'shell.more')} {showMore ? '▲' : '▼'}
           </button>
           <button
             type="button"
@@ -958,7 +1014,7 @@ export default function App() {
             onClick={() => setShowScenarioLauncher(true)}
             title="一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录"
           >
-            一键场景
+            {t('shell.scenarios')}
           </button>
           <button
             type="button"
@@ -967,7 +1023,7 @@ export default function App() {
             disabled={!simReady}
             title={simReady ? '暂停 / 继续仿真时钟（模型时间冻结，画面不动）' : '仿真引擎加载中…'}
           >
-            PLAY — {simReady ? (paused ? '已暂停' : '运行中') : '加载中'}
+            PLAY — {simReady ? t(paused ? 'shell.paused' : 'shell.running') : t('shell.loading')}
           </button>
           <button
             type="button"
@@ -984,9 +1040,9 @@ export default function App() {
             title="MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位">
             HEAD EEG
           </button>
-          <button type="button" className="chip" onClick={() => setShowEegLab(true)}
+          <button type="button" className="chip" disabled={mode === 'eeg'} onClick={() => setShowEegLab(true)}
             title="EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。">
-            EEG 分析
+            {t('shell.eegLab')}
           </button>
           <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}
             title="独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG">
@@ -994,15 +1050,15 @@ export default function App() {
           </button>
           <button type="button" className="chip" onClick={() => setShowCellularLab(true)}
             title="细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）">
-            细胞实验
+            {t('shell.cellular')}
           </button>
           <button type="button" className="chip" onClick={() => setShowStimLab(true)}
             title="脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）">
-            刺激实验
+            {t('shell.stimulation')}
           </button>
           <button type="button" className="chip" onClick={() => setShowExperimentLab(true)}
             title="对照实验：双脑 A/B、时间机器、闭环控制（PR-15）">
-            对照实验
+            {t('shell.experiments')}
           </button>
           <button
             type="button"
@@ -1010,8 +1066,34 @@ export default function App() {
             onClick={() => setShowModelInfo(true)}
             title="模型、数据来源与许可说明"
           >
-            模型信息
+            {t('shell.modelInfo')}
           </button>
+          <div className="locale-picker">
+            <Dropdown aria-label={t('lang.label')} value={locale}
+              onChange={e => setLocale(e.target.value as 'zh-CN' | 'en-US')}>
+              <option value="zh-CN">{t('lang.zh')}</option>
+              <option value="en-US">{t('lang.en')}</option>
+            </Dropdown>
+          </div>
+          <button type="button" className={'chip' + (focus3D ? ' chip-on' : '')}
+            aria-pressed={focus3D}
+            aria-label={t(focus3D ? 'workspace.exitFocus' : 'workspace.focus')}
+            onClick={() => setFocus3D(v => !v)}>
+            {t(focus3D ? 'workspace.exitFocus' : 'workspace.focus')}
+          </button>
+          {showMore && (
+            <div className="workspace-tools">
+              <label htmlFor="stage-share">{t('workspace.width')} {stageWidth}%</label>
+              <input id="stage-share" aria-label={t('workspace.width')}
+                type="range" min={45} max={85} step={1}
+                value={stageWidth}
+                onChange={e => setStageWidth(Number(e.target.value))}/>
+              <button type="button" className="chip chip-small"
+                onClick={() => { setStageWidth(68); setFocus3D(false); }}>
+                {t('workspace.resetLayout')}
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -1030,9 +1112,10 @@ export default function App() {
           />
         </main>
       ) : (
-      <main className="main">
+      <main className={'main' + (focus3D ? ' brainrun-focus' : '')}
+        style={{ '--brain-stage-share': stageWidth + '%' } as CSSProperties}>
         <section className="stage screen" data-selected-region-id={selectedId ?? 'none'}>
-          <div className="screen-title">3D LIVE BRAIN</div>
+          <div className="screen-title">{t('scene.title')}</div>
           <div className="stage-tools">
             <button
               type="button"
@@ -1040,7 +1123,7 @@ export default function App() {
               onClick={() => setColorMode('absolute')}
               title="按兴奋活动 E 着色（固定色标：底色 E≈0.011 → 琥珀 E≈0.5）"
             >
-              绝对活动 E
+              {t('scene.absolute')}
             </button>
             <button
               type="button"
@@ -1048,7 +1131,7 @@ export default function App() {
               onClick={() => setColorMode('delta')}
               title="按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）"
             >
-              活动变化 ΔE
+              {t('scene.delta')}
             </button>
             <button
               type="button"
@@ -1056,7 +1139,7 @@ export default function App() {
               onClick={() => setAutoRotate((v) => !v)}
               title="相机自动缓慢旋转（只是相机运动，不是神经活动）"
             >
-              旋转 {autoRotate ? '开' : '关'}
+              {t('scene.rotation')} {t(autoRotate ? 'scene.on' : 'scene.off')}
             </button>
           </div>
           {snap && (snap.approaching_lock || locked) && (
@@ -1111,7 +1194,7 @@ export default function App() {
             <div className="stage-error">脑数据加载失败：{loadError}</div>
           )}
           {data === null && loadError === null && (
-            <div className="stage-loading">正在加载脑数据…</div>
+            <div className="stage-loading">{t('scene.loading')}</div>
           )}
           {data !== null && (
             <BrainScene
@@ -1199,14 +1282,14 @@ export default function App() {
                   className={`chart-toggle ${colorMode === 'absolute' ? 'chart-toggle-on' : ''}`}
                   onClick={() => setColorMode('absolute')}
                 >
-                  绝对活动 E
+                  {t('scene.absolute')}
                 </button>
                 <button
                   type="button"
                   className={`chart-toggle ${colorMode === 'delta' ? 'chart-toggle-on' : ''}`}
                   onClick={() => setColorMode('delta')}
                 >
-                  活动变化 ΔE
+                  {t('scene.delta')}
                 </button>
               </div>
               {colorMode === 'absolute' ? (

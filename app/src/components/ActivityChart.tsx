@@ -1,3 +1,4 @@
+import { localizeText } from '../lib/localizedText';
 /**
  * LIVE ACTIVITY 示波器（Phase 3，Phase 4 打磨：时间竖线、刻度、顶格标注）。
  *
@@ -148,7 +149,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
         if (id === null || win.snapshots.length < 2) {
           ctx.fillStyle = '#7fa8c4';
           ctx.font = '11px system-ui, sans-serif';
-          ctx.fillText(id === null ? '点击大脑选择一个脑区' : '回放窗口收集中…', 10, 36);
+          ctx.fillText(localizeText(id === null ? '点击大脑选择一个脑区' : '回放窗口收集中…'), 10, 36);
           return;
         }
         // 纵向时间网格：每 0.5 s 一条。
@@ -216,7 +217,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
         ctx.fillStyle = '#7fa8c4';
         ctx.font = '11px system-ui, sans-serif';
         // 空状态文字下移到 y=36，避开顶部的 0.6 标签。
-        ctx.fillText(selectedId === null ? '点击大脑选择一个脑区' : '等待仿真数据…', 10, 36);
+        ctx.fillText(localizeText(selectedId === null ? '点击大脑选择一个脑区' : '等待仿真数据…'), 10, 36);
         return;
       }
       const t1 = buf[buf.length - 1].t_ms;

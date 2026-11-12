@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-12 源定位 tab（B3）。
  *
@@ -74,7 +75,7 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
 
   // 对当前记录：全通道 RMS 最大的采样点。
   const onRecording = useMemo(() => {
-    if (!recording || !fixture) return null;
+    if (!recording || !fixture || recording.channels.length < 3) return null;
     try {
       const nT = recording.timesMs.length;
       let bestJ = 0;
@@ -131,11 +132,11 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
             </label>
             <label>
               真源矩方向：
-              <select value={trueAxis} onChange={(e) => setTrueAxis(e.target.value as 'X' | 'Y' | 'Z')}>
+              <Dropdown value={trueAxis} onChange={(e) => setTrueAxis(e.target.value as 'X' | 'Y' | 'Z')}>
                 <option value="X">X</option>
                 <option value="Y">Y</option>
                 <option value="Z">Z</option>
-              </select>
+              </Dropdown>
             </label>
             <label>
               真源矩（nA·m）：
@@ -144,11 +145,11 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
             </label>
             <label>
               导联：
-              <select value={montage} onChange={(e) => setMontage(e.target.value as MontageKey)}>
+              <Dropdown value={montage} onChange={(e) => setMontage(e.target.value as MontageKey)}>
                 <option value="10-20">10-20（19 导）</option>
                 <option value="10-10">10-10（94 导）</option>
                 <option value="10-05">10-05（343 导）</option>
-              </select>
+              </Dropdown>
             </label>
             <label>
               附加噪声 RMS（µV）：

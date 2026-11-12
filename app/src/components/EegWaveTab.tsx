@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-07 EEG tab（B1）：运行实验、参考、导联、噪声、通道选择、多导波形显示。
  *
@@ -153,7 +154,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
       <div className="eeg-controls">
         <div className="eeg-control-group">
           <label htmlFor="eeg-source-model">源模型</label>
-          <select
+          <Dropdown
             id="eeg-source-model"
             value={sourceModel}
             onChange={(e) => onSourceModelChange(e.target.value as SourceModel)}
@@ -161,13 +162,13 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             <option value="wc">Wilson–Cowan 柱（WC）</option>
             <option value="jr">Jansen–Rit 柱（JR，静息 p0=90）</option>
             <option value="both">双源线性叠加（WC + JR）</option>
-          </select>
+          </Dropdown>
           <p className="eeg-hint">柱模型 q(t) 经球形 lead-field 投影成多导 EEG；双源为线性叠加。</p>
         </div>
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-duration">时长</label>
-          <select
+          <Dropdown
             id="eeg-duration"
             value={durationMs}
             onChange={(e) => onDurationMsChange(Number(e.target.value))}
@@ -175,7 +176,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             <option value={2000}>2 秒</option>
             <option value={5000}>5 秒</option>
             <option value={10000}>10 秒</option>
-          </select>
+          </Dropdown>
           <p className="eeg-hint">采样率 250 Hz；脉冲事件每 1000 ms 一次，条件交替。</p>
         </div>
 
@@ -194,7 +195,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-reference">参考方式</label>
-          <select
+          <Dropdown
             id="eeg-reference"
             aria-label="参考方式"
             value={refMode}
@@ -211,11 +212,11 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             <option value="average">平均参考</option>
             <option value="infinity">无限远参考</option>
             <option value="electrode">电极参考</option>
-          </select>
+          </Dropdown>
           {refMode === 'electrode' && (
             <>
               <label htmlFor="eeg-reference-electrode">参考电极</label>
-              <select
+              <Dropdown
                 id="eeg-reference-electrode"
                 aria-label="参考电极"
                 value={refElectrode}
@@ -224,7 +225,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
                 {(recording?.channels.map((c) => c.label) ?? ['Cz']).map((label) => (
                   <option key={label} value={label}>{label}</option>
                 ))}
-              </select>
+              </Dropdown>
             </>
           )}
           <p className="eeg-hint">三种参考数值各不相同；切换参考不重新跑模型。</p>
@@ -232,7 +233,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-montage">导联</label>
-          <select
+          <Dropdown
             id="eeg-montage"
             aria-label="导联"
             value={montage}
@@ -241,13 +242,13 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             {MONTAGES.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
-          </select>
+          </Dropdown>
           <p className="eeg-hint">切换导联重建传感器配置（10-20 为 19 导）。</p>
         </div>
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-channel">通道</label>
-          <select
+          <Dropdown
             id="eeg-channel"
             aria-label="通道"
             value={selectedChannel}
@@ -257,7 +258,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             {(recording?.channels.map((c) => c.label) ?? []).map((label) => (
               <option key={label} value={label}>{label}</option>
             ))}
-          </select>
+          </Dropdown>
           <p className="eeg-hint">点波形行也可切换通道。</p>
         </div>
       </div>
@@ -340,7 +341,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
               ? 'WC'
               : recording.sourceModelId === 'local-jansen-rit-assumed-dipole-v1'
                 ? 'JR'
-                : 'WC + JR'} · 种子 {recording.seed}
+                : recording.sourceModelId.includes('late') ? 'JR + late' : 'WC + JR'} · 种子 {recording.seed}
             {selectedStats && (
               <>
                 {' '}· {selectedChannel}：最大 |V| {selectedStats.maxAbs.toFixed(2)} µV，

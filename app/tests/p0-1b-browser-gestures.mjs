@@ -22,7 +22,7 @@ try {
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__brainSim?.isReady?.() && window.__brainScene?.getCameraPosition(),null,{timeout:60000});
   // Disable camera auto-rotation: camera movement must be caused by the tested orbit gesture.
-  const rotate=page.getByRole('button',{name:/^旋转 (开|关)$/});
+  const rotate=page.getByRole('button',{name:/^(自动)?旋转 (开|关)$/});
   if ((await rotate.textContent()).includes('开')) await rotate.click();
   const scene=page.locator('.brain-scene');
   const box=await scene.boundingBox();

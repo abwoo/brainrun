@@ -911,9 +911,9 @@ export function runLiveExperiment(opts: RunLiveExperimentOptions): {
       id,
       type: 'pulse',
       tMs: rel,
-      // 与 `runExperiment` 同款记账约定：按顺序 standard/oddball 交替；
-      // 直播没有 oddball 范式，这是事件分段用的记账条件，不是范式声明。
-      condition: id % 2 === 0 ? 'standard' : 'oddball',
+      // LIVE cortical clicks have no standardized oddball task definition.
+      // Never manufacture standard/oddball groups by alternating pulses.
+      condition: 'unclassified',
       drive: m.amplitude ?? DEFAULT_WC_DRIVE,
       driveUnit: 'wc',
     });
@@ -939,6 +939,12 @@ export function getLiveRecordingStore(): LiveRecordingStoreValue | null {
   return liveRecordingStore;
 }
 export function setLiveRecordingStore(v: LiveRecordingStoreValue | null): void {
+  const runId = v?.recording.provenance?.runId;
+  if (v && runId && (v.events.some(event => event.runId !== runId) ||
+      (v.epochs && (v.epochs.provenance?.runId !== runId ||
+        v.epochs.events.some(event => event.runId !== runId))))) {
+    throw new Error('Mixed experiment runs: Raw, events and epochs must share runId');
+  }
   liveRecordingStore = v;
 }
 
@@ -969,7 +975,11 @@ export function sensoryTargetNodes(
 
 /** 导出 JSON（含元数据与全部采样；`rawDataUvInfinity` 一并导出，保证可复现参考切换）。 */
 export function recordingToJson(rec: EegRecording): string {
-  return JSON.stringify(rec, null, 2);
+  const shared = liveRecordingStore?.recording === rec ? liveRecordingStore : null;
+  return JSON.stringify({
+    ...rec,
+    ...(shared ? { events: shared.events, epochs: shared.epochs } : {}),
+  }, null, 2);
 }
 
 /**

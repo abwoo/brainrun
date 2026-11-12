@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -212,34 +213,34 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
           <div style={{minWidth:0}}>
             <div className="conn-title">可直接操作的物理参数</div>
             <label className="panel-text">电极布局
-              <select aria-label="电极布局" value={montage}
+              <Dropdown aria-label="电极布局" value={montage}
                 onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedElectrode('Cz');}}>
                 <option value="10-20">10–20 基础 19 导</option>
                 <option value="10-10">扩展 10–10 · 94 导</option>
                 <option value="10-05">10–05 · 343 导</option>
-              </select>
+              </Dropdown>
             </label>
             <label className="panel-text">源方向
-              <select aria-label="球形头电流源方向" value={axis}
+              <Dropdown aria-label="球形头电流源方向" value={axis}
                 onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
                 <option value="X">X 左右</option><option value="Y">Y 前后</option><option value="Z">Z 上下</option>
-              </select>
+              </Dropdown>
             </label>
             <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m{liveMode && liveSource ? '（直播值，滑杆已锁定）' : ''}</p>
             <input type="range" aria-label="球形头偶极矩" min="-30" max="30" step=".5"
               value={moment} disabled={liveMode && !!liveSource} onChange={e=>setMoment(Number(e.target.value))} style={{width:'100%'}}/>
             <label className="panel-text">EEG 参考
-              <select aria-label="球形头参考方式" value={reference}
+              <Dropdown aria-label="球形头参考方式" value={reference}
                 onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
                 <option value="average">当前电极平均参考</option>
                 <option value="infinity">无限远理论参考</option>
-              </select>
+              </Dropdown>
             </label>
             <label className="panel-text">查看电极
-              <select aria-label="选中电极" value={selectedElectrode}
+              <Dropdown aria-label="选中电极" value={selectedElectrode}
                 onChange={e=>setSelectedElectrode(e.target.value)}>
                 {(readings?.sensors??[]).map(s=><option value={s.label} key={s.label}>{s.label}</option>)}
-              </select>
+              </Dropdown>
             </label>
             <p className="panel-text">源位置 mm：{position.map(x=>x.toFixed(1)).join(', ')}</p>
             <p className="panel-text">当前电极电位：{vSelected===undefined?'—':vSelected.toFixed(4)+' µV'}</p>

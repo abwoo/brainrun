@@ -42,7 +42,7 @@ function scan() {
   const rows = [];
   for (const path of CONTROL_FILES) {
     const code = source(path);
-    const re = /<(button|input|select|textarea)\b/g;
+    const re = /<(button|input|select|textarea|Dropdown)\b/g;
     for (const match of code.matchAll(re)) {
       const pos = match.index;
       let depth = 0;
@@ -118,12 +118,15 @@ test('C04: scenario launcher does not pretend navigation imports scenario result
   assert.match(app, /场景摘要尚未自动载入实验台/);
 });
 
-test('C05/C07: independent late ERP epochs cannot be silently described as shared raw EEG', () => {
+test('C05/C07: late ERP publishes its source Raw, events and epochs together', () => {
   const erp = source('app/src/components/ErpTab.tsx');
   const shell = source('app/src/components/EegAnalysisLab.tsx');
-  assert.match(erp, /运行独立 oddball（替换 ERP\/TFR 试次）/);
-  assert.match(erp, /不会替换 EEG 原始记录/);
-  assert.match(shell, /late ERP 可替换 ERP\/TFR 试次/);
+  assert.match(erp, /运行 oddball（同步全部分析）/);
+  assert.match(erp, /onEpochsChange\(ep, 'independent-late', \{ recording: rec, events: evs, parameters: paramsSnapshot \}\)/);
+  assert.match(shell, /setRecording\(rec\)/);
+  assert.match(shell, /setEvents\(input\.events\.map/);
+  assert.match(shell, /setEpochs\(\{ \.\.\.ep, provenance: session\.provenance/);
+  assert.match(shell, /setSelectedChannel\(input\.recording\.channels\[0\]\.label\)/);
 });
 
 test('C06: separate source projection is labeled 2D and independent', () => {
@@ -162,7 +165,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 212, 'P0-1B current full 19-component static control census');
+  assert.equal(actual.length, 216, 'UI migration includes Dropdown and workspace controls');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -170,9 +171,9 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
           <div style={{minWidth:0}}>
             <div className="conn-title">电流源控制</div>
             <label className="panel-text">方向
-              <select aria-label="电流源方向" value={axis} onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
+              <Dropdown aria-label="电流源方向" value={axis} onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
                 <option value="X">X 左右</option><option value="Y">Y 前后</option><option value="Z">Z 上下</option>
-              </select>
+              </Dropdown>
             </label>
             <p className="panel-text">偶极矩 {moment.toFixed(1)} nA·m{liveMode && liveSource ? '（直播值，滑杆已锁定）' : ''}</p>
             <input aria-label="偶极矩强度" type="range" min="-30" max="30" step="0.5"
@@ -181,10 +182,10 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
             <input aria-label="导电率" type="range" min="0.10" max="1.00" step="0.01"
               value={conductivity} onChange={e=>setConductivity(Number(e.target.value))} style={{width:'100%'}}/>
             <label className="panel-text">参考方式
-              <select aria-label="参考方式" value={reference}
+              <Dropdown aria-label="参考方式" value={reference}
                 onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
                 <option value="average">平均参考</option><option value="infinity">无限远理论参考</option>
-              </select>
+              </Dropdown>
             </label>
             <p className="panel-text">位置 (mm)：{position.map(x=>x.toFixed(1)).join(', ')}</p>
             <button className="chip chip-small" type="button" onClick={()=>{

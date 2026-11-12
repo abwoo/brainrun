@@ -21,7 +21,7 @@ export interface SimParams {
   stim_duration_ms: number;
 }
 
-export type WorkerInMessage =
+export type WorkerInMessage = (
   | { type: 'init'; weights: number[]; lengths: number[] }
   | { type: 'stimulus'; node: number; amplitude: number; duration_ms: number }
   | { type: 'hold_start'; node: number; amplitude: number }
@@ -61,7 +61,12 @@ export type WorkerInMessage =
   | { type: 'set_seed'; seed: number }
   | { type: 'advance_ms'; ms: number }
   | { type: 'save_snapshot'; id: string }
-  | { type: 'restore_snapshot'; id: string; json: string };
+  | { type: 'restore_snapshot'; id: string; json: string }
+) & {
+  /** All commands carry session identity; only Worker ACK time is scientific. */
+  run_id?: string;
+  command_id?: number;
+};
 
 /** Background mode as reported back after a mode change. */
 export interface ModeParams {
@@ -78,6 +83,8 @@ export interface ModeParams {
 
 export interface Snapshot {
   type: 'snapshot';
+  /** P0-2: source run identity, assigned by the Worker (never by a chart). */
+  run_id?: string;
   /** 仿真时间 ms。 */
   t_ms: number;
   /** 76 节点 E。 */
@@ -113,8 +120,11 @@ export interface Snapshot {
 
 export type WorkerOutMessage =
   | { type: 'ready'; n_nodes: number; dt_ms: number }
+  | { type: 'command_ack'; run_id: string; command_id: number;
+      command_type: WorkerInMessage['type']; t_ms: number;
+      phase: 'accepted' | 'applied' }
   | Snapshot
   | { type: 'mode_applied'; params: ModeParams }
-  | { type: 'snapshot_saved'; id: string; t_ms: number; json: string }
-  | { type: 'snapshot_restored'; id: string; t_ms: number }
+  | { type: 'snapshot_saved'; id: string; t_ms: number; json: string; run_id?: string }
+  | { type: 'snapshot_restored'; id: string; t_ms: number; run_id?: string }
   | { type: 'error'; message: string };

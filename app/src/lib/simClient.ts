@@ -9,6 +9,8 @@
  * 供 Playwright 因果测试使用；它不产生任何额外活动。
  */
 import type { ModeParams, SimParams, Snapshot, WorkerInMessage, WorkerOutMessage } from '../worker/protocol';
+import { ExperimentSession } from './experimentSession';
+import type { ExperimentSessionSnapshot } from './experimentSession';
 
 export type { ModeParams } from '../worker/protocol';
 
@@ -138,6 +140,7 @@ export interface SnapshotSummary {
   version: number;
   params: { g: number; c_ei: number; stim_amplitude: number; stim_duration_ms: number };
   mode: BackgroundMode;
+  seed: number | null;
   modeParams: ModeParams;
   weights: number[][];
   bias: number[];
@@ -201,6 +204,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
       /** PR6 R2: StateSnapshot JSON schema version; absent in pre-PR6 JSON. */
       version?: number;
       params?: {
+        seed?: number;
         g?: number;
         c_ei?: number;
         stim_amplitude?: number;
@@ -234,6 +238,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
         stim_duration_ms: snap.params.stim_duration_ms ?? DEFAULT_PARAMS.stim_duration_ms,
       },
       mode,
+      seed: Number.isSafeInteger(snap.params.seed) ? snap.params.seed! : null,
       modeParams: {
         mode,
         ou_tau_ms: snap.params.ou_tau_ms ?? 100,
@@ -254,6 +259,17 @@ export class SimClient {
   private listeners = new Set<SnapshotListener>();
   private latest: Snapshot | null = null;
   private markers: StimulusMarker[] = [];
+  /** P0-2: LIVE session provenance. Only confirmed Worker model times count. */
+  private readonly experiment = new ExperimentSession({
+    origin: 'live-wasm', solverId: 'rust-wasm-wilson-cowan-76',
+    anatomyId: 'tvb-demo-connectome-76', registration: 'unregistered', seed: 0,
+  });
+  private initialInputs: {
+    weights: number[]; lengths: number[]; parameters: SimParams; seed: number;
+  } | null = null;
+  private commandSequence = 0;
+  private pendingCommandInputs = new Map<number, Record<string, string | number | boolean>>();
+  private pendingStimulusMarkers = new Map<number, StimulusMarker>();
   /** 自上次清零以来各脑区 E 的峰值（60 Hz 快照流逐条更新）。主线程
    *  每帧只读到最新快照，200 ms 的脉冲瞬态会被帧率采样漏掉；峰值
    *  追踪在消息到达时就更新，所以不会漏。仅供调试桥读取。 */
@@ -315,12 +331,29 @@ export class SimClient {
   /** 启动 Worker 并用连接矩阵初始化引擎。 */
   start(weights: number[][], lengths: number[][]): void {
     if (this.worker) return;
+    this.initialInputs = { weights: weights.flat(), lengths: lengths.flat(), parameters: { ...this.params }, seed: this.seed };
     this.worker = new Worker(new URL('../worker/simWorker.ts', import.meta.url), {
       type: 'module',
     });
     this.worker.addEventListener('message', (ev: MessageEvent<WorkerOutMessage>) => {
       const msg = ev.data;
-      if (msg.type === 'ready') {
+      if (msg.type === 'command_ack') {
+        if (msg.run_id !== this.experiment.runId) return;
+        this.experiment.recordAcknowledgement(msg.run_id, {
+          id: msg.command_id, runId: msg.run_id, command: msg.command_type,
+          tMs: msg.t_ms, status: msg.phase,
+          inputs: this.pendingCommandInputs.get(msg.command_id),
+        });
+        this.pendingCommandInputs.delete(msg.command_id);
+        // Legacy pulse marker is now corrected to the time at which the
+        // Worker actually accepted the stimulation command; the dispatch
+        // snapshot (<=16 ms old) is not the true stimulus timestamp.
+        const marker = this.pendingStimulusMarkers.get(msg.command_id);
+        if (marker) {
+          marker.t_ms = msg.t_ms;
+          this.pendingStimulusMarkers.delete(msg.command_id);
+        }
+      } else if (msg.type === 'ready') {
         this.ready = true;
         const cbs = this.readyListeners;
         this.readyListeners = [];
@@ -331,6 +364,7 @@ export class SimClient {
         this.backgroundMode = msg.params.mode;
         this.modeParams = msg.params;
       } else if (msg.type === 'snapshot_saved') {
+        if (msg.run_id && msg.run_id !== this.experiment.runId) return;
         // PR4: keep the snapshot in memory; manual snapshots are also
         // persisted to localStorage (auto snapshots never are).
         const stored: StoredSnapshot = {
@@ -341,6 +375,13 @@ export class SimClient {
           version: SNAPSHOT_SCHEMA_VERSION,
         };
         this.snapshots.set(msg.id, stored);
+        if (msg.run_id === undefined || msg.run_id === this.experiment.runId) {
+          this.experiment.recordArtifact({
+            id: `snapshot:${msg.id}:${msg.t_ms}:${this.experiment.getSnapshot().artifacts.length}`,
+            runId: this.experiment.runId, kind: 'snapshot', tMs: msg.t_ms,
+            sourceId: 'wasm-worker-state-json', methodId: 'WasmSim.take_snapshot',
+          });
+        }
         if (msg.id === 'manual') {
           try {
             window.localStorage.setItem(MANUAL_SNAPSHOT_KEY, JSON.stringify(stored));
@@ -352,6 +393,7 @@ export class SimClient {
         this.snapshotWaiters.delete(msg.id);
         waiters.forEach((cb) => cb({ id: msg.id, t_ms: msg.t_ms }));
       } else if (msg.type === 'snapshot_restored') {
+        if (msg.run_id && msg.run_id !== this.experiment.runId) return;
         // PR4: a restore rewound the engine — re-sync the client mirrors
         // from the snapshot JSON (params, weights, bias) and drop the
         // response data, which belongs to the pre-restore trajectory.
@@ -370,6 +412,10 @@ export class SimClient {
         this.restoreWaiters.delete(msg.id);
         if (summary) waiters.forEach((cb) => cb(summary));
       } else if (msg.type === 'snapshot') {
+        // A reset or rewind starts a new run. Ignore queued snapshots from
+        // earlier runs even if they arrive after the UI initiates the reset.
+        if (msg.run_id && msg.run_id !== this.experiment.runId) return;
+        if (msg.run_id) this.experiment.recordModelTime(msg.run_id, msg.t_ms);
         this.latest = msg;
         if (this.peakE === null) {
           this.peakE = Float64Array.from(msg.e);
@@ -411,12 +457,12 @@ export class SimClient {
     this.modifiedWeights.clear();
     this.biasMap.clear();
     this.send({
-      type: 'init',
+      type: 'init', run_id: this.experiment.runId,
       weights: flat(weights),
       lengths: flat(lengths),
     });
     // 把默认参数同步进引擎（引擎默认已是演示预设，此处显式确认一遍）。
-    this.send({ type: 'set_params', params: { ...this.params } });
+    this.onReady(() => this.send({ type: 'set_params', params: { ...this.params } }));
     // PR4：引擎默认是 Quiet（旧行为）；产品默认模式由客户端在引擎就绪
     // 后发 set_background_mode 设定——不能在 init 后立刻发，Worker 在
     // WASM 加载完成前会丢弃消息（sim 尚未创建）。
@@ -482,6 +528,30 @@ export class SimClient {
 
   getMarkers(): StimulusMarker[] {
     return this.markers;
+  }
+
+  /** P0-2: provenance, actual Worker command ACKs and snapshots in one run. */
+  getExperimentSession(): ExperimentSessionSnapshot {
+    return this.experiment.getSnapshot();
+  }
+
+  /** Export actual model inputs, accepted commands and restorable Worker snapshots. */
+  getExperimentBundle() {
+    return {
+      schemaVersion: 1,
+      session: this.getExperimentSession(),
+      modelVersion: 'brainrun-wc-1ms-v1',
+      initialInputs: this.initialInputs,
+      requestedParameters: this.getParams(), seed: this.getSeed(),
+      pendingCommandCount: this.pendingCommandInputs.size,
+      retentionLimits: { commands: 1000, artifactDescriptors: 500, snapshotTimes: 600 },
+      background: this.getModeParams(), weights: this.getWeights(),
+      snapshots: [...this.snapshots.entries()].map(([id, value]) => ({ ...value, id })),
+    };
+  }
+
+  subscribeExperimentSession(cb: (session: ExperimentSessionSnapshot) => void): () => void {
+    return this.experiment.subscribe(cb);
   }
 
   /** 清零峰值追踪（从下一条快照开始重新累计）。 */
@@ -608,11 +678,35 @@ export class SimClient {
     return { node: this.holdStartWall.node, heldMs: Date.now() - this.holdStartWall.wallMs };
   }
 
-  private send(msg: WorkerInMessage): void {
-    this.worker?.postMessage(msg);
+  private send(msg: WorkerInMessage): number | null {
+    if (!this.worker) return null;
+    if (msg.type === 'init') {
+      this.worker.postMessage(msg);
+      return null;
+    }
+    const command_id = ++this.commandSequence;
+    // Keep only small, meaningful, serializable experimental parameters.
+    // Never copy full MRI, BEM, state JSON or 76x76 connectome into metadata.
+    const inputs: Record<string, string | number | boolean> = {};
+    for (const [k, v] of Object.entries(msg)) {
+      if (k === 'type' || k === 'run_id' || k === 'command_id' ||
+          k === 'json' || k === 'weights' || k === 'lengths') continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        inputs[k] = v;
+      } else if (k === 'params' && v && typeof v === 'object') {
+        for (const [pk, pv] of Object.entries(v)) {
+          if (typeof pv === 'number') inputs[pk] = pv;
+        }
+      }
+    }
+    this.pendingCommandInputs.set(command_id, inputs);
+    this.worker.postMessage({
+      ...msg, run_id: this.experiment.runId, command_id,
+    } satisfies WorkerInMessage);
+    return command_id;
   }
 
-  private mark(kind: 'pulse' | 'hold', node: number, amplitude: number): void {
+  private mark(kind: 'pulse' | 'hold', node: number, amplitude: number): StimulusMarker {
     const t_ms = this.latest ? this.latest.t_ms : 0;
     // PR2：记下发送前最近快照的 E 作基线（ΔE 视图与响应窗口的零点）。
     // 只有真实快照到达过才有基线；否则保持上一次基线（不编造）。
@@ -630,19 +724,22 @@ export class SimClient {
         .map((s) => ({ t_ms: s.t_ms, e: Float64Array.from(s.e), i: Float64Array.from(s.i) }));
       this.pinnedWindow = { baselineT_ms: t_ms, node, t0_ms: t0, t1_ms: t1, snapshots: seed };
     }
-    this.markers.push({ t_ms, node, kind, amplitude });
+    const marker = { t_ms, node, kind, amplitude };
+    this.markers.push(marker);
     if (this.markers.length > 50) this.markers.splice(0, this.markers.length - 50);
+    return marker;
   }
 
   /** 脉冲刺激：用当前参数的幅度与持续时间。 */
   pulse(node: number): void {
-    this.mark('pulse', node, this.params.stim_amplitude);
-    this.send({
+    const marker = this.mark('pulse', node, this.params.stim_amplitude);
+    const commandId = this.send({
       type: 'stimulus',
       node,
       amplitude: this.params.stim_amplitude,
       duration_ms: this.params.stim_duration_ms,
     });
+    if (commandId !== null) this.pendingStimulusMarkers.set(commandId, marker);
   }
 
   /** PR8-LINK：带幅度的单次脉冲（感觉输入 / 刺激实验 / 直播闭环用）。
@@ -652,14 +749,16 @@ export class SimClient {
   pulseAt(node: number, amplitude: number, durationMs: number): void {
     const amp = Math.min(2, Math.max(-2, amplitude));
     const dur = Math.min(500, Math.max(20, durationMs));
-    this.mark('pulse', node, amp);
-    this.send({ type: 'stimulus', node, amplitude: amp, duration_ms: dur });
+    const marker = this.mark('pulse', node, amp);
+    const commandId = this.send({ type: 'stimulus', node, amplitude: amp, duration_ms: dur });
+    if (commandId !== null) this.pendingStimulusMarkers.set(commandId, marker);
   }
 
   holdStart(node: number): void {
-    this.mark('hold', node, this.params.stim_amplitude);
+    const marker = this.mark('hold', node, this.params.stim_amplitude);
     this.holdStartWall = { node, wallMs: Date.now() };
-    this.send({ type: 'hold_start', node, amplitude: this.params.stim_amplitude });
+    const commandId = this.send({ type: 'hold_start', node, amplitude: this.params.stim_amplitude });
+    if (commandId !== null) this.pendingStimulusMarkers.set(commandId, marker);
   }
 
   holdEnd(node: number): void {
@@ -695,6 +794,9 @@ export class SimClient {
   }
 
   reset(): void {
+    this.experiment.newRun({ seed: this.seed });
+    this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     this.markers = [];
     this.holdStartWall = null;
     this.peakE = null;
@@ -720,6 +822,9 @@ export class SimClient {
    *  same-seed reruns differ.  Client-side state clearing mirrors
    *  reset() exactly. */
   resetPaused(): void {
+    this.experiment.newRun({ seed: this.seed });
+    this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     this.markers = [];
     this.holdStartWall = null;
     this.peakE = null;
@@ -917,6 +1022,13 @@ export class SimClient {
     if (!stored) {
       return Promise.reject(new Error(`没有可恢复的快照：${id}`));
     }
+    const summary = parseSnapshotSummary(stored);
+    if (!summary || summary.version !== SNAPSHOT_SCHEMA_VERSION) {
+      return Promise.reject(new Error('Invalid or unsupported experiment snapshot'));
+    }
+    this.experiment.newRun({ seed: summary.seed });
+    this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     return new Promise((resolve) => {
       const list = this.restoreWaiters.get(id) ?? [];
       list.push(resolve);
@@ -942,6 +1054,7 @@ export class SimClient {
    *  from the TVB originals), sustained bias. */
   private applySnapshotSummary(summary: SnapshotSummary): void {
     this.params = { ...summary.params };
+    if (summary.seed !== null) this.seed = summary.seed;
     this.backgroundMode = summary.mode;
     this.modeParams = summary.modeParams;
     if (this.originalWeights) {
@@ -972,6 +1085,8 @@ export class SimClient {
       resetSnapshotHistory: () => this.resetSnapshotHistory(),
       getParams: () => this.getParams(),
       getMarkers: () => this.getMarkers(),
+      getExperimentSession: () => this.getExperimentSession(),
+      getExperimentBundle: () => this.getExperimentBundle(),
       // PR2 调试桥：基线 / 响应窗口 / max|ΔE| / 响应汇总 / 三类标记 / 回放状态。
       // 全部只读已记录的真实快照，不产生额外活动；窗口快照的 e/i 转成
       // 普通数组，便于 Playwright 里直接 JSON 序列化读取。
@@ -1013,13 +1128,14 @@ export class SimClient {
               windowT1_ms: null,
             },
       pulse: (node: number, amplitude?: number, duration_ms?: number) => {
-        this.mark('pulse', node, amplitude ?? this.params.stim_amplitude);
-        this.send({
+        const marker = this.mark('pulse', node, amplitude ?? this.params.stim_amplitude);
+        const commandId = this.send({
           type: 'stimulus',
           node,
           amplitude: amplitude ?? this.params.stim_amplitude,
           duration_ms: duration_ms ?? this.params.stim_duration_ms,
         });
+        if (commandId !== null) this.pendingStimulusMarkers.set(commandId, marker);
       },
       // PR8-LINK 调试桥：带幅度的单次脉冲（与 UI 的感觉输入 / 直播闭环相同入口）。
       pulseAt: (node: number, amplitude: number, duration_ms: number) =>
