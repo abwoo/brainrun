@@ -3278,5 +3278,285 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
   {
     "zh": "当前脑区活动 · 模型值 · 10 秒",
     "en": "Regional activity · model units · 10 seconds"
+  },
+  {
+    "zh": "一起看",
+    "en": "Both"
+  },
+  {
+    "zh": "橙线表示兴奋活动，蓝线表示抑制活动；这里显示的是模型活动值，不是电压。",
+    "en": "Orange shows excitatory activity; blue shows inhibitory activity. These are model activity values, not voltages."
+  },
+  {
+    "zh": "· 60 Hz 快照 → 线性插值 250 Hz（有效采样率 60 Hz，4 ms 网格上的高频成分为插值产物，不是实测） · 基线取窗口首样本 E/I · 事件只取真实脉冲标记 · 源模型与种子对此路无效（用直播 WC 网络）。",
+    "en": "· 60 Hz snapshots → 250 Hz linear interpolation. Effective sampling rate remains 60 Hz; high-frequency content on the 4 ms grid is interpolation, not measurement. Baseline uses the first E/I sample; events use actual pulse markers. Source-model and seed controls do not affect this live WC-network route."
+  },
+  {
+    "zh": "· 原始记录、事件与试次同步更新； 地形页右侧正向采样图另用独立偶极子 · 噪声是伪迹，不作神经源活动解释。",
+    "en": "· Raw recordings, events and epochs update together. The forward-sampling panel on the topography page uses a separate dipole. Noise represents artifacts, not neural source activity."
+  },
+  {
+    "zh": "通道 ·",
+    "en": "channels ·"
+  },
+  {
+    "zh": "采样 ·",
+    "en": "samples ·"
+  },
+  {
+    "zh": "秒 ·",
+    "en": "s ·"
+  },
+  {
+    "zh": "· 种子",
+    "en": "· seed"
+  },
+  {
+    "zh": "：最大 |V|",
+    "en": ": maximum |V|"
+  },
+  {
+    "zh": "秒； 全通道统一刻度，满格 ±",
+    "en": "s; shared channel scale ±"
+  },
+  {
+    "zh": "µV；噪声是伪迹，不画成神经源波形。",
+    "en": "µV. Noise represents artifacts and is not plotted as neural source activity."
+  },
+  {
+    "zh": "Hz，偏差",
+    "en": "Hz; difference"
+  },
+  {
+    "zh": "Hz（Oz）。记录 RMS",
+    "en": "Hz (Oz). Recording RMS"
+  },
+  {
+    "zh": "µV（真实基线 RMS 6.07 µV）。",
+    "en": "µV (measured baseline RMS 6.07 µV)."
+  },
+  {
+    "zh": "Alpha 探索 = JR p0=220 极限环，是柱模型自身的自发节律（实测峰 10.99 Hz）。",
+    "en": "Alpha exploration uses the JR p0=220 limit cycle: a spontaneous column-model rhythm with measured peak 10.99 Hz."
+  },
+  {
+    "zh": "ms，最大 |V|",
+    "en": "ms; maximum |V|"
+  },
+  {
+    "zh": "刺激前（第一事件前）记录处于静息态、全部电极值为 0，地形图是空白的—— 默认时刻 400 ms 就落在刺激前，所以本页在记录到达时会自动跳到最大响应时刻。",
+    "en": "Before the first event, the model is at rest and all sensor values are zero, so the topography is blank. The default 400 ms falls before stimulation; this view therefore initially selects the largest response."
+  },
+  {
+    "zh": "黑点 = 实测电极位置；色块 = 插值场（单位圆内网格，25×25）。最大值",
+    "en": "Black dots show electrode positions; colors show an interpolated field on a 25×25 unit-circle grid. Maximum"
+  },
+  {
+    "zh": "µV。 插值在电极点上近乎重现实测值（λ = 1e-5 平滑所致残差 ≤ 0.02 µV），但两电极之间的值仍是插值，不是测量。",
+    "en": "µV. The interpolant nearly reproduces sensor values (regularization λ=1e-5 leaves residuals ≤0.02 µV). Between electrodes, values remain interpolated rather than measured."
+  },
+  {
+    "zh": "个），不是插值。 源 [",
+    "en": "sensors), not interpolation. Source ["
+  },
+  {
+    "zh": "] mm、矩",
+    "en": "] mm; moment"
+  },
+  {
+    "zh": "nA·m、参考",
+    "en": "nA·m; reference"
+  },
+  {
+    "zh": "； 最大 |V|",
+    "en": "; maximum |V|"
+  },
+  {
+    "zh": "µV；矩",
+    "en": "µV; moment"
+  },
+  {
+    "zh": "nA·m（正则化压缩过，不是真值幅度）；分布范围",
+    "en": "nA·m (attenuated by regularization, not the true magnitude); extent"
+  },
+  {
+    "zh": "导，导联",
+    "en": "channels; lead"
+  },
+  {
+    "zh": "）为实测向量。",
+    "en": ") form the observed vector."
+  },
+  {
+    "zh": "µV（残差远大于噪声水平时，单偶极子模型不够用）",
+    "en": "µV. Residuals far above the noise level indicate an inadequate single-dipole model."
+  },
+  {
+    "zh": "试次保留，",
+    "en": "epochs retained;"
+  },
+  {
+    "zh": "试次被剔除（峰峰值超限或出界）。 来源：",
+    "en": "epochs rejected for excessive peak-to-peak amplitude or out-of-bounds timing. Source:"
+  },
+  {
+    "zh": "，色带 ±SEM），紫色虚线 standard（n=",
+    "en": ", shaded ±SEM); purple dashed: standard (n="
+  },
+  {
+    "zh": "）。 竖虚线是刺激时刻（t=0）。纵轴 ±",
+    "en": "). Vertical dashed line marks stimulation (t=0). Vertical scale ±"
+  },
+  {
+    "zh": "ms、300–500 ms 均值 6.94 µV、差异波峰",
+    "en": "ms; mean over 300–500 ms: 6.94 µV; difference-wave peak"
+  },
+  {
+    "zh": "ms）：形态对上（晚期正成分、 潜伏期在窗内、oddball 选择性），幅度差约 50 倍——这是结构性缺口，没有靠重缩放修掉， 见 docs/pr6-erp-mechanism.md。",
+    "en": "ms). The model reproduces a late positive component, in-window latency and oddball selectivity, but amplitude differs by about 50-fold. This structural gap has not been hidden by rescaling. See docs/pr6-erp-mechanism.md."
+  },
+  {
+    "zh": "个响应脑区，按峰值 |ΔE| 从大到小排；点击一行选中该脑区。",
+    "en": "responsive regions, sorted by peak |ΔE|. Click a row to select a region."
+  },
+  {
+    "zh": "→ LIF 注入电流",
+    "en": "→ LIF injected current"
+  },
+  {
+    "zh": "pA （流变 375 pA）；HH 注入电流密度",
+    "en": "pA (rheobase 375 pA); HH current density"
+  },
+  {
+    "zh": "uA/cm^2 （持续电流阈值约 9.8 uA/cm^2）。",
+    "en": "µA/cm² (sustained-current threshold about 9.8 µA/cm²)."
+  },
+  {
+    "zh": "按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）",
+    "en": "Color by ΔE = E − prestimulus baseline: increases amber, decreases blue; square-root compression, full scale ±0.1."
+  },
+  {
+    "zh": "；发放率",
+    "en": "; firing rate"
+  },
+  {
+    "zh": "）：最小",
+    "en": "): minimum"
+  },
+  {
+    "zh": "，最大",
+    "en": ", maximum"
+  },
+  {
+    "zh": "ms；纵轴",
+    "en": "ms; vertical axis"
+  },
+  {
+    "zh": "默认目标 = 选中脑区 #",
+    "en": "Default target: selected region #"
+  },
+  {
+    "zh": "（brainData 中心，TVB 坐标、未配准 HEAD 球坐标，演示映射）；换选区后目标自动跟过去。",
+    "en": "(brainData center in TVB coordinates; not registered to HEAD sphere coordinates; illustrative mapping). The target follows region selection."
+  },
+  {
+    "zh": "mA（阳极 +，阴极 −，总和为零）",
+    "en": "mA (anode +, cathode −; total current zero)"
+  },
+  {
+    "zh": "S/m（均匀导体假设）",
+    "en": "S/m (homogeneous-conductor assumption)"
+  },
+  {
+    "zh": "）分量：",
+    "en": ") component:"
+  },
+  {
+    "zh": "点，步长 40 mm）：最大 |E|",
+    "en": "points, 40 mm spacing): maximum |E|"
+  },
+  {
+    "zh": "Hz，强度",
+    "en": "Hz; strength"
+  },
+  {
+    "zh": "（WC 柱零均值正弦驱动，见 stimulation.ts）",
+    "en": "(zero-mean sinusoidal drive to the WC column; see stimulation.ts)"
+  },
+  {
+    "zh": "Hz（元数据，载波未进动力学），强度",
+    "en": "Hz (metadata; carrier excluded from the dynamics); strength"
+  },
+  {
+    "zh": "ms；burst 节律进主仿真（颞区 A1 脉冲），不是“播放一段声音”。",
+    "en": "ms. Burst timing drives the main simulation through temporal A1 pulses; it does not play audio."
+  },
+  {
+    "zh": "ms；真实双相脉冲约 0.2–0.4 ms）",
+    "en": "ms; a physical biphasic pulse is approximately 0.2–0.4 ms)"
+  },
+  {
+    "zh": "V/m（t=0），周期",
+    "en": "V/m at t=0; period"
+  },
+  {
+    "zh": "线圈）。",
+    "en": "coil)."
+  },
+  {
+    "zh": "V/m，法向分量",
+    "en": "V/m; normal component"
+  },
+  {
+    "zh": "模型单位/(V/m)（默认",
+    "en": "model units/(V/m), default"
+  },
+  {
+    "zh": "(1/s)/(V/m)（默认",
+    "en": "(1/s)/(V/m), default"
+  },
+  {
+    "zh": "闭环初版仅用于模拟环境，不直接控制人体设备。",
+    "en": "This initial closed-loop controller operates only in the simulation and does not control equipment on people."
+  },
+  {
+    "zh": "本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的三节来自主仿真真实快照。",
+    "en": "The three JR sections use simulated cortical-column results. Sections marked live use actual snapshots from the main simulation."
+  },
+  {
+    "zh": "的 live E （瞬时值，或最近 1 秒的 RMS）。特征超过阈值时，经 Worker 脉冲 （pulseAt，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 + 2 秒冷却 + 手动停止：脉冲可能把双稳态网络翻进高活动态，触发到上限 自动停；停后若网络锁住，用主界面横幅的恢复/RESET 回来。",
+    "en": "live E (instantaneous value or RMS over the last second). Above threshold, a 100 ms Worker pulse feeds back into the main simulation. A trigger limit, 2 s cooldown and manual stop bound the loop. Pulses can move a bistable network into a high-activity state; triggering stops at the limit. If activity remains locked high, use Restore defaults in the main workspace."
+  },
+  {
+    "zh": "直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
+    "en": "Live source: use the selected region’s dipole; position is its center and q is derived from live E/I through the documented PR5 assumptions."
+  },
+  {
+    "zh": "nA·m （live E/I 经 PR5 假设链，基线 = 选区切换时该脑区的 E/I；偶极矩矢量 = q × 下方所选方向，法向是假设） · 位置 = 脑区中心（TVB 坐标、未配准 HEAD，长度钳制到 55 mm）· 改选区、改 G 后电位跟着变。",
+    "en": "nA·m (derived from live E/I using PR5 assumptions; baseline is E/I when selection changes; moment vector = q × selected orientation, an assumed normal). Position uses the TVB region center, is not registered to HEAD coordinates and is clamped to 55 mm. Selection and coupling changes update the potentials."
+  },
+  {
+    "zh": "µV（12 导中幅值最大，尖峰时跟最大值走）",
+    "en": "µV (largest magnitude among 12 sensors, following the current maximum)"
+  },
+  {
+    "zh": "V=p·(r−r₀)/(4πσ|r−r₀|³) · RAS mm · nA·m · µV。S01–S12 不是标准 EEG montage，透明球面不是颅骨/头皮导电边界，亦未将 TVB E/I 映射为电流源。",
+    "en": "V=p·(r−r₀)/(4πσ|r−r₀|³), in RAS mm, nA·m and µV. S01–S12 are illustrative sensors rather than a standard EEG montage. The transparent sphere is not a skull/scalp conductor boundary, and TVB E/I is not directly mapped to a current source."
+  },
+  {
+    "zh": "nA·m （live E/I 经 PR5 假设链，基线 = 选区切换时该脑区的 E/I；偶极矩矢量 = q × 下方所选方向，法向是假设） · 位置 = 脑区中心（TVB 坐标、未配准 HEAD，钳制进 ±48 mm 球网格）· 改选区、改 G 后电位跟着变。",
+    "en": "nA·m (derived from live E/I using PR5 assumptions; baseline is E/I when selection changes; moment vector = q × selected orientation, an assumed normal). Position uses the TVB region center, is not registered to HEAD coordinates and is clamped to the ±48 mm grid. Selection and coupling changes update the potentials."
+  },
+  {
+    "zh": "— 权重",
+    "en": "— weight"
+  },
+  {
+    "zh": "条）",
+    "en": "connections)"
+  },
+  {
+    "zh": "JR p0=220 极限环跑 12 s（去前 2 s），Welch PSD 读 alpha 峰与占比。",
+    "en": "Run the JR p0=220 limit cycle for 12 s, discard the first 2 s, and use Welch PSD for the alpha peak and power share."
   }
 ];

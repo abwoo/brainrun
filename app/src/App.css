@@ -1415,7 +1415,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .manual-brain .brain-scene { height:100%; }
 .electric-legend { padding:12px 18px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:#9db5c8; font-size:12px; }
 .electric-legend span { width:8px; height:8px; border-radius:50%; display:inline-block; margin-left:8px; }
-.legend-source,.legend-positive { background:#ffb340; }.legend-negative { background:#4fb6f2; }
+.legend-source { background:#ffb340; }.legend-positive { background:#ff7b6a; }.legend-negative { background:#4fb6f2; }
 .electric-results { padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:18px; border-top:1px solid #203545; }
 .electric-results>div { min-width:0; }
 .electric-results span { display:block; font-size:13px; color:#b6cbd8; margin-bottom:6px; }

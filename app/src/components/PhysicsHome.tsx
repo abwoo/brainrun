@@ -68,7 +68,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <div className="model-instruction">{text('点击选择位置 · 拖动旋转 · 滚轮缩放','Click to select · drag to rotate · scroll to zoom')}</div>
       <div className="manual-brain">{networkView}</div>
       <div className="manual-trace"><h2>{text('当前脑区的活动','Activity in the selected region')}</h2>
-       <ActivityChart sim={sim} selectedId={selectedId} resetSignal={0} replay={null}/></div>
+       <ActivityChart simple sim={sim} selectedId={selectedId} resetSignal={0} replay={null}/></div>
      </section>
      <aside className="physics-controls">
       <div className="control-step"><span>1</span><h2>{text('选择位置','Choose a location')}</h2></div>

@@ -40,7 +40,7 @@ export function localizeText(text:string):string {
   for(const rule of templates) {
    const match=key.match(rule.pattern);if(!match)continue;
    const values:Record<number,string>={};
-   rule.indices.forEach((n,i)=>{values[n]=match[i+1];});
+   rule.indices.forEach((n,i)=>{values[n]=match[i+1]===key ? match[i+1] : localizeText(match[i+1]);});
    translated=rule.en.replace(/\{(\d+)\}/g,(_,n)=>values[Number(n)]??'');break;
   }
  }

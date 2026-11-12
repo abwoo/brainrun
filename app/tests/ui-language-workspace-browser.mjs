@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {preview} from 'vite';
 const server=await preview({preview:{port:0,host:'127.0.0.1'},logLevel:'error'});
@@ -11,6 +11,20 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:1050}});
  page.on('pageerror',e=>errors.push(String(e)));
  await page.goto(url,{waitUntil:'domcontentloaded'});
+ // The Linux runner has no CJK system fonts; provide the same fallback that
+ // Chinese users' operating systems normally supply, without a production CDN.
+ let fontCss=await readFile('node_modules/@fontsource/noto-sans-sc/400.css','utf8');
+ for(const match of [...fontCss.matchAll(/url\(([^)]+)\)/g)]){
+  const asset=match[1].replace(/['"]/g,'');
+  const bytes=await readFile('node_modules/@fontsource/noto-sans-sc/'+asset);
+  fontCss=fontCss.replace(match[0],'url(data:font/woff2;base64,'+bytes.toString('base64')+')');
+ }
+ await page.addStyleTag({content:fontCss});
+ await page.evaluate(()=>{
+  document.documentElement.style.setProperty('--sans','system-ui, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif');
+  document.documentElement.style.setProperty('--mono','ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans SC", monospace');
+ });
+ await page.evaluate(()=>document.fonts.load('16px "Noto Sans SC"','中文物理模型'));
  await page.getByTestId('physics-home').waitFor();
  await page.waitForFunction(()=>document.querySelector('[data-testid="peak-potential"]')?.getAttribute('data-voltage')!=='');
  assert.equal(await page.getByRole('dialog').count(),0,'home must never open a preset dialog');

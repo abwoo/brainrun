@@ -1,5 +1,33 @@
 export const messageTemplates: ReadonlyArray<{ zh: string; en: string }> = [
   {
+    "zh": "运行 S{0}",
+    "en": "Run S{0}"
+  },
+  {
+    "zh": "源点 {0} 坐标",
+    "en": "Source {0} coordinate"
+  },
+  {
+    "zh": "通道 {0}（已选）",
+    "en": "Channel {0} (selected)"
+  },
+  {
+    "zh": "阶跃 {0} uA/cm^2（10–60 ms）。HH1952 标准参数，静息 -65 mV，锋电位峰值约 +40 mV。",
+    "en": "Step {0} µA/cm² over 10–60 ms. Standard HH1952 parameters, resting potential −65 mV, spike peak approximately +40 mV."
+  },
+  {
+    "zh": "前向输入：选中脑区 #{0} {1} 的直播 E = {2}（无量纲，静息均值 E0=0.011）；该脑区当前 P = {3}（主仿真快照值）。",
+    "en": "Forward input: region #{0} {1}, live E={2} (dimensionless; resting mean E0=0.011), current P={3} from the main simulation."
+  },
+  {
+    "zh": "基线：刺激前 t={0} s · {1} #{2}。窗口：基线前 500 ms 至刺激后约 2 s 的真实快照。",
+    "en": "Prestimulus baseline t={0} s · {1} #{2}. Actual snapshots from 500 ms before baseline to approximately 2 s after input."
+  },
+  {
+    "zh": "源脑区 #{0} {1}（中心 {2} mm，TVB 坐标、未配准 HEAD，钳制进 ±48 mm 球网格）",
+    "en": "Source region #{0} {1}, center {2} mm (TVB coordinates, not registered to HEAD; clamped to the ±48 mm grid)"
+  },
+  {
     "zh": "{0} 减小",
     "en": "Decrease {0}"
   },
