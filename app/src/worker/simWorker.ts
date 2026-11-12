@@ -262,7 +262,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           const json = sim.take_snapshot();
           const t_ms = sim.time_ms();
           snapshots.set('auto', { t_ms, json });
-          post({ type: 'snapshot_saved', id: 'auto', t_ms, json });
+          post({ type: 'snapshot_saved', id: 'auto', t_ms, json, run_id: runId });
           holds.set(msg.node, t_ms);
           sim.add_stimulus(msg.node, t_ms, 1e9, msg.amplitude);
         }
@@ -411,7 +411,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         const json = sim.take_snapshot();
         const t_ms = sim.time_ms();
         snapshots.set(msg.id, { t_ms, json });
-        post({ type: 'snapshot_saved', id: msg.id, t_ms, json });
+        post({ type: 'snapshot_saved', id: msg.id, t_ms, json, run_id: runId });
         acknowledge(msg);
         return;
       }
@@ -432,7 +432,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         wallAccumMs = 0;
         lastTickWall = Date.now();
         if (msg.run_id) runId = msg.run_id;
-        post({ type: 'snapshot_restored', id: msg.id, t_ms: sim.time_ms() });
+        post({ type: 'snapshot_restored', id: msg.id, t_ms: sim.time_ms(), run_id: runId });
         acknowledge(msg);
         const snap = snapshot();
         if (snap) post(snap);
