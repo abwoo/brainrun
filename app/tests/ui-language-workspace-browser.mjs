@@ -66,7 +66,8 @@ try {
  await collect('manual-electric');
  await mkdir('../tests/ui/screenshots',{recursive:true});
  const shot=async(name,embed=false)=>{
-  const bytes=await page.screenshot({type:'jpeg',quality:45,fullPage:true});
+  await page.evaluate(async()=>{ await document.fonts.ready; });
+  const bytes=await page.screenshot({type:'jpeg',quality:55,fullPage:true});
   await writeFile('../tests/ui/screenshots/'+name+'.jpg',bytes);
   if(embed)console.log('SCREENSHOT_'+name.toUpperCase()+'='+bytes.toString('base64'));
  };
@@ -144,6 +145,7 @@ try {
  await page.locator('.scenario-inline').waitFor();await collect('presets');
  await page.getByRole('button',{name:'Back to physical models',exact:true}).click();
  await page.getByTestId('physics-home').waitFor();
+ assert.equal(await page.getByRole('spinbutton',{name:'Source strength nA·m'}).inputValue(),'20','returning from advanced labs preserves the manual source');
  assert.equal(await page.locator('html').getAttribute('lang'),'en-US');
  await page.reload({waitUntil:'domcontentloaded'});await page.getByTestId('physics-home').waitFor();
  assert.equal(await page.locator('html').getAttribute('lang'),'en-US');

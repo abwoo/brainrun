@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 export function ControlField({label,hint,children}:{label:string;hint?:string;children:ReactNode}) {
- return <label className="control-field"><span className="control-field-label">{label}</span>
-  {children}{hint&&<span className="control-field-hint">{hint}</span>}</label>;
+ const id=useId();
+ return <div className="control-field" role="group" aria-labelledby={id+'-label'} aria-describedby={hint?id+'-hint':undefined}>
+  <span id={id+'-label'} className="control-field-label">{label}</span>
+  {children}{hint&&<span id={id+'-hint'} className="control-field-hint">{hint}</span>}</div>;
 }
 export function RangeControl({label,hint,value,min,max,step,unit='',onChange,disabled=false}:{
  label:string;hint?:string;value:number;min:number;max:number;step:number;unit?:string;
