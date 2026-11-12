@@ -85,6 +85,20 @@ try {
     id,{timeout:10000});
   assert.equal(await page.locator('.chart-wrap').getAttribute('data-selected-region-id'),String(id),
     'LIVE ACTIVITY chart selection must match 3D');
+  await page.waitForFunction(node=>
+    window.__brainActivity?.getSelectedId()===node &&
+    window.__brainActivity.getBufferedSamples().length>0,
+    id,{timeout:15000});
+  const chartProvenance=await sim(node=>{
+    const sample=window.__brainActivity.getBufferedSamples().at(-1);
+    const source=window.__brainSim.getSnapshotHistory().find(s=>s.t_ms===sample.t_ms);
+    return {sample,sourceExists:!!source,
+      eError:source?Math.abs(source.e[node]-sample.e):Infinity,
+      iError:source?Math.abs(source.i[node]-sample.i):Infinity};
+  },id);
+  assert.ok(chartProvenance.sourceExists,'chart samples must have a real matching Worker timestamp');
+  assert.equal(chartProvenance.eError,0,'plotted E must equal underlying solver E for same t_ms');
+  assert.equal(chartProvenance.iError,0,'plotted I must equal underlying solver I for same t_ms');
   const hit=await sim(()=>window.__brainScene.getLastStimulusPoint());
   assert.equal(hit.node,id);
   assert.equal(hit.fromHit,true,'confirmation ring location must come from real raycast surface hit');
