@@ -911,9 +911,9 @@ export function runLiveExperiment(opts: RunLiveExperimentOptions): {
       id,
       type: 'pulse',
       tMs: rel,
-      // 与 `runExperiment` 同款记账约定：按顺序 standard/oddball 交替；
-      // 直播没有 oddball 范式，这是事件分段用的记账条件，不是范式声明。
-      condition: id % 2 === 0 ? 'standard' : 'oddball',
+      // LIVE cortical clicks have no standardized oddball task definition.
+      // Never manufacture standard/oddball groups by alternating pulses.
+      condition: 'unclassified',
       drive: m.amplitude ?? DEFAULT_WC_DRIVE,
       driveUnit: 'wc',
     });

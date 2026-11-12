@@ -28,6 +28,7 @@ import {
   type SourceModel,
 } from '../lib/eegRecording';
 import type { SimClient } from '../lib/simClient';
+import { ExperimentSession, makeDerivedSession } from '../lib/experimentSession';
 import type { Vec3Mm } from '../lib/volumeConduction';
 import EegWaveTab from './EegWaveTab';
 import WavesTab from './WavesTab';
@@ -160,8 +161,22 @@ export default function EegAnalysisLab({
           noise,
           seed,
         });
-        setRecording(rec);
-        setEvents(evs);
+        const session = new ExperimentSession({
+          origin: 'independent', solverId: `local-column-${sourceModel}`,
+          anatomyId: SPHERE_MODEL_ID, registration: 'unregistered', seed,
+        });
+        const runId = session.runId;
+        session.recordModelTime(runId, rec.timesMs.at(-1) ?? 0);
+        session.recordArtifact({
+          id: 'raw', runId, kind: 'eeg-raw', tMs: 0,
+          sourceId: rec.sourceModelId, methodId: 'runExperiment-sphere-forward-v1',
+        });
+        session.recordArtifact({
+          id: 'events', runId, kind: 'events', tMs: 0,
+          sourceId: 'local-column-stimulus-schedule', methodId: 'runExperiment-v1',
+        });
+        setRecording({ ...rec, provenance: session.provenance });
+        setEvents(evs.map(event => ({ ...event, runId })));
         setEpochs(null);
         if (!rec.channels.some((c) => c.label === selectedChannel)) {
           setSelectedChannel(rec.channels.some((c) => c.label === 'Pz') ? 'Pz' : rec.channels[0].label);
@@ -172,6 +187,25 @@ export default function EegAnalysisLab({
         setRunning(false);
       }
     }, 30);
+  };
+
+  const handleEpochsChange = (ep: EpochSet, origin: 'raw' | 'independent-late') => {
+    if (origin === 'raw' && recording?.provenance) {
+      setEpochs({
+        ...ep, provenance: recording.provenance,
+        events: ep.events.map(event => ({ ...event, runId: recording.provenance!.runId })),
+      });
+      return;
+    }
+    // A separate late mechanism must never reuse the current Raw runId.
+    const session = new ExperimentSession({
+      origin: 'independent', solverId: 'late-oddball-independent-v1',
+      anatomyId: SPHERE_MODEL_ID, registration: 'unregistered', seed: 0,
+    });
+    setEpochs({
+      ...ep, provenance: session.provenance,
+      events: ep.events.map(event => ({ ...event, runId: session.runId })),
+    });
   };
 
   // PR8-LINK：从直播推导记录——读 SimClient 的 60 Hz 快照历史（最近约
@@ -205,8 +239,23 @@ export default function EegAnalysisLab({
           noise,
           seed,
         });
-        setRecording(rec);
-        setEvents(evs);
+        const upstream = sim.getExperimentSession().provenance;
+        const derived = makeDerivedSession(upstream, LIVE_DERIVATION_ID);
+        const runId = derived.runId;
+        // This recording is a 250 Hz interpolation of ≈60 Hz visual
+        // snapshots; the actual source clock and rate remain visible.
+        derived.recordModelTime(runId, rec.timesMs.at(-1) ?? 0);
+        derived.recordArtifact({
+          id: 'raw', runId, kind: 'eeg-raw', tMs: 0,
+          sourceId: upstream.runId, methodId: LIVE_DERIVATION_ID,
+        });
+        setRecording({
+          ...rec, provenance: {
+            ...derived.provenance, upstreamStartMs: t0Ms,
+            effectiveSourceSnapshotHz: snapshotHz,
+          },
+        });
+        setEvents(evs.map(event => ({ ...event, runId })));
         setEpochs(null);
         if (!rec.channels.some((c) => c.label === selectedChannel)) {
           setSelectedChannel(rec.channels.some((c) => c.label === 'Pz') ? 'Pz' : rec.channels[0].label);
@@ -301,7 +350,7 @@ export default function EegAnalysisLab({
             recording={recording}
             events={events}
             epochs={epochs}
-            onEpochsChange={setEpochs}
+            onEpochsChange={handleEpochsChange}
             channel={selectedChannel}
           />
         )}
@@ -310,6 +359,23 @@ export default function EegAnalysisLab({
           <TopoTab recording={recording} atTimeMs={atTimeMs} onAtTimeMsChange={setAtTimeMs} />
         )}
         {activeTab === 'inverse' && <InverseTab recording={recording} fixture={fixture} />}
+        {recording?.provenance && (
+          <p className="panel-text" data-eeg-run-id={recording.provenance.runId}>
+            Raw：{recording.provenance.origin === 'live-derived' ? '主仿真快照派生' : '独立神经群体'}
+            {' · '}Run {recording.provenance.runId.slice(0, 8)}
+            {recording.provenance.parentRunId
+              ? ` · 上游 Worker Run ${recording.provenance.parentRunId.slice(0, 8)}` : ''}
+            {recording.provenance.effectiveSourceSnapshotHz
+              ? ` · 有效来源采样≈${recording.provenance.effectiveSourceSnapshotHz.toFixed(1)} Hz（不是原生 250 Hz EEG）`
+              : ''}
+            {epochs?.provenance && (
+              <span data-epoch-run-id={epochs.provenance.runId}>
+                {' · '}ERP/TFR：{epochs.provenance.runId === recording.provenance.runId
+                  ? '同一 Raw 运行' : `独立运行 ${epochs.provenance.runId.slice(0, 8)}（不可与 Raw 直接比较）`}
+              </span>
+            )}
+          </p>
+        )}
         <p className="panel-text eeg-foot">
           正向模型 {SPHERE_MODEL_ID} · 当前 EEG 记录供基础分析使用；独立 late ERP 可替换 ERP/TFR 试次，
           地形页右侧正向采样图另用独立偶极子，尚非统一实验会话 ·
