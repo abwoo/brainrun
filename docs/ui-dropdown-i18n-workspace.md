@@ -2,7 +2,7 @@
 
 ## Implemented in this PR
 
-1. A single accessible `Dropdown` built on the browser's **native `<select>`** (keyboard, screen readers, optgroups, mobile OS menus). It supplies one unified visual style, chevron, focus ring and disabled state. Migrated **all 32** select instances in EEG, HeadSphere, LocalBEM, stimulation, experiment, inverse and time-frequency labs, plus a new locale dropdown.
+1. A single accessible `Dropdown` built on the browser's **native `<select>`** (keyboard, screen readers, optgroups, mobile OS menus). It supplies one unified visual style, chevron, focus ring and disabled state. Migrated **all 36** select instances in EEG, HeadSphere, LocalBEM, stimulation, experiment, inverse and time-frequency labs, plus a new locale dropdown.
 2. A central, typed `I18nProvider` with `zh-CN` and `en-US` keys. The language is persisted in localStorage and written to `html[lang]`; the topbar/modes and main-stage controls have both translations.
 3. A user-adjustable desktop stage width (45–85%), reset, and 3D focus mode. Default stays 68% and the panels never disappear on narrow screens. **Layout actions are explicitly visual-only**: not a stimulation or neural parameter.
 4. The control audit remains complete: **216 source JSX controls**, including shared Dropdown wrappers and new user preferences, without weakening prior causal browser tests.
@@ -25,3 +25,7 @@ English is visibly labeled **preview**. Advanced labs, long scientific explanati
 - [ ] Complete English translation and terminology pass are **future work**; this PR must remain a foundation, not be presented as final bilingual release.
 
 This UI stream is intentionally separate from P0-2 science changes; it is based on the P0-1B branch. Tracking #11.
+
+## Duplicate PR coordination
+
+Another concurrent draft [PR #15](https://github.com/abwoo/brainrun/pull/15) also introduces a standalone Dropdown API for 36 selects. **Do not merge both PR #15 and #16**: this branch now includes the full 36-control migration plus locale and stage flexibility using ONE `components/ui/Dropdown.tsx` API, whereas PR #15 uses a different `components/Dropdown.tsx` API. Choose one after reviewing code and CI; conflicting wrappers should never coexist in main. This PR does not silently merge or override PR #15.
