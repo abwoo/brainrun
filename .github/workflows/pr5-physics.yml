@@ -107,6 +107,16 @@ jobs:
       - name: Browser smoke test of 3D physical causality
         working-directory: app
         run: node tests/pr5-browser-smoke.mjs
+      - name: P0-1 browser causal interaction smoke (shared selection + cell solvers)
+        working-directory: app
+        run: node tests/p0-1-browser-causality.mjs
+      - name: Upload P0-1 causal browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-1-control-causality-screenshot
+          path: tests/p0-1/shots/
+          if-no-files-found: ignore
       - name: Upload PR5 browser screenshot
         if: always()
         uses: actions/upload-artifact@v4

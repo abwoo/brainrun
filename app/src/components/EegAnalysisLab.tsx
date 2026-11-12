@@ -311,7 +311,8 @@ export default function EegAnalysisLab({
         )}
         {activeTab === 'inverse' && <InverseTab recording={recording} fixture={fixture} />}
         <p className="panel-text eeg-foot">
-          正向模型 {SPHERE_MODEL_ID} · 同一份 EEG 记录供六个 tab 共用 ·
+          正向模型 {SPHERE_MODEL_ID} · 当前 EEG 记录供基础分析使用；独立 late ERP 可替换 ERP/TFR 试次，
+          地形页右侧正向采样图另用独立偶极子，尚非统一实验会话 ·
           噪声是伪迹，不作神经源活动解释。
           {recording
             ? recording.sourceModelId === LIVE_DERIVATION_ID

@@ -202,12 +202,16 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <div className="conn-title">3D 头皮电位——正向计算值（345 个传感器，L·q，无插值）</div>
+          <div className="conn-title">独立正向实验 · 头皮采样点的 2D 投影（L·q，并非可旋转 3D 场）</div>
+          <p className="panel-text">
+            左侧 2D 地形读取当前 EEG 记录；右侧示例使用下面单独设置的源位置、方向和强度计算，
+            不是同一时刻、同一源的第二种视图。仅作为独立球形正向求解演示，不要直接比较两图数值。
+          </p>
           {fixtureError && <p className="panel-text" role="alert">{fixtureError}</p>}
           {!loadedFixture && !fixtureError && <p className="panel-text">正在加载 MNE 正向模型…</p>}
           {forward && (
             <>
-              <svg width="100%" height="320" viewBox="0 0 320 320" role="img" aria-label="Forward head potential at 345 sensors">
+              <svg width="100%" height="320" viewBox="0 0 320 320" role="img" aria-label="Independent spherical forward potentials projected onto a 2D sensor diagram">
                 <circle cx={160} cy={160} r={150} fill="#08131d" stroke="#335" />
                 {forward.positionsMm.map((p, i) => (
                   <circle

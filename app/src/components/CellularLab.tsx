@@ -150,9 +150,21 @@ export default function CellularLab({
     [regionE],
   );
 
-  function run() {
-    if (model === 'lif') {
-      if (synapseOn) {
+  function run(overrides: {
+    kind?: ModelKind;
+    lifCurrentPA?: number;
+    hhCurrentDensity?: number;
+    synapse?: boolean;
+  } = {}) {
+    // The effective values are passed explicitly: React state setters are asynchronous.
+    // Calling a mapped-current button must compute immediately, not on a second click.
+    setAppliedBias(null);
+    const effectiveModel = overrides.kind ?? model;
+    const effectiveAmpPA = overrides.lifCurrentPA ?? ampPA;
+    const effectiveAmpHH = overrides.hhCurrentDensity ?? ampHH;
+    const effectiveSynapseOn = overrides.synapse ?? synapseOn;
+    if (effectiveModel === 'lif') {
+      if (effectiveSynapseOn) {
         // 电导型突触驱动：AMPA 事件在 100 ms、GABA 事件在 200 ms，
         // 电流依赖实时膜电位（逐个步进，不能用固定电流函数）。
         const neuron = createLifNeuron();
@@ -186,25 +198,25 @@ export default function CellularLab({
         return;
       }
       const trace = simulateLif(DEFAULT_LIF_PARAMS, 500,
-        (t) => (t >= 100 && t < 300 ? ampPA : 0));
+        (t) => (t >= 100 && t < 300 ? effectiveAmpPA : 0));
       setResult({
         kind: 'lif', timesMs: trace.timesMs, vMv: trace.vMv,
         spikeTimesMs: trace.spikeTimesMs,
         rateHz: trace.spikeTimesMs.filter((s) => s >= 100).length / 0.4,
-        extraNote: `脉冲 ${ampPA} pA（100–300 ms）。解析稳态率 `
-          + `${lifAnalyticRateHz(ampPA).toFixed(1)} Hz（流变 ${lifRheobasePA()} pA）。`,
+        extraNote: `脉冲 ${effectiveAmpPA} pA（100–300 ms）。解析稳态率 `
+          + `${lifAnalyticRateHz(effectiveAmpPA).toFixed(1)} Hz（流变 ${lifRheobasePA()} pA）。`,
       });
       return;
     }
-    if (model === 'hh') {
+    if (effectiveModel === 'hh') {
       const trace = simulateHodgkinHuxley(DEFAULT_HH_PARAMS, 200,
-        (t) => (t >= 10 && t < 60 ? ampHH : 0));
+        (t) => (t >= 10 && t < 60 ? effectiveAmpHH : 0));
       setResult({
         kind: 'hh', timesMs: trace.timesMs, vMv: trace.vMv,
         gNa: trace.gNaMSperCm2, gK: trace.gKMSperCm2,
         spikeTimesMs: trace.spikeTimesMs,
         rateHz: trace.spikeTimesMs.length / 0.05,
-        extraNote: `阶跃 ${ampHH} uA/cm^2（10–60 ms）。HH1952 标准参数，`
+        extraNote: `阶跃 ${effectiveAmpHH} uA/cm^2（10–60 ms）。HH1952 标准参数，`
           + '静息 -65 mV，锋电位峰值约 +40 mV。',
       });
       return;
@@ -352,7 +364,7 @@ export default function CellularLab({
           </div>
         )}
         <div style={row}>
-          <button type="button" style={btn(false)} onClick={run}>运行仿真</button>
+          <button type="button" style={btn(false)} onClick={() => run()}>运行仿真</button>
           {result && (
             <span style={{ fontSize: 13 }}>
               发放 {result.spikeTimesMs.length} 次
@@ -411,7 +423,9 @@ export default function CellularLab({
             disabled={lifMappedPA === null}
             onClick={() => {
               if (lifMappedPA === null) return;
-              setModel('lif'); setAmpPA(Math.max(0, Math.round(lifMappedPA))); setSynapseOn(false);
+              const mapped = Math.max(0, Math.round(lifMappedPA));
+              setModel('lif'); setAmpPA(mapped); setSynapseOn(false);
+              run({ kind: 'lif', lifCurrentPA: mapped, synapse: false });
             }}
           >
             用该电流跑 LIF
@@ -422,12 +436,18 @@ export default function CellularLab({
             disabled={hhMapped === null}
             onClick={() => {
               if (hhMapped === null) return;
-              setModel('hh'); setAmpHH(Math.max(0, Math.min(30, hhMapped)));
+              const mapped = Math.max(0, Math.min(30, hhMapped));
+              setModel('hh'); setAmpHH(mapped);
+              run({ kind: 'hh', hhCurrentDensity: mapped });
             }}
           >
             用该电流跑 HH
           </button>
         </div>
+        <p style={note}>
+          上方两个按钮会立即运行独立细胞求解器并更新膜电位曲线；不会自动改动主大脑。
+          只有明确点击下方“把 dP 应用回主仿真”才会写入主仿真的偏置（耦合增益未校准）。
+        </p>
         <p style={note}>
           反向：细胞发放率 → 群体驱动 dP = 0.002 × 发放率（P 单位/Hz，假设）。
           {result
