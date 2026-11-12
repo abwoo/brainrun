@@ -65,8 +65,9 @@ try {
   assert.equal(await markCount(),markersBefore,
     'right click cannot change neural stimulus');
   // Synthetic unpaired pointerup after leave/cancel does not synthesize pulse.
-  await scene.locator('canvas').first().evaluate(el=>
-    el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,button:0,pointerType:'mouse',clientX:x,clientY:y}))
+  await scene.locator('canvas').first().evaluate((el,coords)=>
+    el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,button:0,pointerType:'mouse',clientX:coords.x,clientY:coords.y})),
+    {x,y}
   );
   assert.equal(await markCount(),markersBefore,'stray pointerup must never stimulate');
 
