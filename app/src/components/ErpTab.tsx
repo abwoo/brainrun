@@ -59,7 +59,7 @@ export default function ErpTab({
   recording: EegRecording | null;
   events: EegEvent[];
   epochs: EpochSet | null;
-  onEpochsChange: (epochs: EpochSet) => void;
+  onEpochsChange: (epochs: EpochSet, origin: 'raw' | 'independent-late') => void;
   channel: string;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +97,7 @@ export default function ErpTab({
     try {
       const ep = epochOddballExperiment(recording, events);
       setEpochSource({ kind: 'shell', kept: ep.trials.length, total: events.length });
-      onEpochsChange(ep);
+      onEpochsChange(ep, 'raw');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -115,7 +115,7 @@ export default function ErpTab({
       const { recording: rec, events: evs } = runOddballExperiment({});
       const ep = epochOddballExperiment(rec, evs);
       setEpochSource({ kind: 'late', kept: ep.trials.length, total: evs.length });
-      onEpochsChange(ep);
+      onEpochsChange(ep, 'independent-late');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
