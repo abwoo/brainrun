@@ -161,7 +161,7 @@ body {
 }
 
 .stage {
-  flex: 0 0 68%;
+  flex: 0 0 var(--brain-stage-share, 68%);
   min-width: 0;
   overflow: hidden;
 }
@@ -1284,4 +1284,91 @@ body {
   .eeg-wave-list {
     max-height: 320px;
   }
+}
+
+
+/* Shared accessible native Dropdown: one style, preserves keyboard/OS picker. */
+.brainrun-dropdown {
+  display: inline-flex;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.brainrun-dropdown-native,
+.eeg-control-group .brainrun-dropdown-native {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid var(--blue-mid);
+  border-radius: 4px;
+  padding: 7px 34px 7px 10px;
+  background: #091823;
+  color: var(--text);
+  font: 12px var(--sans);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.brainrun-dropdown-native:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.brainrun-dropdown-native:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+.brainrun-dropdown-native option,
+.brainrun-dropdown-native optgroup {
+  background: #091823;
+  color: var(--text);
+}
+.brainrun-dropdown-chevron {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  color: var(--blue);
+  pointer-events: none;
+}
+/* Make all remaining third-party / native select fallbacks visually consistent. */
+.modal select:not(.brainrun-dropdown-native),
+.panel select:not(.brainrun-dropdown-native) {
+  min-height: 34px;
+  border-radius: 4px;
+  border: 1px solid var(--blue-mid);
+  color: var(--text);
+  background: #091823;
+}
+.locale-picker {
+  display: flex;
+  align-items: center;
+  min-width: 125px;
+  gap: 4px;
+}
+.locale-picker .brainrun-dropdown { width: 150px; }
+.workspace-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
+.workspace-tools input[type="range"] { width: 100px; accent-color: var(--blue); }
+.workspace-note {
+  color: var(--text-dim);
+  font-size: 10px;
+  max-width: 380px;
+  line-height: 1.4;
+}
+@media (min-width: 1101px) {
+  .main.brainrun-focus .panels { display: none; }
+  .main.brainrun-focus .stage { flex: 1 1 auto; }
+}
+/* On narrow and touch devices, all panels remain reachable and scrollable. */
+@media (max-width: 1100px) {
+  .stage { flex: none; }
+  .workspace-tools input[type="range"] { display: none; }
 }
