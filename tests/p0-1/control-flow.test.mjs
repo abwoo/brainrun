@@ -31,6 +31,8 @@ const CONTROL_FILES = [
   'app/src/components/StimLab.tsx',
   'app/src/components/ExperimentLab.tsx',
   'app/src/components/BrainScene.tsx',
+  'app/src/components/ActivityChart.tsx',
+  'app/src/components/ParamControl.tsx',
 ];
 function source(p) { return readFileSync(join(ROOT, p), 'utf8'); }
 // TypeScript 7 uses a native compiler and does not expose the historical
@@ -74,7 +76,7 @@ function scan() {
 
 test('P0-1 surface: all native JSX controls have a bound interaction handler', () => {
   const rows = scan();
-  assert.ok(rows.length >= 190, `Unexpectedly small control surface: ${rows.length}`);
+  assert.ok(rows.length >= 210, `Unexpectedly small control surface: ${rows.length}`);
   for (const c of rows) {
     const handler = c.name === 'button' ? 'onClick' : 'onChange';
     assert.ok(c.attrs.includes(handler),
@@ -130,4 +132,28 @@ test('C06: separate source projection is labeled 2D and independent', () => {
   assert.match(topo, /不是同一时刻、同一源的第二种视图/);
   assert.match(topo, /forwardHeadPotential\(loadedFixture, srcPos, moment, \{ mode: reference \}\)/);
   assert.match(topo, /topoAtTime\(recording, atTimeMs\)/);
+});
+
+test('P0-1B: explicit non-JSX gesture, wheel, and multi-view causal observers remain wired', () => {
+  const scene = source('app/src/components/BrainScene.tsx');
+  for (const name of ['pointermove', 'pointerrawupdate', 'pointerdown', 'pointerup',
+                      'pointercancel', 'pointerleave', 'dblclick']) {
+    assert.match(scene, new RegExp('addEventListener\\\\(\\\\s*[\\\"\\\']' + name + '[\\\"\\\']'),
+      `3D canvas missing native ${name} registration`);
+  }
+  assert.match(scene, /if \(!e\.isPrimary \|\| \(e\.pointerType === 'mouse' && e\.button !== 0\)\) return;/);
+  assert.match(scene, /if \(!pointerDown \|\| !e\.isPrimary\) return;/);
+  assert.match(scene, /if \(moved\) return; \/\/ 拖拽旋转/);
+  assert.match(scene, /onSelectRef\.current\(id\);/);
+  assert.match(scene, /onPulseRef\.current\(id\);/);
+
+  const chart = source('app/src/components/ActivityChart.tsx');
+  assert.match(chart, /sim\.subscribe\(\(snap: Snapshot\)/);
+  assert.match(chart, /snap\.e\[id\]/);
+  assert.match(chart, /data-selected-region-id=\{selectedId \?\? 'none'\}/);
+
+  const control = source('app/src/components/ParamControl.tsx');
+  assert.match(control, /el\.addEventListener\('wheel', onWheel, \{ passive: false \}\)/);
+  assert.match(control, /onChangeRef\.current\(/);
+  assert.match(control, /onChange\(Number\(e\.target\.value\) \/ 1000\)/);
 });
