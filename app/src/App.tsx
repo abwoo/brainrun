@@ -985,7 +985,7 @@ export default function App() {
             HEAD EEG
           </button>
           <button type="button" className="chip" onClick={() => setShowEegLab(true)}
-            title="多导 EEG 实验：柱模型 → 球形正向模型 → 噪声，频谱 / ERP / 时频 / 地形 / 源定位共用同一份记录">
+            title="EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。">
             EEG 分析
           </button>
           <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}

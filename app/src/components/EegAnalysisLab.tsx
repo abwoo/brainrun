@@ -264,7 +264,7 @@ export default function EegAnalysisLab({
               className="chip chip-small"
               disabled={!fixture || !liveSource.sim || liveSource.node === null || !liveSource.positionMm || liveRunning}
               onClick={handleRunLive}
-              title="用最近约 10 秒的直播快照推导一份 EEG 记录（六个 tab 共用）；改 G、换选区、改刺激强度后重跑，数值跟着变"
+              title="从约 60 Hz 可视化快照构造近似 EEG 记录；不是 250 Hz 原生采样。late ERP 与地形右侧物理源仍可能独立，P0-3/4 待完成。"
             >
               {liveRunning ? '推导中…' : '从直播推导记录'}
             </button>

@@ -75,6 +75,22 @@ try {
   await lab.getByRole('img', { name: 'K 电导 gK' }).waitFor({ timeout: 10000 });
   assert.match(await lab.textContent(), /阶跃 [0-9.]+ uA\/cm\^2（10–60 ms）/,
     'HH mapping must run solver immediately');
+  // P0-1B: old numerical curves MUST disappear when an input slider changes.
+  // Otherwise an interactive slider misleadingly displays results from
+  // parameters that are no longer selected.
+  const hhSlider = lab.locator('#hh-amp');
+  await hhSlider.focus();
+  await hhSlider.press('Home');
+  await hhSlider.press('ArrowUp'); // native range keyboard change triggers React onChange
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('[role="dialog"]')].some(d =>
+      d.getAttribute('aria-label') === '细胞级实验' &&
+      d.querySelectorAll('svg[aria-label="Na 电导 gNa"]').length === 0),
+    null,{timeout:10000});
+  assert.equal(await lab.getByRole('img',{name:'Na 电导 gNa'}).count(),0,
+    'editing HH current must invalidate the now-stale trace');
+  await lab.getByRole('button',{name:'运行仿真',exact:true}).click();
+  await lab.getByRole('img',{name:'Na 电导 gNa'}).waitFor({timeout:10000});
   assert.ok(errors.length === 0, 'browser page errors: ' + errors.join('; '));
 
   await mkdir('../tests/p0-1/shots', { recursive: true });

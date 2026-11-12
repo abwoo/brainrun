@@ -150,6 +150,13 @@ export default function CellularLab({
     [regionE],
   );
 
+  // A parameter change invalidates the *previous* numerical trace. Keeping it
+  // visible after the slider moves would misrepresent old physics as new output.
+  const invalidateTrace = () => {
+    setResult(null);
+    setAppliedBias(null);
+  };
+
   function run(overrides: {
     kind?: ModelKind;
     lifCurrentPA?: number;
@@ -280,9 +287,9 @@ export default function CellularLab({
         </p>
         <div style={row}>
           <span style={{ fontSize: 13 }}>模型：</span>
-          <button type="button" style={btn(model === 'lif')} onClick={() => setModel('lif')}>LIF</button>
-          <button type="button" style={btn(model === 'hh')} onClick={() => setModel('hh')}>Hodgkin–Huxley</button>
-          <button type="button" style={btn(model === 'multicomp')} onClick={() => setModel('multicomp')}>多房室神经元</button>
+          <button type="button" style={btn(model === 'lif')} onClick={() => { setModel('lif'); invalidateTrace(); }}>LIF</button>
+          <button type="button" style={btn(model === 'hh')} onClick={() => { setModel('hh'); invalidateTrace(); }}>Hodgkin–Huxley</button>
+          <button type="button" style={btn(model === 'multicomp')} onClick={() => { setModel('multicomp'); invalidateTrace(); }}>多房室神经元</button>
         </div>
         {model === 'lif' && (
           <div>
@@ -294,19 +301,19 @@ export default function CellularLab({
               <label style={{ fontSize: 13 }} htmlFor="lif-amp">脉冲电流（100–300 ms）：</label>
               <input
                 id="lif-amp" type="range" min={0} max={2000} step={10}
-                value={ampPA} onChange={(e) => setAmpPA(Number(e.target.value))}
+                value={ampPA} onChange={(e) => { setAmpPA(Number(e.target.value)); invalidateTrace(); }}
                 style={{ flex: 1, minWidth: 120 }}
               />
               <input
                 type="number" min={0} max={2000} step={10} value={ampPA}
-                onChange={(e) => setAmpPA(Math.max(0, Math.min(2000, Number(e.target.value) || 0)))}
+                onChange={(e) => { setAmpPA(Math.max(0, Math.min(2000, Number(e.target.value) || 0))); invalidateTrace(); }}
                 style={{ width: 80 }}
               />
               <span style={{ fontSize: 13 }}>pA</span>
             </div>
             <div style={row}>
               <label style={{ fontSize: 13 }}>
-                <input type="checkbox" checked={synapseOn} onChange={(e) => setSynapseOn(e.target.checked)} />
+                <input type="checkbox" checked={synapseOn} onChange={(e) => { setSynapseOn(e.target.checked); invalidateTrace(); }} />
                 {' '}改用突触驱动（100 ms AMPA + 200 ms GABA，各 2 nS，无恒定电流）
               </label>
             </div>
@@ -322,12 +329,12 @@ export default function CellularLab({
               <label style={{ fontSize: 13 }} htmlFor="hh-amp">阶跃电流（10–60 ms）：</label>
               <input
                 id="hh-amp" type="range" min={0} max={30} step={0.5}
-                value={ampHH} onChange={(e) => setAmpHH(Number(e.target.value))}
+                value={ampHH} onChange={(e) => { setAmpHH(Number(e.target.value)); invalidateTrace(); }}
                 style={{ flex: 1, minWidth: 120 }}
               />
               <input
                 type="number" min={0} max={30} step={0.5} value={ampHH}
-                onChange={(e) => setAmpHH(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
+                onChange={(e) => { setAmpHH(Math.max(0, Math.min(30, Number(e.target.value) || 0))); invalidateTrace(); }}
                 style={{ width: 80 }}
               />
               <span style={{ fontSize: 13 }}>uA/cm^2</span>
@@ -343,20 +350,20 @@ export default function CellularLab({
             </p>
             <div style={row}>
               <span style={{ fontSize: 13 }}>注入位置：</span>
-              <button type="button" style={btn(mcTarget === 'soma')} onClick={() => setMcTarget('soma')}>胞体</button>
-              <button type="button" style={btn(mcTarget === 'apical')} onClick={() => setMcTarget('apical')}>顶树突</button>
-              <button type="button" style={btn(mcTarget === 'basal')} onClick={() => setMcTarget('basal')}>基树突</button>
+              <button type="button" style={btn(mcTarget === 'soma')} onClick={() => { setMcTarget('soma'); invalidateTrace(); }}>胞体</button>
+              <button type="button" style={btn(mcTarget === 'apical')} onClick={() => { setMcTarget('apical'); invalidateTrace(); }}>顶树突</button>
+              <button type="button" style={btn(mcTarget === 'basal')} onClick={() => { setMcTarget('basal'); invalidateTrace(); }}>基树突</button>
             </div>
             <div style={row}>
               <label style={{ fontSize: 13 }} htmlFor="mc-amp">脉冲电流（10–12 ms）：</label>
               <input
                 id="mc-amp" type="range" min={0} max={3000} step={50}
-                value={mcAmpPA} onChange={(e) => setMcAmpPA(Number(e.target.value))}
+                value={mcAmpPA} onChange={(e) => { setMcAmpPA(Number(e.target.value)); invalidateTrace(); }}
                 style={{ flex: 1, minWidth: 120 }}
               />
               <input
                 type="number" min={0} max={3000} step={50} value={mcAmpPA}
-                onChange={(e) => setMcAmpPA(Math.max(0, Math.min(3000, Number(e.target.value) || 0)))}
+                onChange={(e) => { setMcAmpPA(Math.max(0, Math.min(3000, Number(e.target.value) || 0))); invalidateTrace(); }}
                 style={{ width: 80 }}
               />
               <span style={{ fontSize: 13 }}>pA</span>
@@ -365,6 +372,7 @@ export default function CellularLab({
         )}
         <div style={row}>
           <button type="button" style={btn(false)} onClick={() => run()}>运行仿真</button>
+          {!result && <span style={{ fontSize: 12, color: '#9db4c4' }}>模型/输入更改后，运行求解器才会生成新曲线；旧结果已清除。</span>}
           {result && (
             <span style={{ fontSize: 13 }}>
               发放 {result.spikeTimesMs.length} 次
