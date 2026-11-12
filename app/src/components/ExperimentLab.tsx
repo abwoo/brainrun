@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-15 — 实验沙盒组件：双脑 A/B 对照、时间机器、闭环控制。
  *
@@ -567,17 +568,17 @@ export default function ExperimentLab({
         </p>
         <div style={row}>
           <span style={label}>控制器</span>
-          <select value={clMode} onChange={(e) => setClMode(e.target.value as ControllerMode)} style={input}>
+          <Dropdown value={clMode} onChange={(e) => setClMode(e.target.value as ControllerMode)}>
             <option value="off">关（无控制对照）</option>
             <option value="threshold">固定阈值</option>
             <option value="pid">PID</option>
-          </select>
+          </Dropdown>
           <span style={label}>特征</span>
-          <select value={clFeature} onChange={(e) => setClFeature(e.target.value as FeatureKind)} style={input}>
+          <Dropdown value={clFeature} onChange={(e) => setClFeature(e.target.value as FeatureKind)}>
             <option value="instant">瞬时 Pz（µV）</option>
             <option value="rms">滑窗 RMS（µV）</option>
             <option value="alphaPower">Alpha 功率 10 Hz（µV²）</option>
-          </select>
+          </Dropdown>
           <span style={label}>延迟（ms）</span>
           <input style={input} value={clDelay} onChange={(e) => setClDelay(e.target.value)} />
           <span style={label}>测量噪声 RMS（µV）</span>
@@ -622,10 +623,10 @@ export default function ExperimentLab({
         </p>
         <div style={row}>
           <span style={label}>特征</span>
-          <select value={clLiveFeature} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')} style={input}>
+          <Dropdown value={clLiveFeature} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
             <option value="instant">瞬时 E（无量纲）</option>
             <option value="rms">1 秒 RMS E（无量纲）</option>
-          </select>
+          </Dropdown>
           <span style={label}>阈值</span>
           <input style={input} value={clLiveThreshold} onChange={(e) => setClLiveThreshold(e.target.value)} />
           <span style={label}>反馈脉冲幅度（模型单位）</span>
