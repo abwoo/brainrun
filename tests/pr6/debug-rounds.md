@@ -336,5 +336,11 @@ python3 scripts/push-to-pr6-branch.py
   - 每次模拟后 sphere-model.json 均从字节备份恢复（逐位相同；
     一次重序列化恢复曾导致字节格式不同，已改用字节备份并重新
     生成验证，内容与字节均与原生成一致）。
-- 推送：（修补提交 SHA 与新 CI 结果待填）。
-- 推送：（修补提交 SHA 与新 CI 结果待填）。
+- 推送：修补提交 6476894（parent 5b275f6，API 方式推送，未用 git push；
+  本地 7 提交树与远程单提交树逐位相同，推送脚本把整棵树 squash 成
+  一个提交；main 未动 453e5707）。新 CI 两路全绿：PR6 run 43127691784
+  （eeg-analysis job success，第 8 步 Python 方法学测试通过）+
+  PR5 基线 run 43127691904（physics-and-types success）。合并门槛
+  已达到（方法学测试 + 构建 + 冒烟均在新 CI 内通过），PR 仍为
+  Draft，未合并、未标 Ready，等把关人合并。另：本段由一次仅改文档
+  的后续推送补填（提交 SHA 见分支最新提交），不改任何测试口径。
