@@ -432,12 +432,15 @@ test('空壳检查：electrode 参考有实现无 UI 入口（缺口，非空壳
     const t = src(file);
     assert.ok(t.includes("'electrode'"), `${file} 的 ${refType} 应支持 electrode`);
   }
+  // UI 下拉已统一为 Dropdown 组件（2026-11-12）：选项写在 options prop
+  // 里，不再是字面 <option>；断言改为新写法，意图不变（平均/无限远有，
+  // electrode 没有）。渲染出的 DOM 仍是原生 <select> + <option>。
   for (const lab of ['app/src/components/DipoleLab.tsx',
     'app/src/components/HeadSphereLab.tsx', 'app/src/components/LocalBEMLab.tsx']) {
     const t = src(lab);
-    assert.ok(t.includes('<option value="average">'), `${lab} 缺 average 选项`);
-    assert.ok(t.includes('<option value="infinity">'), `${lab} 缺 infinity 选项`);
-    assert.ok(!t.includes('<option value="electrode">'), `${lab} 不应有 electrode 选项（U1 缺口）`);
+    assert.ok(t.includes("{ value: 'average'"), `${lab} 缺 average 选项`);
+    assert.ok(t.includes("{ value: 'infinity'"), `${lab} 缺 infinity 选项`);
+    assert.ok(!t.includes("{ value: 'electrode'"), `${lab} 不应有 electrode 选项（U1 缺口）`);
   }
   // 四个主滑杆都真实发 set_params；回放/着色是纯视图（无消息），不是空壳。
   assert.ok(appTsx.includes("simRef.current?.setParams({ stim_amplitude:"));
@@ -543,11 +546,15 @@ test('PR-07 EEG：采样率/参考/噪声/导联参数前后端一致（契约 �
 
 test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六 tab 挂载一致', () => {
   // EEG tab：三种参考选项 + 电极选择器（R4 的 UI 入口）。
+  // 写法同上：Dropdown options prop + ariaLabel prop；Dropdown.tsx 把
+  // ariaLabel 透传给原生 select 的 aria-label（见下断言）。
   const waveTab = src('app/src/components/EegWaveTab.tsx');
-  assert.ok(waveTab.includes('<option value="average">'), 'EEG tab 缺 average 选项');
-  assert.ok(waveTab.includes('<option value="infinity">'), 'EEG tab 缺 infinity 选项');
-  assert.ok(waveTab.includes('<option value="electrode">'), 'EEG tab 缺 electrode 选项（R4 入口）');
-  assert.ok(waveTab.includes('aria-label="参考电极"'), 'EEG tab 缺参考电极选择器');
+  assert.ok(waveTab.includes("{ value: 'average'"), 'EEG tab 缺 average 选项');
+  assert.ok(waveTab.includes("{ value: 'infinity'"), 'EEG tab 缺 infinity 选项');
+  assert.ok(waveTab.includes("{ value: 'electrode'"), 'EEG tab 缺 electrode 选项（R4 入口）');
+  assert.ok(waveTab.includes('ariaLabel="参考电极"'), 'EEG tab 缺参考电极选择器');
+  assert.ok(src('app/src/components/Dropdown.tsx').includes('aria-label={ariaLabel}'),
+    'Dropdown 须把 ariaLabel 透传给原生 select');
   assert.ok(waveTab.includes('reReferenceRecording') || waveTab.includes('onReferenceChange'),
     'EEG tab 参考切换须经壳的 reReferenceRecording');
   // App：顶栏有 “EEG 分析” chip，并挂载 EegAnalysisLab。
@@ -575,10 +582,10 @@ test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六
   assert.ok(contract.includes('R4 | ~~`electrode` 参考方式无 UI 入口~~ **已解决'),
     '契约 §7 R4 须标记已解决');
   assert.ok(contract.includes('EEG 分析实验已暴露'), '契约 §5.3 U1 须更新为 EEG 实验已暴露');
-  // 三个 PR5 实验仍只有两种参考（U1 剩余缺口如实保留；旧断言不改）。
+  // 三个 PR5 实验仍只有两种参考（U1 剩余缺口如实保留；旧断言不改，只改写法）。
   for (const labFile of ['app/src/components/DipoleLab.tsx',
     'app/src/components/HeadSphereLab.tsx', 'app/src/components/LocalBEMLab.tsx']) {
-    assert.ok(!src(labFile).includes('<option value="electrode">'), `${labFile} 不应有 electrode 选项`);
+    assert.ok(!src(labFile).includes("{ value: 'electrode'"), `${labFile} 不应有 electrode 选项`);
   }
 });
 
