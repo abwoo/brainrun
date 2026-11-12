@@ -144,6 +144,8 @@ export default function ScenarioLauncher({
           引擎里跑（脉冲 / 改权重 / 改参数是真实动作，峰值 ΔE 约 2 s 后从
           RESPONSE 面板读回再记入记录）；S4–S15 同步跑真实后端函数并返回关键
           结果数字。S7 是离散电极步进（FCz / C1 / Cz / C2 / CPz），不是连续拖动。
+          目前除指定的 Alpha 记录联动外，场景仅保留计算结果摘要；
+          下方“进入独立实验台”不会自动载入本次场景的源、事件或记录。
         </p>
         {SCENARIOS.map((s) => {
           const needsFixture = s.requiresFixture && !fixtureReady;
@@ -174,9 +176,9 @@ export default function ScenarioLauncher({
                     type="button"
                     className="chip chip-small"
                     onClick={() => onOpenLab(s.openLab, s.eegTab)}
-                    title="打开对应的实验台（仅导航；计算已在上方跑完）"
+                    title="仅导航到独立实验台；不会自动载入本次场景的模型状态、记录或计算结果"
                   >
-                    打开实验台
+                    进入独立实验台（不载入结果）
                   </button>
                 )}
               </div>
