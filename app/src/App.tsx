@@ -1031,7 +1031,7 @@ export default function App() {
         </main>
       ) : (
       <main className="main">
-        <section className="stage screen">
+        <section className="stage screen" data-selected-region-id={selectedId ?? 'none'}>
           <div className="screen-title">3D LIVE BRAIN</div>
           <div className="stage-tools">
             <button
