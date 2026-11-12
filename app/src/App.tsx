@@ -51,6 +51,7 @@ import type {
 } from './lib/simClient';
 import { BIAS_DEFAULT_ON, BIAS_MAX, BIAS_MIN, DEFAULT_BACKGROUND_MODE, WEIGHT_MAX, WEIGHT_MIN } from './lib/simClient';
 import { validateSphereFixture, type SphereFixture } from './lib/sphereForward';
+import { equivalentMomentNAm } from './lib/localCorticalColumn';
 import type { Snapshot } from './worker/protocol';
 import './App.css';
 
@@ -457,6 +458,33 @@ export default function App() {
   const selectedE = selectedId !== null && snap ? snap.e[selectedId] : null;
   const selectedI = selectedId !== null && snap ? snap.i[selectedId] : null;
   const selectedP = selectedId !== null && snap ? snap.p[selectedId] : null;
+  // PR8-LINK：HEAD/DIPOLE 直播偶极矩的基线——选区切换时捕获该脑区当时的
+  // E/I（静息参考）；q 由 live E/I 经 PR5 假设链算（equivalentMomentNAm）。
+  // 基线只在选区变化时重捕，不随快照漂移；未捕获到之前 moment 为 null。
+  const liveQBaselineRef = useRef<{ node: number; e: number; i: number } | null>(null);
+  useEffect(() => {
+    if (selectedId === null) {
+      liveQBaselineRef.current = null;
+      return;
+    }
+    if (snap && liveQBaselineRef.current?.node !== selectedId) {
+      liveQBaselineRef.current = {
+        node: selectedId,
+        e: snap.e[selectedId],
+        i: snap.i[selectedId],
+      };
+    }
+  }, [selectedId, snap]);
+  const liveMomentNAm = useMemo(() => {
+    if (selectedId === null || snap === null) return null;
+    const b = liveQBaselineRef.current;
+    if (!b || b.node !== selectedId) return null;
+    try {
+      return equivalentMomentNAm(snap.e[selectedId], snap.i[selectedId], b.e, b.i);
+    } catch {
+      return null;
+    }
+  }, [snap, selectedId]);
   // PR3：选中脑区的持续偏置（0 = 无偏置）与全网已改权重数。
   const selectedBias = selectedId !== null ? (biasMap[selectedId] ?? 0) : 0;
   const modifiedWeightCount = Object.keys(weightEdits).length;
@@ -569,9 +597,9 @@ export default function App() {
     }
   }, [biasMap, selectedId]);
   const handleBiasChange = useCallback(
-    (v: number) => {
+    (v: number): number => {
       const sim = simRef.current;
-      if (!sim || selectedId === null) return;
+      if (!sim || selectedId === null) return 0;
       const stored = sim.setBias(selectedId, v); // 0 = 清除偏置
       setBiasMap((prev) => {
         const next = { ...prev };
@@ -579,6 +607,7 @@ export default function App() {
         else next[selectedId] = stored;
         return next;
       });
+      return stored;
     },
     [selectedId],
   );
@@ -988,7 +1017,17 @@ export default function App() {
 
       {mode === 'eeg' ? (
         <main className="main main-eeg">
-          <EegAnalysisLab inline initialTab={eegInitialTab} onClose={() => setMode('play')} />
+          <EegAnalysisLab
+            inline
+            initialTab={eegInitialTab}
+            onClose={() => setMode('play')}
+            liveSource={{
+              sim: simRef.current,
+              node: selectedId,
+              regionLabel: selected?.label ?? null,
+              positionMm: selected ? selected.centre : null,
+            }}
+          />
         </main>
       ) : (
       <main className="main">
@@ -1764,10 +1803,25 @@ export default function App() {
       {showHeadSphereLab && <HeadSphereLab onClose={() => setShowHeadSphereLab(false)} onOpenReal={() => {
         setShowHeadSphereLab(false);
         setShowLocalBEM(true);
-      }} />}
-      {showEegLab && <EegAnalysisLab onClose={() => setShowEegLab(false)} />}
+      }} liveSource={selected && liveMomentNAm !== null ? { positionMm: selected.centre, momentNAm: liveMomentNAm, regionLabel: selected.label, regionId: selected.id } : null} />}
+      {showEegLab && (
+        <EegAnalysisLab
+          onClose={() => setShowEegLab(false)}
+          liveSource={{
+            sim: simRef.current,
+            node: selectedId,
+            regionLabel: selected?.label ?? null,
+            positionMm: selected ? selected.centre : null,
+          }}
+        />
+      )}
       {showLocalBEM && <LocalBEMLab onClose={() => setShowLocalBEM(false)} />}
-      {showDipoleLab && <DipoleLab onClose={() => setShowDipoleLab(false)} />}
+      {showDipoleLab && (
+        <DipoleLab
+          onClose={() => setShowDipoleLab(false)}
+          liveSource={selected && liveMomentNAm !== null ? { positionMm: selected.centre, momentNAm: liveMomentNAm, regionLabel: selected.label, regionId: selected.id } : null}
+        />
+      )}
       {showCellularLab && (
         <div className="modal-backdrop" onClick={() => setShowCellularLab(false)}>
           <div
@@ -1781,12 +1835,25 @@ export default function App() {
               <button className="chip chip-small" type="button" onClick={() => setShowCellularLab(false)}>关闭</button>
             </div>
             <div className="modal-body">
-              <CellularLab />
+              <CellularLab
+                liveE={selectedE}
+                liveP={selectedP}
+                regionLabel={selected?.label ?? null}
+                regionId={selectedId}
+                onApplyBias={handleBiasChange}
+              />
             </div>
           </div>
         </div>
       )}
-      {showStimLab && <StimLab onClose={() => setShowStimLab(false)} />}
+      {showStimLab && (
+        <StimLab
+          onClose={() => setShowStimLab(false)}
+          selectedRegion={selected ? { id: selected.id, label: selected.label, centre: selected.centre } : null}
+          regions={data ? data.regions : null}
+          onPulse={(node, amp, dur) => simRef.current?.pulseAt(node, amp, dur)}
+        />
+      )}
       {showExperimentLab && (
         <div className="modal-backdrop" onClick={() => setShowExperimentLab(false)}>
           <div
@@ -1805,7 +1872,16 @@ export default function App() {
                   球形正向模型未加载（{expFixtureError}）：源定位对照不可用，双脑数值比较与时间机器、闭环照常可用。
                 </p>
               )}
-              <ExperimentLab fixture={expFixture} onClose={() => setShowExperimentLab(false)} />
+              <ExperimentLab
+                fixture={expFixture}
+                onClose={() => setShowExperimentLab(false)}
+                live={{
+                  sim: simRef.current,
+                  node: selectedId,
+                  label: selected?.label ?? null,
+                  positionMm: selected ? selected.centre : null,
+                }}
+              />
             </div>
           </div>
         </div>

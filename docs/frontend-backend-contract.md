@@ -520,6 +520,28 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 **本批实测数字（采纳项）**：默认目标 [30, 0, 70] 处 8 字形 |E| 131.58 V/m（圆环 84.99）；轴上 [0, 0, 70] 圆环 0、8 字形 178.50 V/m；双相 E(t) 半周期反号、幅值与峰值场一致；WAVES 叠加默认噪声后 10 s 纯极限环 Pz 记录 alpha 占比 99.81% → 13.49%（真实 Pz 30.3%——加过了头，不是校准到 30.3%，见下）。
 **本批实测数字（回退项，不进产品）**：OU 背景（WC σ=0.2、τ=20 ms）基线 Pz RMS 仅 0.043 µV（目标 6.07 µV，差 140 倍），σ=0.5 时 0.152 µV 且脉冲峰降 10%；JR σ=20 1/s 时 0.003 µV；深度指数 depth=1.2 无噪声时深浅同为 0.00 mm，但有噪声 0.5 µV 时深源 96.00 mm（比 plain 78.38 更差）、浅源（另一噪声实现）135.76 mm，组合分数（depth-MNE(1.2)+dSPM(1.2) 均值/乘积）有噪声深源 90.51 mm；dSPM(1.2) 有噪声深源在两个噪声实现下分别是 45.25 与 96.00 mm——结论随实现摆动，不可靠。基线 RMS 0、alpha 占比虚高（无背景时）、深度偏置仍是残留项，不得谎称已修。
 
+### 1.14 PR8-LINK §4.1 统一仿真状态——六实验台接主仿真（2026-11-12）
+
+判定标准（计划 §4.1 与 §23）：每个实验台的数据必须来自同一个带时间戳的主仿真状态；可视化必须能追溯到真实模型状态；只看弹窗能打开、内部算得对，不算做到。接不进来的在界面上如实标注为独立演示，不许看着像联动实际不是。
+
+| 接线 | 数据来源 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|---|
+| EEG 直播推导 | Worker 60 Hz 快照流（`SimClient.getSnapshotHistory()`，600 条≈10 s）→ 线性插值 250 Hz → q(t) → `projectMoments` | `LIVE_DERIVATION_ID = 'live-wc-snapshot-interp-v1'`（`EegRecording.sourceModelId`）；有效采样率 60 Hz（实测值随记录返回，`snapshotHz`）；4 ms 网格上的高频成分为插值产物，不是实测；基线取窗口首样本 E/I；事件只取真实脉冲标记（同脑区、窗内、pulse 才计入，条件按顺序 standard/oddball 交替记账，与 `runExperiment` 同款约定）；源模型与种子对此路无效；时长取历史实际跨度（≥1 s，否则抛错） | `EegAnalysisLab.tsx` “从直播推导记录”按钮 + 来源标注 | `runLiveExperiment` / `deriveLiveMoments` / `clampSourcePositionMm`（`eegRecording.ts`）；`runExperiment` 现有行为与测试一字未动 |
+| EEG 记录持久化 | 模块级 store（最后一份记录 + 事件表 + 分段，两路都进同一份） | 关弹窗、切模式都不丢；挂载时恢复、运行时写回 | `EegAnalysisLab.tsx`（`getLiveRecordingStore` / `setLiveRecordingStore`） | `liveRecordingStore`（`eegRecording.ts`） |
+| 细胞前向 | 选中脑区直播 E（App `selectedE`，约 15 Hz） | 经 `wcToLifCurrentPA` / `wcToHhCurrentDensityUAperCm2`（PR7 增益不变）；手填默认 0.50 已删；未选脑区时无输入、按钮禁用 | `CellularLab.tsx`（`liveE` / `liveP` / `regionLabel` / `regionId` props） | `cellular.ts`（耦合函数未改） |
+| 细胞反向 | 细胞发放率 → dP（`firingRateToPopulationDriveP`）→ `handleBiasChange` → `sim.setBias` | dP 单位 P，与偏置同量纲；`setBias` 钳制 [-1, 1]；只显示不应用的旧行为已删 | `CellularLab.tsx` “把 dP 应用回主仿真（偏置）”按钮 | `SimClient.setBias`（未改）；`App.tsx` 的 `handleBiasChange` 现返回实际存下的偏置值 |
+| HEAD EEG / DIPOLE 直播源 | 选中脑区直播偶极子：位置取 brainData centre，q 由 live E/I 经 PR5 假设链（`equivalentMomentNAm`）算 | 基线 = 选区切换时该脑区的 E/I（App 侧 ref 捕获）；位置钳制进球网格 ±48 mm（HEAD，`clampSourcePositionMm`）/ 长度钳制 55 mm（DIPOLE，与原拖动钳制一致）；TVB 中心未配准 HEAD，属演示映射；偶极矩矢量 = q × 所选方向（法向是假设）；改选区、改 G 后电位跟着变；未接通时标“独立演示” | `HeadSphereLab.tsx` / `DipoleLab.tsx`（`liveSource` prop + “直播源”复选框，默认开） | `localCorticalColumn.ts`（q 链未改） |
+| 刺激目标 | TES/TMS 默认目标 = 选中脑区（brainData centre） | 预设首位是选中脑区；选区一切换目标自动跟过去；TVB 坐标未配准 HEAD 球坐标，演示映射 | `StimLab.tsx`（`selectedRegion` prop） | — |
+| 刺激 Level A/D 直播脉冲 | 驱动同时向主仿真发一次直播脉冲 | 只在 WC 柱时（JR 驱动单位 1/s，进不了 WC 网络）；幅度钳制 [-2, 2]；时长取刺激时长 | `StimLab.tsx`（`onPulse` prop） | `SimClient.pulseAt`（见下） |
+| 感觉输入 | 视觉闪烁 → 双侧 V1（rV1 #35、lV1 #73）周期脉冲；听觉 burst → 双侧 A1（rA1 #0、lA1 #38）burst 节律脉冲 | 闪烁幅度 = 强度×0.5 模型单位（与本地柱驱动同幅），时长 = 半周期（钳制 20–500 ms）；burst 幅度 = 强度×1.0，时长 50 ms；音调 Hz 仍是元数据（kHz 载波未进动力学，与 `stimulation.ts` 原口径一致）；定时器在卸载/停止/重跑时清掉 | `StimLab.tsx`（`regions` + `onPulse` props，状态文案实时报已发次数） | `sensoryTargetNodes`（`eegRecording.ts`，按 label 找，找不到返回空数组、不编造节点） |
+| 对照直播 A | A 取直播：最近响应窗口峰值 ΔE + 同一份直播推导的 Pz 峰值/RMS | B 仍是 JR 柱；两者模型不同，只并列、不作同口径差值 | `ExperimentLab.tsx` “取直播 A” | `runLiveExperiment`（复用 EEG 台管线） |
+| 对照直播回放 | `SimClient.getSnapshotHistory()`（最近约 10 s 真实快照） | 只回放已记录的历史，不改仿真状态；直播引擎不可倒带；分支重跑仍用 JR 柱时间机器（标“独立演示”） | `ExperimentLab.tsx` “载入最近 10 秒直播快照” | `SimClient.getSnapshotHistory`（未改） |
+| 对照直播闭环 | 特征 = 选中脑区 live E（瞬时 / 最近 1 秒 RMS）；反馈经 Worker 脉冲回主仿真 | 每 250 ms 读一次；触发上限（默认 5 次）+ 2 秒冷却 + 手动停止；脉冲幅度默认 2.0 模型单位、时长 100 ms | `ExperimentLab.tsx` “启动直播闭环” | `SimClient.pulseAt` |
+| 新增 Worker 入口 | `SimClient.pulseAt(node, amplitude, durationMs)` | 幅度钳制 [-2, 2]（Rust 端 per-event 幅度不钳制，故客户端钳制），时长钳制 [20, 500] ms；与 `pulse()` 一样记标记（含幅度）、钉响应窗口 | `simClient.ts` + 调试桥 `pulseAt` | Worker `stimulus` 消息（已有处理分支，不新增消息种类；`StimulusMarker` 新增 `amplitude` 字段，`mark()` 三处调用方都传发送时幅度） |
+| 诚实标注 | 未接通的部分在界面上标“独立演示” | HEAD/DIPOLE 手动模式、ExperimentLab 的 JR 柱三节、StimLab 未接直播时的感觉输入本地柱一路；EEG 台独立柱模型一路在页脚写清来源 | 各实验台文案 | — |
+
+方法学测试：`tests/pr8/methods-link.test.mjs`（L1–L9：改 G/换选区/改刺激→记录变化、插值精度、钳制、store、细胞耦合数值、感觉映射、接线存在性）；契约测试：`tests/pr5/contract.test.mjs`（PR8-LINK 一节）。浏览器冒烟：`tests/pr8/link-smoke.py`（六台 1920×1080 与 978px 打开/运行、无横向溢出、无控制台报错）。
+
 ---
 
 

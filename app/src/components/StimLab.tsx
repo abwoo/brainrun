@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AUDITORY_BURST_DRIVE,
+  AUDITORY_BURST_DURATION_MS_DEFAULT,
   BIPHASIC_PERIOD_RANGE_MS,
   DEFAULT_BIPHASIC_PERIOD_MS,
   DEFAULT_TMS_COIL,
   FIELD_TO_JR_GAIN_DEFAULT,
   FIELD_TO_WC_GAIN_DEFAULT,
   STIMULATION_LIMITATION,
+  VISUAL_DRIVE_AMPLITUDE,
+  VISUAL_FLICKER_DURATION_MS_DEFAULT,
   fieldToDrive,
   figureEightFieldGrid,
   normalComponentVm,
@@ -28,6 +32,7 @@ import {
   type TmsCoilShape,
   type Vec3Mm,
 } from '../lib/stimulation';
+import { sensoryTargetNodes } from '../lib/eegRecording';
 import { welchPsd } from '../lib/signalProcessing';
 
 const LEVEL_MEANING: Record<StimLevel, string> = {
@@ -128,7 +133,17 @@ function BiphasicTrace({ pulse }: { pulse: ReturnType<typeof tmsBiphasicPulse> }
 }
 
 /** PR-14 · 脑刺激实验室：Level A/B/C/D + 感觉输入。所有控件都对应 stimulation.ts 里的真实函数。 */
-export default function StimLab({ onClose }: { onClose: () => void }) {
+export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
+  onClose: () => void;
+  /**
+   * PR8-LINK 直播接线（App 传）：选中脑区（TES/TMS 默认目标）+ 全部脑区
+   * label（感觉靶区按 label 找）+ 向主仿真发脉冲的入口。不传时感觉输入
+   * 只有本地柱一路，不进主仿真。
+   */
+  selectedRegion?: { id: number; label: string; centre: Vec3Mm } | null;
+  regions?: Array<{ label: string }> | null;
+  onPulse?: (node: number, amplitude: number, durationMs: number) => void;
+}) {
   const [level, setLevel] = useState<StimLevel>('B');
   const [model, setModel] = useState<ColumnModel>('wc');
   const [targetIdx, setTargetIdx] = useState(0);
@@ -156,7 +171,49 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const [isiMs, setIsiMs] = useState(500);
   const [auditory, setAuditory] = useState<AuditoryTrainResult | null>(null);
 
-  const target = TARGET_PRESETS[targetIdx].pos;
+  // PR8-LINK：目标预设首位是选中脑区（App 传 brainData centre；TVB 坐标、
+  // 未配准 HEAD 球坐标，属演示映射）；选区一切换，目标回到选中脑区。
+  const TARGETS: { label: string; pos: Vec3Mm }[] = selectedRegion
+    ? [
+        {
+          label: `选中脑区 #${selectedRegion.id} ${selectedRegion.label}（中心 ${selectedRegion.centre.map((v) => v.toFixed(1)).join(', ')} mm）`,
+          pos: selectedRegion.centre,
+        },
+        ...TARGET_PRESETS,
+      ]
+    : TARGET_PRESETS;
+  const selectedRegionId = selectedRegion?.id ?? null;
+  useEffect(() => {
+    setTargetIdx(0);
+  }, [selectedRegionId]);
+  // PR8-LINK：感觉靶区（按 brainData label 找）：视觉→双侧 V1，听觉→双侧 A1。
+  const visualNodes = useMemo(
+    () => (regions ? sensoryTargetNodes(regions, 'visual') : []),
+    [regions],
+  );
+  const auditoryNodes = useMemo(
+    () => (regions ? sensoryTargetNodes(regions, 'auditory') : []),
+    [regions],
+  );
+  // PR8-LINK：感觉脉冲的定时器（卸载 / 停止 / 重跑时清掉，不让脉冲在关弹窗后继续发）。
+  const sensoryTimersRef = useRef<number[]>([]);
+  useEffect(
+    () => () => {
+      sensoryTimersRef.current.forEach((t) => window.clearTimeout(t));
+      sensoryTimersRef.current = [];
+    },
+    [],
+  );
+  const [sensoryRunning, setSensoryRunning] = useState(false);
+  const [flickerLive, setFlickerLive] = useState<string | null>(null);
+  const [audLive, setAudLive] = useState<string | null>(null);
+  const stopSensoryPulses = () => {
+    sensoryTimersRef.current.forEach((t) => window.clearTimeout(t));
+    sensoryTimersRef.current = [];
+    setSensoryRunning(false);
+  };
+
+  const target = TARGETS[Math.min(targetIdx, TARGETS.length - 1)].pos;
   const normal = NORMALS[normalIdx].n;
   const electrodes: TesElectrode[] = useMemo(() => [
     { label: 'Anode', positionMm: ELECTRODE_POSITIONS[anodePosIdx].pos, currentMA: tesCurrentMA },
@@ -191,18 +248,28 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
     } catch { return null; }
   }, [coil, coilShape, target, biphasicPeriodMs]);
 
+  // PR8-LINK：Level A/D 的驱动同时向主仿真发一次直播脉冲（只在 WC 柱时：
+  // JR 的驱动单位是 1/s，进不了 WC 网络；幅度钳制到 [-2, 2]，见 pulseAt）。
+  const livePulseNote = (driveApplied: number): string => {
+    if (model !== 'wc') return '· JR 柱响应未进直播 WC 网络（驱动单位 1/s，与 WC 脉冲单位不同）';
+    if (!onPulse || !selectedRegion) return '· 未选脑区或未接直播，脉冲未发（仅本地柱）';
+    const amp = Math.min(2, Math.max(-2, driveApplied));
+    onPulse(selectedRegion.id, amp, driveMs);
+    return `· 已向 #${selectedRegion.id} ${selectedRegion.label} 发直播脉冲（幅度 ${amp.toFixed(2)}，${driveMs} ms；见主界面 RESPONSE）`;
+  };
+
   const runLevelResponse = () => {
     try {
       if (level === 'A') {
         const r = runDirectDrive({ model, drive, durationMs: driveMs });
-        setResponse(r); setResponseLabel(`Level A 直接驱动 ${drive}（${model === 'wc' ? '模型单位' : '1/s'}，${driveMs} ms）`);
+        setResponse(r); setResponseLabel(`Level A 直接驱动 ${drive}（${model === 'wc' ? '模型单位' : '1/s'}，${driveMs} ms）${livePulseNote(drive)}`);
       } else if (level === 'D' && field) {
         const r = runLevelDResponse({
           fieldVm: field.fieldVm, normalHead: normal, model,
           wcGain, jrGain, durationMs: driveMs,
         });
         setResponse(r);
-        setResponseLabel(`Level D ${fieldSource === 'tes' ? 'TES' : 'TMS'} 场法向分量 ${r.normalFieldVm.toFixed(3)} V/m → 驱动 ${r.driveApplied.toFixed(3)}（增益 ${r.gainUsed}，未校准）`);
+        setResponseLabel(`Level D ${fieldSource === 'tes' ? 'TES' : 'TMS'} 场法向分量 ${r.normalFieldVm.toFixed(3)} V/m → 驱动 ${r.driveApplied.toFixed(3)}（增益 ${r.gainUsed}，未校准）${livePulseNote(r.driveApplied)}`);
       }
     } catch (e) {
       setResponse(null);
@@ -219,6 +286,29 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
       for (let k = 1; k < psd.length; k++) if (psd[k] > peakP) { peakP = psd[k]; peakF = freqsHz[k]; }
       setFlickerPeakHz(peakF);
       setResponse(r); setResponseLabel(`视觉闪烁 ${flickerHz} Hz，强度 ${flickerIntensity}（WC 柱，零均值正弦驱动）`);
+      // PR8-LINK：闪烁同时进主仿真——每周期向双侧 V1 各发一次脉冲（幅度 =
+      // 强度×0.5 模型单位，与本地柱驱动同幅；时长 = 半周期，钳制 20–500 ms）。
+      // 本地柱曲线仍展示（作参考），动力学入口是这些脉冲。
+      stopSensoryPulses();
+      setFlickerLive(null);
+      if (onPulse && visualNodes.length > 0) {
+        const periodMs = 1000 / flickerHz;
+        const cycles = Math.floor(VISUAL_FLICKER_DURATION_MS_DEFAULT / periodMs);
+        const amp = flickerIntensity * VISUAL_DRIVE_AMPLITUDE;
+        const dur = Math.min(500, Math.max(20, Math.round(periodMs / 2)));
+        setSensoryRunning(true);
+        for (let k = 0; k < cycles; k++) {
+          sensoryTimersRef.current.push(window.setTimeout(() => {
+            visualNodes.forEach((n) => onPulse(n, amp, dur));
+            setFlickerLive(
+              `已向枕区 ${visualNodes.map((n) => `#${n}`).join('、')} 发第 ${k + 1}/${cycles} 次脉冲（幅度 ${amp.toFixed(2)}，${dur} ms；见主界面 RESPONSE）`,
+            );
+            if (k === cycles - 1) setSensoryRunning(false);
+          }, k * periodMs));
+        }
+      } else {
+        setFlickerLive('未接直播（无 V1 靶区或未传 onPulse）：只跑了本地柱，未进主仿真。');
+      }
     } catch (e) {
       setResponse(null);
       setResponseLabel('运行失败：' + (e instanceof Error ? e.message : String(e)));
@@ -227,7 +317,27 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
   const runAuditory = () => {
     try {
       const r = runAuditoryTrain({ toneHz, intensity: audIntensity, isiMs, totalMs: 5000 });
-      setAuditory(r); setResponse(r); setResponseLabel(`听觉 burst 串：音调 ${toneHz} Hz（仅记录，不进入动力学），强度 ${audIntensity}，ISI ${isiMs} ms`);
+      setAuditory(r); setResponse(r); setResponseLabel(`听觉 burst 串：音调 ${toneHz} Hz（元数据，载波未进动力学），强度 ${audIntensity}，ISI ${isiMs} ms`);
+      // PR8-LINK：burst 同时进主仿真——每个 burst 起始时刻向双侧 A1 各发
+      // 一次脉冲（幅度 = 强度×1.0 模型单位，时长 50 ms，与本地柱 burst 同款）。
+      // 音调 Hz 仍是元数据（kHz 载波 1 ms 柱步长无法分辨，不声称模拟音调本身）。
+      stopSensoryPulses();
+      setAudLive(null);
+      if (onPulse && auditoryNodes.length > 0) {
+        const amp = audIntensity * AUDITORY_BURST_DRIVE;
+        setSensoryRunning(true);
+        for (let k = 0; k < r.burstOnsetsMs.length; k++) {
+          sensoryTimersRef.current.push(window.setTimeout(() => {
+            auditoryNodes.forEach((n) => onPulse(n, amp, AUDITORY_BURST_DURATION_MS_DEFAULT));
+            setAudLive(
+              `已向颞区 ${auditoryNodes.map((n) => `#${n}`).join('、')} 发第 ${k + 1}/${r.burstOnsetsMs.length} 次 burst 脉冲（幅度 ${amp.toFixed(2)}，${AUDITORY_BURST_DURATION_MS_DEFAULT} ms；见主界面 RESPONSE）`,
+            );
+            if (k === r.burstOnsetsMs.length - 1) setSensoryRunning(false);
+          }, r.burstOnsetsMs[k]));
+        }
+      } else {
+        setAudLive('未接直播（无 A1 靶区或未传 onPulse）：只跑了本地柱，未进主仿真。');
+      }
     } catch (e) {
       setAuditory(null); setResponse(null);
       setResponseLabel('运行失败：' + (e instanceof Error ? e.message : String(e)));
@@ -260,9 +370,12 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
         </label>
         <label className="panel-text">目标位置（球心坐标，mm）
           <select aria-label="目标位置" value={targetIdx} onChange={e => setTargetIdx(Number(e.target.value))}>
-            {TARGET_PRESETS.map((t, i) => <option key={t.label} value={i}>{t.label}</option>)}
+            {TARGETS.map((t, i) => <option key={t.label} value={i}>{t.label}</option>)}
           </select>
         </label>
+        {selectedRegion && (
+          <p className="panel-text">默认目标 = 选中脑区 #{selectedRegion.id} {selectedRegion.label}（brainData 中心，TVB 坐标、未配准 HEAD 球坐标，演示映射）；换选区后目标自动跟过去。</p>
+        )}
 
         {(level === 'B' || (level === 'D' && fieldSource === 'tes')) && <div>
           <div className="conn-title">TES 电极配置 · 电流 mA</div>
@@ -377,8 +490,10 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
           <input aria-label="闪烁强度" type="range" min="0" max="1" step="0.05" value={flickerIntensity}
             onChange={e => setFlickerIntensity(Number(e.target.value))} style={{ width: '100%' }} />
           <button className="chip" type="button" onClick={runFlicker}>运行闪烁实验</button>
+          {sensoryRunning && <button className="chip" type="button" onClick={stopSensoryPulses}>停止感觉脉冲</button>}
           {flickerPeakHz !== null && <p className="panel-text">Welch PSD 峰：{flickerPeakHz.toFixed(2)} Hz（刺激 {flickerHz} Hz；复用 PR6 welchPsd）</p>}
-          <p className="panel-text">听觉 burst：音调 {toneHz} Hz（仅记录，不进入动力学），强度 {audIntensity.toFixed(2)}，ISI {isiMs} ms</p>
+          {flickerLive && <p className="panel-text">{flickerLive}</p>}
+          <p className="panel-text">听觉 burst：音调 {toneHz} Hz（元数据，载波未进动力学），强度 {audIntensity.toFixed(2)}，ISI {isiMs} ms；burst 节律进主仿真（颞区 A1 脉冲），不是“播放一段声音”。</p>
           <input aria-label="音调频率" type="number" min="20" max="20000" step="10" value={toneHz}
             onChange={e => setToneHz(Number(e.target.value))} style={{ width: '100%' }} />
           <input aria-label="听觉强度" type="range" min="0" max="1" step="0.05" value={audIntensity}
@@ -391,6 +506,7 @@ export default function StimLab({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <button className="chip" type="button" onClick={runAuditory}>运行听觉实验</button>
+          {audLive && <p className="panel-text">{audLive}</p>}
           {auditory && <p className="panel-text">每 burst 后 300 ms 内峰值 |q|：{auditory.perBurstPeakAbsQNAm.map(v => v.toFixed(3)).join(', ')} nA·m；
             固定窗 [500, 1500] ms 内平均 |q|：{auditory.fixedWindowMeanAbsQNAm.toFixed(3)} nA·m</p>}
         </div>

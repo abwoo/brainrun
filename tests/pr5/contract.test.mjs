@@ -43,6 +43,7 @@ import {
   DEFAULT_DRIVE_DURATION_MS, DEFAULT_WC_DRIVE, DEFAULT_JR_DRIVE_PER_S,
   DEFAULT_JR_BASELINE_INPUT_PER_S, DEFAULT_SEED, DEFAULT_NOISE,
   NOISE_SLIDER_MIN_UV, NOISE_SLIDER_MAX_UV,
+  LIVE_DERIVATION_ID, LIVE_SNAPSHOT_HZ, LIVE_MIN_SPAN_MS,
 } from '../../app/src/lib/eegRecording.ts';
 import {
   MNE_LAMBDA2_DEFAULT, MNE_NOISE_RMS_UV_DEFAULT,
@@ -561,8 +562,11 @@ test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六
     assert.ok(lab.includes(`<${tab}`), `壳未挂载 <${tab}>`);
   }
   // 壳持有共享状态：recording / events / epochs / selectedChannel / reference / montage。
-  for (const state of ['useState<EegRecording | null>(null)', 'useState<EegEvent[]>([])',
-    'useState<EpochSet | null>(null)', "useState('Pz')", "useState<EegReference>({ mode: 'average' })",
+  // PR8-LINK：recording/events/epochs 的初始值从模块级 store 恢复（关弹窗不丢记录），
+  // 仍是同一份共享状态，初始器不再是 null/[] 字面量。
+  for (const state of ['useState<EegRecording | null>(storedLive?.recording ?? null)',
+    'useState<EegEvent[]>(storedLive?.events ?? [])',
+    'useState<EpochSet | null>(storedLive?.epochs ?? null)', "useState('Pz')", "useState<EegReference>({ mode: 'average' })",
     "useState<MontageKey>('10-20')"]) {
     assert.ok(lab.includes(state), `壳缺共享状态 ${state}`);
   }
@@ -745,7 +749,8 @@ test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记�
   assert.ok(contract.includes('### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）'));
   assert.ok(contract.includes("CELLULAR_ID = 'local-cellular-multiscale-v1'"));
   assert.ok(appTsx.includes("import CellularLab from './components/CellularLab';"));
-  assert.ok(appTsx.includes('<CellularLab />'), 'App 应挂载 CellularLab');
+  assert.ok(appTsx.includes('<CellularLab'), 'App 应挂载 CellularLab');
+  // PR8-LINK：CellularLab 带 live props（liveE/liveP/onApplyBias），不再是空挂载。
   assert.ok(appTsx.includes('细胞实验'), 'App 应有细胞实验入口');
 });
 
@@ -780,7 +785,8 @@ test('PR7 刺激（B）：模型 ID 与线圈/电极默认前后一致；契约 
   assert.ok(contract.includes("TES_MODEL_ID = 'tes-uniform-infinite-point-source-v1'"));
   assert.ok(contract.includes("TMS_MODEL_ID = 'tms-circular-coil-uniform-conductor-v1'"));
   assert.ok(appTsx.includes("import StimLab from './components/StimLab';"));
-  assert.ok(appTsx.includes('<StimLab onClose={'), 'App 应挂载 StimLab');
+  assert.ok(appTsx.includes('<StimLab'), 'App 应挂载 StimLab');
+  // PR8-LINK：StimLab 带 live props（selectedRegion/regions/onPulse）。
   assert.ok(appTsx.includes('刺激实验'), 'App 应有刺激实验入口');
 });
 
@@ -813,6 +819,50 @@ test('PR7 实验（C）：步长/节拍/PID/深度默认前后一致；契约 §
   assert.ok(contract.includes('DEPTH_WEIGHT_DEFAULT'));
   assert.ok(contract.includes('没有一种方法同时修好深浅两端'));
   assert.ok(appTsx.includes("import ExperimentLab from './components/ExperimentLab';"));
-  assert.ok(appTsx.includes('<ExperimentLab fixture={expFixture}'), 'App 应挂载 ExperimentLab 并传 fixture');
+  assert.ok(appTsx.includes('<ExperimentLab'), 'App 应挂载 ExperimentLab');
+  assert.ok(appTsx.includes('fixture={expFixture}'), 'App 应把 fixture 传进 ExperimentLab');
+  // PR8-LINK：ExperimentLab 带 live prop（直播 A/回放/闭环）。
   assert.ok(appTsx.includes('对照实验'), 'App 应有对照实验入口');
+});
+
+test('PR8-LINK §4.1 统一仿真状态：六台接线前后一致；契约 §1.14 已登记', () => {
+  const contract = src('docs/frontend-backend-contract.md');
+  const eegTs = src('app/src/lib/eegRecording.ts');
+  const cellTsx = src('app/src/components/CellularLab.tsx');
+  const stimTsx = src('app/src/components/StimLab.tsx');
+  const expTsx = src('app/src/components/ExperimentLab.tsx');
+  // 1. 直播推导常量：ID、快照率、最短跨度（TS 导出值 = 契约登记值）。
+  assert.equal(LIVE_DERIVATION_ID, 'live-wc-snapshot-interp-v1');
+  assert.equal(LIVE_SNAPSHOT_HZ, 60);
+  assert.equal(LIVE_MIN_SPAN_MS, 1000);
+  assert.ok(contract.includes('### 1.14 PR8-LINK'));
+  assert.ok(contract.includes(LIVE_DERIVATION_ID));
+  assert.ok(contract.includes('live-wc-snapshot-interp-v1'));
+  // 2. 直播推导只加新路径：runExperiment 的现有行为未动（契约写清）。
+  assert.ok(contract.includes('`runExperiment` 现有行为与测试一字未动'));
+  assert.ok(eegTs.includes('export function runLiveExperiment'));
+  assert.ok(eegTs.includes('export function deriveLiveMoments'));
+  assert.ok(eegTs.includes('export function clampSourcePositionMm'));
+  assert.ok(eegTs.includes('export function sensoryTargetNodes'));
+  // 3. App 把直播接线传进六台（只加 props，不改布局结构）。
+  assert.ok(appTsx.includes('liveSource={{'), 'App 应把 liveSource 传进 EEG 台');
+  assert.ok(appTsx.includes('liveE={selectedE}'), 'App 应把 live E 传进细胞台');
+  assert.ok(appTsx.includes('onApplyBias={handleBiasChange}'), 'App 应把反向应用传进细胞台');
+  assert.ok(appTsx.includes('liveMomentNAm'), 'App 应算直播偶极矩传进 HEAD/DIPOLE');
+  assert.ok(appTsx.includes('selectedRegion={selected'), 'App 应把选中脑区传进刺激台');
+  assert.ok(appTsx.includes('onPulse={(node, amp, dur)'), 'App 应把 pulseAt 传进刺激台');
+  assert.ok(appTsx.includes('live={{'), 'App 应把 live 传进对照台');
+  // 4. 接不通的部分标“独立演示”（源码级存在性）。
+  assert.ok(src('app/src/components/HeadSphereLab.tsx').includes('独立演示'));
+  assert.ok(src('app/src/components/DipoleLab.tsx').includes('独立演示'));
+  assert.ok(expTsx.includes('独立演示'));
+  assert.ok(!stimTsx.includes('仅记录，不进入动力学'), '听觉不应再写“仅记录、不进入动力学”');
+  assert.ok(!cellTsx.includes('useState(0.5)'), '细胞台不应再有手填默认 0.50');
+  // 5. pulseAt：幅度钳制 [-2, 2] 与调试桥入口（无孤儿方法）。
+  assert.ok(simClientTs.includes('pulseAt('));
+  assert.ok(/pulseAt[\s\S]{0,400}Math\.min\(2, Math\.max\(-2/.test(simClientTs));
+  assert.ok(simClientTs.includes('pulseAt: (node: number, amplitude: number, duration_ms: number)'));
+  // 6. 新增 Worker 入口复用已有 stimulus 消息，不新增消息种类（协议种类数不变）。
+  const inBlock = protocolTs.slice(protocolTs.indexOf('export type WorkerInMessage'));
+  assert.ok(!/pulse_at|pulseAt/.test(inBlock), 'pulseAt 复用 stimulus 消息，不新增协议消息');
 });

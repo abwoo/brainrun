@@ -103,7 +103,27 @@ function TracePlot({ timesMs, series, color, label, unit }: {
   );
 }
 
-export default function CellularLab() {
+export default function CellularLab({
+  liveE = null,
+  liveP = null,
+  regionLabel = null,
+  regionId = null,
+  onApplyBias,
+}: {
+  /**
+   * PR8-LINK 直播接线（App 传）：选中脑区的直播 E/P 与标签。
+   * 不传（或未选脑区）时前向耦合无输入，按钮禁用，不再手填 E。
+   */
+  liveE?: number | null;
+  liveP?: number | null;
+  regionLabel?: string | null;
+  regionId?: number | null;
+  /**
+   * 反向应用：把细胞发放率算出的 dP（P 单位）经 App 的 handleBiasChange
+   * 真实应用回主仿真（setBias）。返回引擎实际存下的偏置值（已钳制）。
+   */
+  onApplyBias?: (dP: number) => number;
+}) {
   const [model, setModel] = useState<ModelKind>('hh');
   // 电流注入：LIF/多房室用 pA，HH 用 uA/cm^2；脉冲窗 100–300 ms（LIF）/
   // 10–60 ms（HH）/ 10–12 ms（多房室胞体）。
@@ -112,14 +132,23 @@ export default function CellularLab() {
   const [mcTarget, setMcTarget] = useState<TargetKind>('soma');
   const [mcAmpPA, setMcAmpPA] = useState(1000);
   const [synapseOn, setSynapseOn] = useState(false);
-  const [regionE, setRegionE] = useState(0.5);
+  // PR8-LINK：前向 E 不再手填——取选中脑区的直播 E（App 传 liveE）；
+  // 未选脑区时为 null，耦合面板显示“未选脑区”，不用默认值冒充。
+  const regionE = liveE;
   const [result, setResult] = useState<RunResult | null>(null);
+  const [appliedBias, setAppliedBias] = useState<number | null>(null);
   const [ampNumbers, setAmpNumbers] = useState<{
     pspUv: number; pspActiveUv: number; volleyUv: number;
   } | null>(null);
 
-  const lifMappedPA = useMemo(() => wcToLifCurrentPA(regionE), [regionE]);
-  const hhMapped = useMemo(() => wcToHhCurrentDensityUAperCm2(regionE), [regionE]);
+  const lifMappedPA = useMemo(
+    () => (regionE === null ? null : wcToLifCurrentPA(regionE)),
+    [regionE],
+  );
+  const hhMapped = useMemo(
+    () => (regionE === null ? null : wcToHhCurrentDensityUAperCm2(regionE)),
+    [regionE],
+  );
 
   function run() {
     if (model === 'lif') {
@@ -362,23 +391,42 @@ export default function CellularLab() {
           HH 增益 20 uA/cm^2/单位 E——两套模型单位不同，增益分开给，
           各自的数都写清；增益是假设，不是拟合值。
         </p>
-        <div style={row}>
-          <label style={{ fontSize: 13 }} htmlFor="region-e">脑区活动 E：</label>
-          <input
-            id="region-e" type="range" min={0} max={1} step={0.01}
-            value={regionE} onChange={(e) => setRegionE(Number(e.target.value))}
-            style={{ flex: 1, minWidth: 120 }}
-          />
-          <span style={{ fontSize: 13 }}>{regionE.toFixed(2)}（无量纲）</span>
-        </div>
         <p style={note}>
-          E={regionE.toFixed(2)} → LIF 注入电流 {lifMappedPA.toFixed(0)} pA
-          （流变 375 pA）；HH 注入电流密度 {hhMapped.toFixed(2)} uA/cm^2
-          （持续电流阈值约 9.8 uA/cm^2）。
+          {regionId === null || regionE === null
+            ? '前向输入：未选脑区——先在主界面点一个脑区，E 取该脑区的直播值（约 15 Hz 更新）；这里不再手填 E。'
+            : `前向输入：选中脑区 #${regionId} ${regionLabel ?? ''} 的直播 E = ${regionE.toFixed(3)}（无量纲，静息均值 E0=0.011）` +
+              `；该脑区当前 P = ${liveP !== null ? liveP.toFixed(2) : '—'}（主仿真快照值）。`}
         </p>
+        {regionE !== null && lifMappedPA !== null && hhMapped !== null && (
+          <p style={note}>
+            E={regionE.toFixed(2)} → LIF 注入电流 {lifMappedPA.toFixed(0)} pA
+            （流变 375 pA）；HH 注入电流密度 {hhMapped.toFixed(2)} uA/cm^2
+            （持续电流阈值约 9.8 uA/cm^2）。
+          </p>
+        )}
         <div style={row}>
-          <button type="button" style={btn(false)} onClick={() => { setModel('lif'); setAmpPA(Math.max(0, Math.round(lifMappedPA))); setSynapseOn(false); }}>用该电流跑 LIF</button>
-          <button type="button" style={btn(false)} onClick={() => { setModel('hh'); setAmpHH(Math.max(0, Math.min(30, hhMapped))); }}>用该电流跑 HH</button>
+          <button
+            type="button"
+            style={btn(false)}
+            disabled={lifMappedPA === null}
+            onClick={() => {
+              if (lifMappedPA === null) return;
+              setModel('lif'); setAmpPA(Math.max(0, Math.round(lifMappedPA))); setSynapseOn(false);
+            }}
+          >
+            用该电流跑 LIF
+          </button>
+          <button
+            type="button"
+            style={btn(false)}
+            disabled={hhMapped === null}
+            onClick={() => {
+              if (hhMapped === null) return;
+              setModel('hh'); setAmpHH(Math.max(0, Math.min(30, hhMapped)));
+            }}
+          >
+            用该电流跑 HH
+          </button>
         </div>
         <p style={note}>
           反向：细胞发放率 → 群体驱动 dP = 0.002 × 发放率（P 单位/Hz，假设）。
@@ -386,6 +434,27 @@ export default function CellularLab() {
             ? `本次运行发放率 ${result.rateHz.toFixed(1)} Hz → dP = ${reverseDrive !== null ? reverseDrive.toFixed(3) : '—'}（无量纲）。`
             : '先运行一次仿真，这里显示反向映射的 dP。'}
         </p>
+        {result && reverseDrive !== null && (
+          <div style={row}>
+            <button
+              type="button"
+              style={btn(false)}
+              disabled={!onApplyBias || regionId === null}
+              onClick={() => {
+                if (!onApplyBias) return;
+                setAppliedBias(onApplyBias(reverseDrive));
+              }}
+              title="把 dP 经 App 的 handleBiasChange 真实应用回主仿真（setBias），不是只显示"
+            >
+              把 dP 应用回主仿真（偏置）
+            </button>
+            {appliedBias !== null && (
+              <span style={{ fontSize: 13 }}>
+                已应用偏置 {appliedBias >= 0 ? '+' : ''}{appliedBias.toFixed(3)}（选中脑区 #{regionId}，P 单位；主界面 REGION 面板可见该脑区 P 变化）。
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={panel}>

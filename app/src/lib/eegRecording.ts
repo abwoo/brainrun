@@ -44,6 +44,7 @@ import {
   COUPLING_ID,
   createLocalCorticalColumn,
   DEFAULT_RATE_PARAMS,
+  equivalentMomentNAm,
   type LocalRateParams,
   type DipoleMorphology,
   DEFAULT_MORPHOLOGY,
@@ -66,6 +67,7 @@ import type {
   EegEvent,
   EegRecording,
   EegReference,
+  EpochSet,
   NoiseParams,
 } from './eegData.ts';
 
@@ -683,6 +685,284 @@ export function runExperiment(opts: RunExperimentOptions): {
     rawDataUvInfinity: raw,
   };
   return { recording, events };
+}
+
+/* ── 直播推导（PR8-LINK，§4.1 统一仿真状态）─────────────────────── */
+
+/**
+ * 直播推导的记录标识（`EegRecording.sourceModelId`）。与 `runExperiment`
+ * 的柱模型 id 不同：这份记录不是独立柱模型跑出来的，是直播 WC 网络
+ * 的快照流推导出来的，界面与契约都必须写清来源。
+ */
+export const LIVE_DERIVATION_ID = 'live-wc-snapshot-interp-v1';
+/** Worker 快照的标称广播率（Hz）；`set_snapshot_hz` 默认 60 Hz。 */
+export const LIVE_SNAPSHOT_HZ = 60;
+/** 直播推导要求的最短快照历史跨度（ms）；不足时抛错，不编造记录。 */
+export const LIVE_MIN_SPAN_MS = 1000;
+
+/** 一条直播快照（`SimClient.getSnapshotHistory()` 的元素形状）。 */
+export interface LiveSnapshotSample {
+  /** 仿真时钟 ms（不是浏览器墙钟）。 */
+  t_ms: number;
+  /** 全脑 E（无量纲，0..1）。 */
+  e: ArrayLike<number>;
+  /** 全脑 I（无量纲，0..1）。 */
+  i: ArrayLike<number>;
+}
+
+/** 一次脉冲标记（`SimClient.getMarkers()` 的元素形状）。 */
+export interface LivePulseMarker {
+  t_ms: number;
+  node: number;
+  kind: 'pulse' | 'hold';
+  /** 发送时用的刺激幅度（模型单位）；缺失时按默认 WC 驱动计。 */
+  amplitude?: number;
+}
+
+/**
+ * 源位置钳制进球形 lead-field 网格（`source_grid_axis_mm`，目前 ±48 mm）。
+ * TVB 脑区中心坐标超出网格时 `interpolateSphereGain` 会抛错；直播源位置
+ * 必须先钳制再投影。钳制本身是演示映射的一部分（TVB 中心未配准到 HEAD），
+ * 调用方须在界面上写清原始中心与钳制后位置。
+ */
+export function clampSourcePositionMm(fixture: SphereFixture, positionMm: Vec3Mm): Vec3Mm {
+  const axis = fixture.source_grid_axis_mm;
+  if (!axis || axis.length < 2) throw new RangeError('clampSourcePositionMm: fixture has no source_grid_axis_mm');
+  const lo = axis[0];
+  const hi = axis[axis.length - 1];
+  for (const v of positionMm) {
+    if (!Number.isFinite(v)) throw new RangeError(`clampSourcePositionMm: non-finite coordinate ${v}`);
+  }
+  return [
+    Math.min(hi, Math.max(lo, positionMm[0])),
+    Math.min(hi, Math.max(lo, positionMm[1])),
+    Math.min(hi, Math.max(lo, positionMm[2])),
+  ];
+}
+
+/**
+ * 直播快照流 → 选中脑区的偶极矩序列（250 Hz，4 ms 网格）。
+ *
+ * - E(t)、I(t) 各自在 60 Hz 快照点之间线性插值，再经 PR5 q 链
+ *   `equivalentMomentNAm(E, I, baselineE, baselineI)` 算 q(t)。
+ * - 基线由调用方给（EEG 台用窗口首样本 E/I；HEAD/DIPOLE 用选区切换时
+ *   的 E/I），不是本函数猜的。
+ * - 有效采样率是快照率（标称 60 Hz，实测值见返回的 `snapshotHz`）：
+ *   250 Hz 网格上的高频成分是插值产物，不是实测，调用方必须如实标注。
+ * 抛错：样本 <2 条、脑区越界、E/I 非有限或出 [0,1]、时间跨度 <1 s、
+ * 时间戳不递增（排序后仍有重复时间戳且 E/I 不同时插值分母为零——
+ * 本函数按分母为零时取左端点处理，不抛错）。
+ */
+export function deriveLiveMoments(
+  samples: readonly LiveSnapshotSample[],
+  node: number,
+  baselineE: number,
+  baselineI: number,
+  morphology: DipoleMorphology = DEFAULT_MORPHOLOGY,
+): {
+  timesMs: number[];
+  momentsNAm: number[];
+  /** 窗口起点（仿真时钟 ms）；记录的 timesMs 是相对时间（0 起）。 */
+  t0Ms: number;
+  durationMs: number;
+  spanMs: number;
+  sampleCount: number;
+  /** 实测快照率（Hz，由样本数/跨度算出）。 */
+  snapshotHz: number;
+} {
+  if (!Array.isArray(samples) || samples.length < 2) {
+    throw new RangeError('deriveLiveMoments: need at least 2 snapshot samples');
+  }
+  const sorted = [...samples].sort((a, b) => a.t_ms - b.t_ms);
+  const nRegions = sorted[0].e.length;
+  if (!Number.isInteger(node) || node < 0 || node >= nRegions) {
+    throw new RangeError(`deriveLiveMoments: node ${node} out of range (0..${nRegions - 1})`);
+  }
+  for (const s of sorted) {
+    if (!Number.isFinite(s.t_ms)) throw new RangeError('deriveLiveMoments: non-finite snapshot t_ms');
+    if (s.e.length !== nRegions || s.i.length !== nRegions) {
+      throw new RangeError('deriveLiveMoments: snapshot E/I length mismatch across samples');
+    }
+    const e = s.e[node];
+    const i = s.i[node];
+    if (![e, i, baselineE, baselineI].every(Number.isFinite) || e < 0 || e > 1 || i < 0 || i > 1) {
+      throw new RangeError('deriveLiveMoments: snapshot E/I must be finite fractions in [0, 1]');
+    }
+  }
+  const t0Ms = sorted[0].t_ms;
+  const t1 = sorted[sorted.length - 1].t_ms;
+  const spanMs = t1 - t0Ms;
+  if (spanMs < LIVE_MIN_SPAN_MS) {
+    throw new RangeError(
+      `deriveLiveMoments: snapshot span ${spanMs.toFixed(1)} ms < ${LIVE_MIN_SPAN_MS} ms (need >= 1 s of live history)`,
+    );
+  }
+  const durationMs = Math.floor(spanMs / 4) * 4;
+  const nSamples = durationMs / 4 + 1;
+  const timesMs = Array.from({ length: nSamples }, (_, j) => j * 4);
+  const momentsNAm: number[] = new Array<number>(nSamples);
+  let seg = 0;
+  for (let j = 0; j < nSamples; j++) {
+    const tAbs = t0Ms + timesMs[j];
+    while (seg < sorted.length - 2 && sorted[seg + 1].t_ms <= tAbs) seg++;
+    const a = sorted[seg];
+    const b = sorted[seg + 1];
+    const dt = b.t_ms - a.t_ms;
+    const f = dt <= 0 ? 0 : Math.min(1, Math.max(0, (tAbs - a.t_ms) / dt));
+    const e = a.e[node] + f * (b.e[node] - a.e[node]);
+    const i = a.i[node] + f * (b.i[node] - a.i[node]);
+    momentsNAm[j] = equivalentMomentNAm(e, i, baselineE, baselineI, morphology);
+  }
+  return {
+    timesMs,
+    momentsNAm,
+    t0Ms,
+    durationMs,
+    spanMs,
+    sampleCount: sorted.length,
+    snapshotHz: ((sorted.length - 1) * 1000) / spanMs,
+  };
+}
+
+export interface RunLiveExperimentOptions {
+  fixture: SphereFixture;
+  /** 直播快照历史（`SimClient.getSnapshotHistory()`，按时间升序为佳）。 */
+  samples: readonly LiveSnapshotSample[];
+  /** 选中脑区 id（源脑区）。 */
+  node: number;
+  /** 静息基线 E/I（调用方给，见 `deriveLiveMoments`）。 */
+  baselineE: number;
+  baselineI: number;
+  /** 脉冲标记（`SimClient.getMarkers()`）；只有同脑区、窗内、pulse 的才计入事件表。 */
+  markers?: readonly LivePulseMarker[];
+  /** 源位置（TVB 脑区中心；函数内钳制进 lead-field 网格）。 */
+  positionMm: Vec3Mm;
+  normalHead?: Vec3Mm;
+  montage?: MontageKey;
+  reference?: EegReference;
+  /** null = 无噪声（默认）；否则按给定 RMS 生成四成分噪声（与 `runExperiment` 同款）。 */
+  noise?: NoiseParams | null;
+  seed?: number;
+  morphology?: DipoleMorphology;
+}
+
+/**
+ * 从直播推导一次多导 EEG 实验：快照流 E(t)/I(t) → 线性插值 250 Hz →
+ * q(t)（PR5 假设链）→ 球形 lead-field → 多通道 µV（无限远参考）→
+ * 噪声 → 参考变换。事件表只取真实脉冲标记，不按固定间隔编造事件；
+ * 无脉冲时事件表为空（ERP tab 显示“还没有事件表”，不崩）。
+ * 返回的 `sourcePositionMm` 是钳制后的实际源位置。
+ * `runExperiment` 的现有行为与测试一字未动。
+ */
+export function runLiveExperiment(opts: RunLiveExperimentOptions): {
+  recording: EegRecording;
+  events: EegEvent[];
+  sourcePositionMm: Vec3Mm;
+  snapshotHz: number;
+  t0Ms: number;
+} {
+  validateSphereFixture(opts.fixture);
+  const montage = opts.montage ?? '10-20';
+  const reference = opts.reference ?? { mode: 'average' };
+  const seed = opts.seed ?? DEFAULT_SEED;
+  if (!Number.isInteger(seed)) throw new RangeError(`runLiveExperiment: seed must be an integer, got ${seed}`);
+  const normalHead = opts.normalHead ?? DEFAULT_SOURCE_NORMAL_HEAD;
+  const clamped = clampSourcePositionMm(opts.fixture, opts.positionMm);
+  const { timesMs, momentsNAm, t0Ms, durationMs, snapshotHz } = deriveLiveMoments(
+    opts.samples,
+    opts.node,
+    opts.baselineE,
+    opts.baselineI,
+    opts.morphology,
+  );
+  const channels = channelsForMontage(opts.fixture, montage);
+  const raw = projectMoments(opts.fixture, clamped, normalHead, momentsNAm, montage);
+  const noise = opts.noise ?? null;
+  if (noise) {
+    const gen = generateNoise(noise, channels.length, timesMs.length, DEFAULT_SFREQ_HZ, seed);
+    for (let c = 0; c < channels.length; c++) {
+      for (let j = 0; j < timesMs.length; j++) raw[c][j] += gen.total[c][j];
+    }
+  }
+  const labels = channels.map((c) => c.label);
+  const recording: EegRecording = {
+    version: 1,
+    sfreqHz: DEFAULT_SFREQ_HZ,
+    timesMs,
+    channels,
+    dataUv: applyReference(raw, reference, labels),
+    reference: reference.mode === 'electrode'
+      ? { mode: 'electrode', label: reference.label }
+      : { mode: reference.mode },
+    montage,
+    forwardModelId: SPHERE_MODEL_ID,
+    sourceModelId: LIVE_DERIVATION_ID,
+    seed,
+    noise,
+    rawDataUvInfinity: raw,
+  };
+  const events: EegEvent[] = [];
+  let id = 0;
+  for (const m of opts.markers ?? []) {
+    if (m.kind !== 'pulse' || m.node !== opts.node) continue;
+    const rel = m.t_ms - t0Ms;
+    if (rel < 0 || rel > durationMs) continue;
+    events.push({
+      id,
+      type: 'pulse',
+      tMs: rel,
+      // 与 `runExperiment` 同款记账约定：按顺序 standard/oddball 交替；
+      // 直播没有 oddball 范式，这是事件分段用的记账条件，不是范式声明。
+      condition: id % 2 === 0 ? 'standard' : 'oddball',
+      drive: m.amplitude ?? DEFAULT_WC_DRIVE,
+      driveUnit: 'wc',
+    });
+    id++;
+  }
+  return { recording, events, sourcePositionMm: clamped, snapshotHz, t0Ms };
+}
+
+/* ── 直播记录持久化（PR8-LINK：关弹窗不再丢记录）──────────────────── */
+
+/**
+ * 模块级 store：最后一份 EEG 记录 + 事件表 + 分段（不论是直播推导还是
+ * 独立柱模型跑出来的）。`EegAnalysisLab` 挂载时从这里恢复、运行时写回；
+ * 弹窗关掉、模式切换都不丢记录。只存引用，不做深拷贝（调用方不改动它）。
+ */
+export interface LiveRecordingStoreValue {
+  recording: EegRecording;
+  events: EegEvent[];
+  epochs: EpochSet | null;
+}
+let liveRecordingStore: LiveRecordingStoreValue | null = null;
+export function getLiveRecordingStore(): LiveRecordingStoreValue | null {
+  return liveRecordingStore;
+}
+export function setLiveRecordingStore(v: LiveRecordingStoreValue | null): void {
+  liveRecordingStore = v;
+}
+
+/* ── 感觉靶区映射（PR8-LINK：感觉输入进主仿真）────────────────────── */
+
+/**
+ * 感觉输入的靶脑区（按 `brainData` label 找，不写死 id 之外的任何假设）：
+ * 视觉闪烁 → 双侧初级视皮层 V1；听觉 burst → 双侧初级听皮层 A1。
+ * label 在 `app/public/brain-assets/regions.json` 里是 rV1/lV1/rA1/lA1
+ *（id 35/73/0/38）；找不到时返回空数组，调用方不得编造节点。
+ */
+export const SENSORY_VISUAL_REGION_LABELS = ['rV1', 'lV1'] as const;
+export const SENSORY_AUDITORY_REGION_LABELS = ['rA1', 'lA1'] as const;
+export function sensoryTargetNodes(
+  regions: ReadonlyArray<{ label: string }>,
+  kind: 'visual' | 'auditory',
+): number[] {
+  const want: readonly string[] =
+    kind === 'visual' ? SENSORY_VISUAL_REGION_LABELS : SENSORY_AUDITORY_REGION_LABELS;
+  const out: number[] = [];
+  regions.forEach((r, idx) => {
+    if (want.includes(r.label)) out.push(idx);
+  });
+  return out;
 }
 
 /* ── 导出 ───────────────────────────────────────────────────────────── */
