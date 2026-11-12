@@ -3,11 +3,11 @@ import type { CSSProperties } from 'react';
 /**
  * 统一的下拉框（UI 封装）。
  *
- * 项目里原来 36 处 <select> 各写各的：裸原生（浏览器默认白底弹窗，配不
+ * 项目里原来 36 处原生下拉框各写各的：裸原生（浏览器默认白底弹窗，配不
  * 上深色仪器风）、.eeg-control-group 的 100% 宽规则、ExperimentLab 的
  * 内联 style 对象、TfrTab 的 marginLeft 内联样式——外观、尺寸、焦点态
  * 各不相同。本组件把它们收成一个入口：外观只由 .ui-dropdown（App.css）
- * 决定；行为仍是原生 <select>（键盘操作、无障碍、弹出列表都不变），只
+ * 决定；行为仍是原生 select 元素（键盘操作、无障碍、弹出列表都不变），只
  * 统一外观与交互，不改任何计算与接线。
  *
  * 值用 String() 往返：option 的 value 永远是字符串，number 型值（如脑
