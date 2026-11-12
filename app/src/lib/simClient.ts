@@ -354,6 +354,7 @@ export class SimClient {
         this.backgroundMode = msg.params.mode;
         this.modeParams = msg.params;
       } else if (msg.type === 'snapshot_saved') {
+        if (msg.run_id && msg.run_id !== this.experiment.runId) return;
         // PR4: keep the snapshot in memory; manual snapshots are also
         // persisted to localStorage (auto snapshots never are).
         const stored: StoredSnapshot = {
@@ -366,7 +367,7 @@ export class SimClient {
         this.snapshots.set(msg.id, stored);
         if (msg.run_id === undefined || msg.run_id === this.experiment.runId) {
           this.experiment.recordArtifact({
-            id: `snapshot:${msg.id}:${msg.t_ms}`,
+            id: `snapshot:${msg.id}:${msg.t_ms}:${this.experiment.getSnapshot().artifacts.length}`,
             runId: this.experiment.runId, kind: 'snapshot', tMs: msg.t_ms,
             sourceId: 'wasm-worker-state-json', methodId: 'WasmSim.take_snapshot',
           });
@@ -382,6 +383,7 @@ export class SimClient {
         this.snapshotWaiters.delete(msg.id);
         waiters.forEach((cb) => cb({ id: msg.id, t_ms: msg.t_ms }));
       } else if (msg.type === 'snapshot_restored') {
+        if (msg.run_id && msg.run_id !== this.experiment.runId) return;
         // PR4: a restore rewound the engine — re-sync the client mirrors
         // from the snapshot JSON (params, weights, bias) and drop the
         // response data, which belongs to the pre-restore trajectory.
