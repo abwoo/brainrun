@@ -78,6 +78,9 @@ export default function ErpTab({
     if (chRow < 0) return { error: `通道 ${channel} 不在试次集中` } as const;
     const oddEp = filterEpochsByCondition(epochs, 'oddball');
     const stdEp = filterEpochsByCondition(epochs, 'standard');
+    if (oddEp.trials.length === 0 || stdEp.trials.length === 0) {
+      return { error: '需要保留的 standard 和 oddball 试次；自由脉冲不能代替实验条件。' } as const;
+    }
     const odd = analyseErp(oddEp, channel);
     const std = analyseErp(stdEp, channel);
     const diff = differenceWaveErp(odd, std, chRow);

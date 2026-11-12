@@ -2075,5 +2075,7 @@ export const englishPhrases: Record<string, string> = {
   "确认的实验会话": "Confirmed experiment session",
   "与模型时间": "and model time",
   "事件与试次同步更新": "Events and epochs update together",
-  "时频与可适用的分析使用同一次运行": "Time-frequency and applicable analyses share this run"
+  "时频与可适用的分析使用同一次运行": "Time-frequency and applicable analyses share this run",
+  "需要保留的": "Requires retained",
+  "自由脉冲不能代替实验条件": "Arbitrary pulses cannot replace task conditions"
 };

@@ -140,6 +140,7 @@ export interface SnapshotSummary {
   version: number;
   params: { g: number; c_ei: number; stim_amplitude: number; stim_duration_ms: number };
   mode: BackgroundMode;
+  seed: number | null;
   modeParams: ModeParams;
   weights: number[][];
   bias: number[];
@@ -203,6 +204,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
       /** PR6 R2: StateSnapshot JSON schema version; absent in pre-PR6 JSON. */
       version?: number;
       params?: {
+        seed?: number;
         g?: number;
         c_ei?: number;
         stim_amplitude?: number;
@@ -236,6 +238,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
         stim_duration_ms: snap.params.stim_duration_ms ?? DEFAULT_PARAMS.stim_duration_ms,
       },
       mode,
+      seed: Number.isSafeInteger(snap.params.seed) ? snap.params.seed! : null,
       modeParams: {
         mode,
         ou_tau_ms: snap.params.ou_tau_ms ?? 100,
@@ -1019,7 +1022,11 @@ export class SimClient {
     if (!stored) {
       return Promise.reject(new Error(`没有可恢复的快照：${id}`));
     }
-    this.experiment.newRun({ seed: this.seed });
+    const summary = parseSnapshotSummary(stored);
+    if (!summary || summary.version !== SNAPSHOT_SCHEMA_VERSION) {
+      return Promise.reject(new Error('Invalid or unsupported experiment snapshot'));
+    }
+    this.experiment.newRun({ seed: summary.seed });
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     return new Promise((resolve) => {
@@ -1047,6 +1054,7 @@ export class SimClient {
    *  from the TVB originals), sustained bias. */
   private applySnapshotSummary(summary: SnapshotSummary): void {
     this.params = { ...summary.params };
+    if (summary.seed !== null) this.seed = summary.seed;
     this.backgroundMode = summary.mode;
     this.modeParams = summary.modeParams;
     if (this.originalWeights) {
