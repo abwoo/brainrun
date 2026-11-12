@@ -279,7 +279,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
   }, [sim, selectedId]);
 
   return (
-    <div className="chart-wrap" ref={wrapRef}>
+    <div className="chart-wrap" ref={wrapRef} data-selected-region-id={selectedId ?? 'none'}>
       <canvas ref={canvasRef} className="chart-canvas" />
       <div className="chart-controls">
         <span className="chart-label">
