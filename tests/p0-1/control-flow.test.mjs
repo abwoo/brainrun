@@ -33,6 +33,9 @@ const CONTROL_FILES = [
   'app/src/components/BrainScene.tsx',
   'app/src/components/ActivityChart.tsx',
   'app/src/components/ParamControl.tsx',
+  'app/src/components/PhysicsHome.tsx',
+  'app/src/components/ui/ControlField.tsx',
+  'app/src/components/ui/LanguageSwitch.tsx',
 ];
 function source(p) { return readFileSync(join(ROOT, p), 'utf8'); }
 // TypeScript 7 uses a native compiler and does not expose the historical
@@ -165,7 +168,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 216, 'UI migration includes Dropdown and workspace controls');
+  assert.equal(actual.length, 235, 'UI migration includes Dropdown and workspace controls');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

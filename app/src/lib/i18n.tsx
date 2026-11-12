@@ -9,7 +9,7 @@ export type Locale = 'zh-CN' | 'en-US';
 export const LOCALE_STORAGE_KEY = 'brainrun.locale.v1';
 const zh = {
   'lang.label': '语言', 'lang.zh': '简体中文', 'lang.en': 'English',
-  'lang.preview': '英文界面逐步覆盖中。高级科学实验台的全部文字尚未翻译，不代表科学功能有差异。',
+
   'mode.play': '互动', 'mode.waves': '频谱', 'mode.eeg': 'EEG', 'mode.explore': '探索',
   'mode.playDesc': '触碰大脑：施加输入并观察神经网络响应',
   'mode.wavesDesc': '探索振荡与频谱，区分外部驱动和自发节律',
@@ -37,13 +37,13 @@ const zh = {
 export type MessageKey = keyof typeof zh;
 const en: Record<MessageKey, string> = {
   'lang.label': 'Language', 'lang.zh': '简体中文', 'lang.en': 'English',
-  'lang.preview': 'English translation is in progress. Advanced scientific labs still contain Chinese text; their computation is unchanged.',
-  'mode.play': 'PLAY', 'mode.waves': 'WAVES', 'mode.eeg': 'EEG', 'mode.explore': 'EXPLORE',
+
+  'mode.play': 'Network', 'mode.waves': 'Spectra', 'mode.eeg': 'Signals', 'mode.explore': 'Atlas',
   'mode.playDesc': 'Touch the brain, apply input and observe a real network response',
   'mode.wavesDesc': 'Explore oscillations and spectra, distinguishing driven from spontaneous rhythms',
   'mode.eegDesc': 'Explore EEG, ERP, time-frequency and source localization',
   'mode.exploreDesc': 'Explore regions, atlases, coordinates and cellular models',
-  'shell.subtitle': 'INTERACTIVE BRAIN PHYSICS',
+  'shell.subtitle': 'Advanced model workbench',
   'shell.more': 'More', 'shell.less': 'Less',
   'shell.scenarios': 'Quick experiments',
   'shell.pause': 'Pause', 'shell.resume': 'Resume',

@@ -297,7 +297,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
         <span className="chart-label">
           {replay?.active
             ? `回放 REPLAY · ${replay.speed}× · 录制窗口（真实快照）`
-            : 'REGIONAL NEURAL ACTIVITY · a.u. · 10 S'}
+            : '当前脑区活动 · 模型值 · 10 秒'}
         </span>
         <span className="chart-toggles">
           {(['E', 'I', 'BOTH'] as Trace[]).map((t) => (

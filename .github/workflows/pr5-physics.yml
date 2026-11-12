@@ -119,6 +119,13 @@ jobs:
       - name: Native Dropdown, locale persistence and adjustable workbench browser E2E
         working-directory: app
         run: node tests/ui-language-workspace-browser.mjs
+      - name: Upload manual physics and language screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-physics-language-screenshots
+          path: tests/ui/screenshots/
+          if-no-files-found: ignore
       - name: Upload P0-1 causal browser screenshot
         if: always()
         uses: actions/upload-artifact@v4

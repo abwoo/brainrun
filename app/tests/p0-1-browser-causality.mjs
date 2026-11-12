@@ -24,7 +24,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url+'#advanced', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__brainSim?.isReady?.() === true,
     null, { timeout: 60000 });
 

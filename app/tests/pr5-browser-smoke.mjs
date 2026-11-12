@@ -22,7 +22,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url+'#advanced', { waitUntil: 'domcontentloaded' });
   // PR1–PR4 regression: the original Rust/WASM neural simulation must
   // still boot and respond physically after the new physics lab is added.
   await page.waitForFunction(() => window.__brainSim?.isReady?.() === true,
@@ -40,7 +40,7 @@ try {
   assert.ok(originalPeak > 0.05,
     'PR1–PR4 original BrainRun neural stimulus still produces a real peak');
 
-  await page.getByRole('button', { name: '偶极子实验' }).click();
+  await page.getByRole('button', { name: '电流源' }).click();
   const modal = page.getByRole('dialog', { name: '电流偶极子物理实验' });
   await modal.waitFor();
   await modal.getByText('均匀、各向同性、无限导体', { exact: false }).waitFor();
@@ -83,7 +83,7 @@ try {
   await page.screenshot({ path: '../tests/pr5/shots/dipole-lab.png', fullPage: true });
   // MNE four-layer sphere: layout switching, physical gain changes and reset.
   await modal.getByRole('button', { name: '关闭' }).click();
-  await page.getByRole('button', { name: '头皮 EEG' }).click();
+  await page.getByRole('button', { name: '头部电位' }).click();
   const head = page.getByRole('dialog', { name: '分层球形头EEG物理实验' });
   await head.getByText('mne-four-layer-sphere-ras-v1', {exact:false}).waitFor();
   await head.getByLabel('选中电极').selectOption('Fp1');
