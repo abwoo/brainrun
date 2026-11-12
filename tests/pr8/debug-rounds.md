@@ -384,4 +384,25 @@ TMS 场——默认目标 [0,0,70] 在圆环线圈轴上，感应电场按对称
   PR6 45/45、PR8 12/12、PR5 35 通过（7 skipped）。
   注：brainrun venv 缺 scipy，Python 套件须用 eeg-venv 跑（环境问题，
   与本次改动无关）。
-- 浏览器冒烟：link-smoke（88 项）与 numfix-smoke（36 项）结果见下节。
+- 浏览器冒烟 link-smoke：84/88（日志 ~/workspace/link-smoke-layout2.log）。
+  4 个失败全是同一根因的一组级联：1920 L3d 选 #73 失败（pulse(73) 后
+  无响应行）→ L3e HEAD 未跟随换选区 → L3f #73 静息 q=2.826 →
+  L4a dipole 直播源仍为 #40。根因是 L3c 的 16 次 100ms 脉冲串
+  （amp 2.0）把双稳网络锁进高态（E≈0.49），#73 脉冲不再产生
+  ΔE 响应、故无响应行；L3c 本身通过（max|q| 2.87 对静息 0.018）。
+  同一串检查在被重启打断的前一轮（62/62、0 失败，日志
+  ~/workspace/link-smoke-layout.log）与更早的 88/88 轮里全部通过，
+  且 978 视口的同一组 L3d/e/f 本轮全部通过——是仿真双稳锁定的
+  时序抖动，不是本轮 CSS/展示改动所致（本轮未动任何 JS 逻辑与计算）。
+  其余 84 项全过，包括 L7 零控制台报错与各台 overflow 0px。
+- 浏览器冒烟 numfix-smoke：36/36 passed（日志
+  ~/workspace/numfix-smoke-layout.log），数值修复未被布局改动破坏。
+
+### 推送 #1（2026-11-12，按用户要求：进展实时上 GitHub，不只留本地）
+- 本地提交 ee073c0（PR8-LAYOUT: 右列滚动重构 + 弹窗/断点/L-01/L-02 +
+  布局断言 26 项），推送脚本 scripts/push-to-pr8-branch.py --yes
+  --expected-head eedd0a81283bf24cf0213217bc201d2a1ea992f7，
+  远端 pr8-polish-release 由 eedd0a8 → 65b6c2b（main 未动，453e570）。
+- CI（push #1，head 65b6c2b）：PR5 Physics Baseline Checks
+  run 43163776729 completed success；PR6 EEG Analysis Checks
+  run 43163776688 completed success。两路全绿。
