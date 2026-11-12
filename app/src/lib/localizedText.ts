@@ -30,7 +30,15 @@ function translatePhrase(phrase: string): string | undefined {
  return paths[0];
 }
 export function localizeText(text: string): string {
- if (locale === 'zh-CN') return chineseLabels[text.trim()] ?? text;
+ if (locale === 'zh-CN') {
+   const label = chineseLabels[text.trim()] ?? text;
+   const controls: Record<string, string> = {
+     PLAY: '仿真', CONNECT: '连接', RESET: '重置', BACKGROUND: '背景活动',
+     STIMULUS: '刺激强度', DURATION: '持续时间', CONNECTIVITY: '连接强度',
+   };
+   return label.replace(/\b(PLAY|CONNECT|RESET|BACKGROUND|STIMULUS|DURATION|CONNECTIVITY)\b/g,
+     word => controls[word]);
+ }
  if (text.trim() === '简体中文') return text;
  return text.replace(/[\u3400-\u9fff]+/g, phrase => {
    const translated = translatePhrase(phrase);

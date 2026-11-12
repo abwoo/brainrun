@@ -1040,7 +1040,7 @@ export default function App() {
             title="MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位">
             HEAD EEG
           </button>
-          <button type="button" className="chip" onClick={() => setShowEegLab(true)}
+          <button type="button" className="chip" disabled={mode === 'eeg'} onClick={() => setShowEegLab(true)}
             title="EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。">
             {t('shell.eegLab')}
           </button>
