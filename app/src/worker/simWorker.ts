@@ -95,6 +95,8 @@ let sim: WasmSimInstance | null = null;
 let running = false;
 let paused = false;
 let snapshotHz = 60;
+/** Authoritative identity for every fixed-step neural trajectory. */
+let runId = '';
 let lastTickWall = 0;
 /** 每次 tick 实际推进的步数换算：累计墙钟毫秒。 */
 let wallAccumMs = 0;
@@ -127,6 +129,21 @@ function post(msg: WorkerOutMessage): void {
   (self as unknown as { postMessage: (m: WorkerOutMessage) => void }).postMessage(msg);
 }
 
+function acknowledge(msg: WorkerInMessage, phase: 'accepted' | 'applied' = 'applied'): void {
+  // An ACK is sent AFTER the Worker has handled the command, never at click
+  // dispatch time. Stimulus means accepted/queued with start=sim.time_ms().
+  if (sim && msg.command_id !== undefined && msg.run_id) {
+    post({
+      type: 'command_ack',
+      run_id: msg.run_id,
+      command_id: msg.command_id,
+      command_type: msg.type,
+      t_ms: sim.time_ms(),
+      phase,
+    });
+  }
+}
+
 function snapshot(): Snapshot | null {
   if (!sim) return null;
   const t_ms = sim.time_ms();
@@ -156,6 +173,7 @@ function snapshot(): Snapshot | null {
   const approaching_lock = hold_active && mean_e > APPROACH_MEAN_E && !locked;
   return {
     type: 'snapshot',
+    run_id: runId,
     t_ms,
     e,
     i,
@@ -207,7 +225,8 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
   try {
     switch (msg.type) {
       case 'init': {
-        if (sim) return; // 只初始化一次
+        if (sim) return;
+        runId = msg.run_id ?? ''; // 只初始化一次
         void loadWasm().then((mod) => {
           sim = new mod.WasmSim(
             new Float64Array(msg.weights),
@@ -231,6 +250,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           duration_ms: msg.duration_ms,
           amplitude: msg.amplitude,
         });
+        acknowledge(msg, 'accepted');
         return;
       }
       case 'hold_start': {
@@ -246,6 +266,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           holds.set(msg.node, t_ms);
           sim.add_stimulus(msg.node, t_ms, 1e9, msg.amplitude);
         }
+        acknowledge(msg);
         return;
       }
       case 'hold_end': {
@@ -254,6 +275,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           holds.delete(msg.node);
           sim.clear_stimuli_on_node(msg.node);
         }
+        acknowledge(msg);
         return;
       }
       case 'set_params': {
@@ -263,6 +285,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (p.c_ei !== undefined) sim.set_c_ei(p.c_ei);
         if (p.stim_amplitude !== undefined) sim.set_stim_amplitude(p.stim_amplitude);
         if (p.stim_duration_ms !== undefined) sim.set_stim_duration_ms(p.stim_duration_ms);
+        acknowledge(msg);
         return;
       }
       // PR3 — direct manipulation.  Weight edits take effect from the
@@ -272,42 +295,50 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'set_weight': {
         if (!sim) return;
         sim.set_weight(msg.i, msg.j, msg.w);
+        acknowledge(msg);
         return;
       }
       case 'reset_weight': {
         if (!sim) return;
         sim.reset_weight(msg.i, msg.j);
+        acknowledge(msg);
         return;
       }
       case 'reset_all_weights': {
         if (!sim) return;
         sim.reset_all_weights();
+        acknowledge(msg);
         return;
       }
       case 'set_bias': {
         if (!sim) return;
         sim.set_bias(msg.node, msg.value);
+        acknowledge(msg);
         return;
       }
       case 'clear_bias': {
         if (!sim) return;
         sim.clear_bias(msg.node);
+        acknowledge(msg);
         return;
       }
       case 'clear_all_bias': {
         if (!sim) return;
         sim.clear_all_bias();
+        acknowledge(msg);
         return;
       }
       case 'pause': {
         paused = true;
         wallAccumMs = 0;
+        acknowledge(msg);
         return;
       }
       case 'resume': {
         paused = false;
         lastTickWall = Date.now();
         wallAccumMs = 0;
+        acknowledge(msg);
         return;
       }
       case 'reset':
@@ -336,6 +367,8 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         // 120 ms 内 t_ms 能跑到 50 ms）。单条消息内处理，tick 不可能
         // 插进来，复位后状态才是确定的。
         paused = msg.type === 'reset_paused';
+        if (msg.run_id) runId = msg.run_id;
+        acknowledge(msg);
         return;
       }
       // PR4 — background mode / seed / deterministic stepping / snapshots.
@@ -344,6 +377,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         const code = msg.mode === 'quiet' ? 0 : msg.mode === 'spontaneous' ? 1 : 2;
         sim.set_background_mode(code);
         const mode = (['quiet', 'spontaneous', 'oscillatory'] as const)[sim.background_mode()];
+        acknowledge(msg);
         post({
           type: 'mode_applied',
           params: {
@@ -359,6 +393,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'set_seed': {
         if (!sim) return;
         sim.set_seed(msg.seed);
+        acknowledge(msg);
         return;
       }
       case 'advance_ms': {
@@ -366,6 +401,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         // 否则 tick 循环会与这次推进重叠、步数不再确定。
         if (!sim || !paused) return;
         sim.advance(msg.ms);
+        acknowledge(msg);
         const snap = snapshot();
         if (snap) post(snap);
         return;
@@ -376,6 +412,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         const t_ms = sim.time_ms();
         snapshots.set(msg.id, { t_ms, json });
         post({ type: 'snapshot_saved', id: msg.id, t_ms, json });
+        acknowledge(msg);
         return;
       }
       case 'restore_snapshot': {
@@ -394,13 +431,16 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         lockedLatched = false;
         wallAccumMs = 0;
         lastTickWall = Date.now();
+        if (msg.run_id) runId = msg.run_id;
         post({ type: 'snapshot_restored', id: msg.id, t_ms: sim.time_ms() });
+        acknowledge(msg);
         const snap = snapshot();
         if (snap) post(snap);
         return;
       }
       case 'set_snapshot_hz': {
         snapshotHz = Math.min(120, Math.max(1, msg.hz));
+        acknowledge(msg);
         return;
       }
     }
