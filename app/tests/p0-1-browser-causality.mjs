@@ -54,7 +54,7 @@ try {
     'EXPLORE selection must be reflected in shared REGION data, not private list state');
 
   await page.getByRole('button', { name: '细胞实验', exact: true }).click();
-  const lab = page.getByRole('dialog', { name: '细胞实验' });
+  const lab = page.getByRole('dialog', { name: '细胞级实验' });
   await lab.waitFor({ timeout: 30000 });
   const mappedLif = lab.getByRole('button', { name: '用该电流跑 LIF', exact: true });
   await page.waitForFunction(() => {
