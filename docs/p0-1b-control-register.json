@@ -1,7 +1,7 @@
 {
   "auditVersion": "P0-1B-2026-11-12",
   "base": "PR10 head 6be676e8",
-  "disclaimer": "216 JSX control declarations (native and accessible Dropdown), NOT 216 demonstrated physics actions. Four new locale/layout controls are VISUAL only.",
+  "disclaimer": "216 static JSX controls including 36 native Dropdown lab instances and locale switch; all are source-classified, not all runtime proven.",
   "counts": {
     "total": 216,
     "bySource": {
@@ -1006,9 +1006,9 @@
     {
       "controlId": "DipoleLab:button:1",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 146,
+      "line": 147,
       "element": "button",
-      "visibleName": "关闭 <",
+      "visibleName": "关闭",
       "events": [
         "onClick"
       ],
@@ -1020,7 +1020,7 @@
     {
       "controlId": "DipoleLab:input:2",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 151,
+      "line": 152,
       "element": "input",
       "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
       "events": [
@@ -1032,10 +1032,10 @@
       "explicitFollowUp": true
     },
     {
-      "controlId": "DipoleLab:select:3",
+      "controlId": "DipoleLab:Dropdown:3",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 173,
-      "element": "select",
+      "line": 174,
+      "element": "Dropdown",
       "visibleName": "电流源方向",
       "events": [
         "onChange"
@@ -1048,7 +1048,7 @@
     {
       "controlId": "DipoleLab:input:4",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 178,
+      "line": 179,
       "element": "input",
       "visibleName": "偶极矩强度",
       "events": [
@@ -1062,7 +1062,7 @@
     {
       "controlId": "DipoleLab:input:5",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 181,
+      "line": 182,
       "element": "input",
       "visibleName": "导电率",
       "events": [
@@ -1074,10 +1074,10 @@
       "explicitFollowUp": true
     },
     {
-      "controlId": "DipoleLab:select:6",
+      "controlId": "DipoleLab:Dropdown:6",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 184,
-      "element": "select",
+      "line": 185,
+      "element": "Dropdown",
       "visibleName": "参考方式",
       "events": [
         "onChange"
@@ -1090,9 +1090,9 @@
     {
       "controlId": "DipoleLab:button:7",
       "path": "app/src/components/DipoleLab.tsx",
-      "line": 190,
+      "line": 191,
       "element": "button",
-      "visibleName": "重置实验（回到手动偶极子） 示意电极电位",
+      "visibleName": "重置实验（回到手动偶极子） 示",
       "events": [
         "onClick"
       ],
@@ -2970,7 +2970,7 @@
     {
       "controlId": "TopoTab:input:1",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 144,
+      "line": 145,
       "element": "input",
       "visibleName": "地形时刻",
       "events": [
@@ -2984,9 +2984,9 @@
     {
       "controlId": "TopoTab:button:2",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 157,
+      "line": 158,
       "element": "button",
-      "visibleName": "跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {maxResp",
+      "visibleName": "跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {ma",
       "events": [
         "onClick"
       ],
@@ -2998,7 +2998,7 @@
     {
       "controlId": "TopoTab:input:3",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 236,
+      "line": 237,
       "element": "input",
       "visibleName": "源 Y：",
       "events": [
@@ -3012,7 +3012,7 @@
     {
       "controlId": "TopoTab:input:4",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 240,
+      "line": 241,
       "element": "input",
       "visibleName": "源 Z：",
       "events": [
@@ -3026,7 +3026,7 @@
     {
       "controlId": "TopoTab:input:5",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 244,
+      "line": 245,
       "element": "input",
       "visibleName": "矩方向：",
       "events": [
@@ -3038,11 +3038,11 @@
       "explicitFollowUp": true
     },
     {
-      "controlId": "TopoTab:select:6",
+      "controlId": "TopoTab:Dropdown:6",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 248,
-      "element": "select",
-      "visibleName": "X <option",
+      "line": 249,
+      "element": "Dropdown",
+      "visibleName": "X <o",
       "events": [
         "onChange"
       ],
@@ -3054,7 +3054,7 @@
     {
       "controlId": "TopoTab:input:7",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 256,
+      "line": 257,
       "element": "input",
       "visibleName": "偶极矩",
       "events": [
@@ -3066,11 +3066,11 @@
       "explicitFollowUp": true
     },
     {
-      "controlId": "TopoTab:select:8",
+      "controlId": "TopoTab:Dropdown:8",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 261,
-      "element": "select",
-      "visibleName": "average（减 345 点均值）",
+      "line": 262,
+      "element": "Dropdown",
+      "visibleName": "average（减 345 点均值）</opt",
       "events": [
         "onChange"
       ],
