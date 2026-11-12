@@ -23,6 +23,7 @@
  * 恢复。详见 docs/pr6-topo-inverse.md。
  */
 import { useMemo, useState } from 'react';
+import Dropdown from './Dropdown';
 import type { EegRecording } from '../lib/eegData';
 import {
   buildLeadField,
@@ -131,11 +132,11 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
             </label>
             <label>
               真源矩方向：
-              <select value={trueAxis} onChange={(e) => setTrueAxis(e.target.value as 'X' | 'Y' | 'Z')}>
-                <option value="X">X</option>
-                <option value="Y">Y</option>
-                <option value="Z">Z</option>
-              </select>
+              <Dropdown ariaLabel="真源矩方向" value={trueAxis} onChange={setTrueAxis} options={[
+                { value: 'X', label: 'X' },
+                { value: 'Y', label: 'Y' },
+                { value: 'Z', label: 'Z' },
+              ]} />
             </label>
             <label>
               真源矩（nA·m）：
@@ -144,11 +145,11 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
             </label>
             <label>
               导联：
-              <select value={montage} onChange={(e) => setMontage(e.target.value as MontageKey)}>
-                <option value="10-20">10-20（19 导）</option>
-                <option value="10-10">10-10（94 导）</option>
-                <option value="10-05">10-05（343 导）</option>
-              </select>
+              <Dropdown ariaLabel="导联" value={montage} onChange={setMontage} options={[
+                { value: '10-20', label: '10-20（19 导）' },
+                { value: '10-10', label: '10-10（94 导）' },
+                { value: '10-05', label: '10-05（343 导）' },
+              ]} />
             </label>
             <label>
               附加噪声 RMS（µV）：

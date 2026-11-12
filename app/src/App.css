@@ -1151,7 +1151,51 @@ body {
   color: var(--text-dim);
 }
 
-.eeg-control-group select,
+/* ---- 统一控件：下拉框（Dropdown.tsx 的唯一外观入口） ----
+   全站 36 处 <select> 共用这一套：深色底、蓝框、自定义箭头；弹出列表用
+   color-scheme: dark 跟随深色主题。调用方不要再给 select 写内联颜色/
+   边框/圆角；只保留布局尺寸（宽、间距）走 style 透传。 */
+.ui-dropdown {
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+  background-color: #0d2233;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234fb6f2' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid var(--blue-mid);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 6px 26px 6px 8px;
+  cursor: pointer;
+}
+
+.ui-dropdown:hover:not(:disabled) {
+  border-color: var(--blue);
+}
+
+.ui-dropdown:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.ui-dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-dropdown--fill {
+  width: 100%;
+}
+
+.ui-dropdown option {
+  background-color: #0d2233;
+  color: var(--text);
+}
+
 .eeg-control-group input[type="number"] {
   width: 100%;
   padding: 6px 8px;

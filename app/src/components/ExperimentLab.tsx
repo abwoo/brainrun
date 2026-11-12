@@ -20,6 +20,7 @@
  * 布局：纵向堆叠、无绝对定位、无重叠；1920×1080 与 978px 冒烟级查看。
  */
 import { useEffect, useRef, useState } from 'react';
+import Dropdown from './Dropdown';
 import type { SphereFixture } from '../lib/sphereForward';
 import { runLiveExperiment } from '../lib/eegRecording';
 import type { SimClient } from '../lib/simClient';
@@ -567,17 +568,17 @@ export default function ExperimentLab({
         </p>
         <div style={row}>
           <span style={label}>控制器</span>
-          <select value={clMode} onChange={(e) => setClMode(e.target.value as ControllerMode)} style={input}>
-            <option value="off">关（无控制对照）</option>
-            <option value="threshold">固定阈值</option>
-            <option value="pid">PID</option>
-          </select>
+          <Dropdown ariaLabel="控制器" value={clMode} onChange={setClMode} style={{ width: 90 }} options={[
+            { value: 'off', label: '关（无控制对照）' },
+            { value: 'threshold', label: '固定阈值' },
+            { value: 'pid', label: 'PID' },
+          ]} />
           <span style={label}>特征</span>
-          <select value={clFeature} onChange={(e) => setClFeature(e.target.value as FeatureKind)} style={input}>
-            <option value="instant">瞬时 Pz（µV）</option>
-            <option value="rms">滑窗 RMS（µV）</option>
-            <option value="alphaPower">Alpha 功率 10 Hz（µV²）</option>
-          </select>
+          <Dropdown ariaLabel="特征" value={clFeature} onChange={setClFeature} style={{ width: 90 }} options={[
+            { value: 'instant', label: '瞬时 Pz（µV）' },
+            { value: 'rms', label: '滑窗 RMS（µV）' },
+            { value: 'alphaPower', label: 'Alpha 功率 10 Hz（µV²）' },
+          ]} />
           <span style={label}>延迟（ms）</span>
           <input style={input} value={clDelay} onChange={(e) => setClDelay(e.target.value)} />
           <span style={label}>测量噪声 RMS（µV）</span>
@@ -622,10 +623,10 @@ export default function ExperimentLab({
         </p>
         <div style={row}>
           <span style={label}>特征</span>
-          <select value={clLiveFeature} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')} style={input}>
-            <option value="instant">瞬时 E（无量纲）</option>
-            <option value="rms">1 秒 RMS E（无量纲）</option>
-          </select>
+          <Dropdown ariaLabel="特征" value={clLiveFeature} onChange={setClLiveFeature} style={{ width: 90 }} options={[
+            { value: 'instant', label: '瞬时 E（无量纲）' },
+            { value: 'rms', label: '1 秒 RMS E（无量纲）' },
+          ]} />
           <span style={label}>阈值</span>
           <input style={input} value={clLiveThreshold} onChange={(e) => setClLiveThreshold(e.target.value)} />
           <span style={label}>反馈脉冲幅度（模型单位）</span>

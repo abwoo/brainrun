@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
+import Dropdown from './Dropdown';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {
@@ -308,29 +309,26 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
             <div>
               <div className="conn-title">解剖与电流源</div>
               <label className="panel-text">物理源模式
-                <select aria-label="BEM物理源模式" value={sourceMode}
-                  onChange={e=>{
-                    setSourceMode(e.target.value as 'manual'|'local-column');
-                    resetColumn();
-                  }}>
-                  <option value="manual">手动控制偶极子</option>
-                  <option value="local-column">局部 E/I 神经群体（假设参数）</option>
-                </select>
+                <Dropdown ariaLabel="BEM物理源模式" value={sourceMode}
+                  onChange={(m) => { setSourceMode(m); resetColumn(); }}
+                  options={[
+                    { value: 'manual', label: '手动控制偶极子' },
+                    { value: 'local-column', label: '局部 E/I 神经群体（假设参数）' },
+                  ]} />
               </label>
               <label className="panel-text">选择已验证皮层点
-                <select value={sourceIndex} aria-label="皮层源位置"
-                  onChange={e=>setSourceIndex(Number(e.target.value))}>
-                  {data.source_positions.map((p,i)=>
-                    <option key={i} value={i}>{i+1} · {p.region} · {p.hemisphere}</option>)}
-                </select>
+                <Dropdown ariaLabel="皮层源位置" value={sourceIndex} onChange={setSourceIndex}
+                  options={data.source_positions.map((p, i) => ({
+                    value: i,
+                    label: `${i + 1} · ${p.region} · ${p.hemisphere}`,
+                  }))} />
               </label>
               {sourceMode==='manual' && <label className="panel-text">电流偶极子方向
-                <select aria-label="MRI BEM源方向" value={axis}
-                  onChange={e=>setAxis(e.target.value as 'X'|'Y'|'Z')}>
-                  <option value="X">X · 左右</option>
-                  <option value="Y">Y · 前后</option>
-                  <option value="Z">Z · 上下</option>
-                </select>
+                <Dropdown ariaLabel="MRI BEM源方向" value={axis} onChange={setAxis} options={[
+                  { value: 'X', label: 'X · 左右' },
+                  { value: 'Y', label: 'Y · 前后' },
+                  { value: 'Z', label: 'Z · 上下' },
+                ]} />
               </label>}
               {sourceMode==='manual' && <p className="panel-text">偶极矩：{moment.toFixed(1)} nA·m</p>}
               {sourceMode==='manual' && <input type="range" aria-label="MRI BEM源强度" min="-30" max="30" step=".5"
@@ -338,14 +336,12 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                 style={{width:'100%',margin:0}}/>}
               {sourceMode==='local-column' && <div>
                 <label className="panel-text">源模型（两条路线同步运行，切换只改 3D 显示用哪条）
-                  <select aria-label="局部源模型" value={columnModel}
-                    onChange={e=>{
-                      setColumnModel(e.target.value as 'wc'|'jr');
-                      resetColumn();
-                    }}>
-                    <option value="wc">Wilson–Cowan 局部 E/I 神经群体</option>
-                    <option value="jr">Jansen–Rit 锥体 PSP（独立验证路线）</option>
-                  </select>
+                  <Dropdown ariaLabel="局部源模型" value={columnModel}
+                    onChange={(m) => { setColumnModel(m); resetColumn(); }}
+                    options={[
+                      { value: 'wc', label: 'Wilson–Cowan 局部 E/I 神经群体' },
+                      { value: 'jr', label: 'Jansen–Rit 锥体 PSP（独立验证路线）' },
+                    ]} />
                 </label>
                 <p className="panel-text" style={{color:'#ffb340'}}>{columnModel==='jr'?JANSEN_RIT_LIMITATION:COUPLING_LIMITATION}</p>
                 <p className="panel-text">模型：{columnModel==='jr'?JANSEN_RIT_ID:COUPLING_ID}</p>
@@ -384,18 +380,14 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                   JR 路线：锥体 PSP→电流斜率 {JR_PSP_TO_CURRENT_PA_PER_MV} pA/mV，静息输入 {DEFAULT_JANSEN_RIT_PARAMS.baselineInputPerS} 1/s（低分支），步长 {DEFAULT_JANSEN_RIT_PARAMS.dtMs} ms；两条路线都不是真实脑电，详见 docs/pr5-jansen-rit.md。</p>
               </div>}
               <label className="panel-text">EEG参考
-                <select aria-label="MRI BEM参考" value={reference}
-                  onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
-                  <option value="average">电极平均参考</option>
-                  <option value="infinity">理论无限远参考</option>
-                </select>
+                <Dropdown ariaLabel="MRI BEM参考" value={reference} onChange={setReference} options={[
+                  { value: 'average', label: '电极平均参考' },
+                  { value: 'infinity', label: '理论无限远参考' },
+                ]} />
               </label>
               <label className="panel-text">观察电极
-                <select aria-label="MRI BEM电极" value={selectedSensor}
-                  onChange={e=>setSelectedSensor(e.target.value)}>
-                  {data.electrodes.map(e=>
-                    <option key={e.label} value={e.label}>{e.label}</option>)}
-                </select>
+                <Dropdown ariaLabel="MRI BEM电极" value={selectedSensor} onChange={setSelectedSensor}
+                  options={data.electrodes.map((e) => ({ value: e.label, label: e.label }))} />
               </label>
               <p className="panel-text">电位：{currentV===null?'—':currentV.toFixed(4)+' µV'}</p>
               <p className="panel-text">MNI305 (mm)：{data.source_positions[sourceIndex].mni305_mm.map(v=>v.toFixed(1)).join(', ')}</p>

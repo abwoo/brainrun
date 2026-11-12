@@ -15,6 +15,7 @@
  *   本来就不一样，不要混读。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Dropdown from './Dropdown';
 import type { EegRecording } from '../lib/eegData';
 import { topoAtTime, forwardHeadPotential, TOPO_HEAD_RADIUS_MM } from '../lib/topography';
 import type { SphereFixture } from '../lib/sphereForward';
@@ -241,11 +242,11 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               矩方向：
-              <select value={srcAxis} onChange={(e) => setSrcAxis(e.target.value as 'X' | 'Y' | 'Z')}>
-                <option value="X">X</option>
-                <option value="Y">Y</option>
-                <option value="Z">Z</option>
-              </select>
+              <Dropdown ariaLabel="矩方向" value={srcAxis} onChange={setSrcAxis} options={[
+                { value: 'X', label: 'X' },
+                { value: 'Y', label: 'Y' },
+                { value: 'Z', label: 'Z' },
+              ]} />
             </label>
             <label>
               矩（nA·m）：
@@ -254,10 +255,10 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               参考：
-              <select value={reference} onChange={(e) => setReference(e.target.value as 'average' | 'infinity')}>
-                <option value="average">average（减 345 点均值）</option>
-                <option value="infinity">infinity</option>
-              </select>
+              <Dropdown ariaLabel="参考" value={reference} onChange={setReference} options={[
+                { value: 'average', label: 'average（减 345 点均值）' },
+                { value: 'infinity', label: 'infinity' },
+              ]} />
             </label>
           </div>
           <p className="panel-text">源位置限制在 ±48 mm（lead-field 网格边界，越界抛错）；矩 ±30 nA·m 与 PR5 的 HeadSphereLab 同范围。</p>

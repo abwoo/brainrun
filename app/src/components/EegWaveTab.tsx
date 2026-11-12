@@ -11,6 +11,7 @@
  * 神经源波形——噪声成分的标注见 `eegRecording.ts` 的 `generateNoise`。
  */
 import { useMemo } from 'react';
+import Dropdown from './Dropdown';
 import type { EegRecording, EegReference, NoiseParams } from '../lib/eegData';
 import type { MontageKey } from '../lib/sphereForward';
 import {
@@ -153,29 +154,35 @@ export default function EegWaveTab(props: EegWaveTabProps) {
       <div className="eeg-controls">
         <div className="eeg-control-group">
           <label htmlFor="eeg-source-model">源模型</label>
-          <select
+          <Dropdown
             id="eeg-source-model"
+            ariaLabel="源模型"
+            width="fill"
             value={sourceModel}
-            onChange={(e) => onSourceModelChange(e.target.value as SourceModel)}
-          >
-            <option value="wc">Wilson–Cowan 柱（WC）</option>
-            <option value="jr">Jansen–Rit 柱（JR，静息 p0=90）</option>
-            <option value="both">双源线性叠加（WC + JR）</option>
-          </select>
+            onChange={onSourceModelChange}
+            options={[
+              { value: 'wc', label: 'Wilson–Cowan 柱（WC）' },
+              { value: 'jr', label: 'Jansen–Rit 柱（JR，静息 p0=90）' },
+              { value: 'both', label: '双源线性叠加（WC + JR）' },
+            ]}
+          />
           <p className="eeg-hint">柱模型 q(t) 经球形 lead-field 投影成多导 EEG；双源为线性叠加。</p>
         </div>
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-duration">时长</label>
-          <select
+          <Dropdown
             id="eeg-duration"
+            ariaLabel="时长"
+            width="fill"
             value={durationMs}
-            onChange={(e) => onDurationMsChange(Number(e.target.value))}
-          >
-            <option value={2000}>2 秒</option>
-            <option value={5000}>5 秒</option>
-            <option value={10000}>10 秒</option>
-          </select>
+            onChange={onDurationMsChange}
+            options={[
+              { value: 2000, label: '2 秒' },
+              { value: 5000, label: '5 秒' },
+              { value: 10000, label: '10 秒' },
+            ]}
+          />
           <p className="eeg-hint">采样率 250 Hz；脉冲事件每 1000 ms 一次，条件交替。</p>
         </div>
 
@@ -194,12 +201,12 @@ export default function EegWaveTab(props: EegWaveTabProps) {
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-reference">参考方式</label>
-          <select
+          <Dropdown
             id="eeg-reference"
-            aria-label="参考方式"
+            ariaLabel="参考方式"
+            width="fill"
             value={refMode}
-            onChange={(e) => {
-              const mode = e.target.value as EegReference['mode'];
+            onChange={(mode) => {
               if (mode === 'electrode') {
                 const fallback = recording?.channels[0]?.label ?? 'Cz';
                 onReferenceChange({ mode: 'electrode', label: fallback });
@@ -207,24 +214,23 @@ export default function EegWaveTab(props: EegWaveTabProps) {
                 onReferenceChange({ mode });
               }
             }}
-          >
-            <option value="average">平均参考</option>
-            <option value="infinity">无限远参考</option>
-            <option value="electrode">电极参考</option>
-          </select>
+            options={[
+              { value: 'average', label: '平均参考' },
+              { value: 'infinity', label: '无限远参考' },
+              { value: 'electrode', label: '电极参考' },
+            ]}
+          />
           {refMode === 'electrode' && (
             <>
               <label htmlFor="eeg-reference-electrode">参考电极</label>
-              <select
+              <Dropdown
                 id="eeg-reference-electrode"
-                aria-label="参考电极"
+                ariaLabel="参考电极"
+                width="fill"
                 value={refElectrode}
-                onChange={(e) => onReferenceChange({ mode: 'electrode', label: e.target.value })}
-              >
-                {(recording?.channels.map((c) => c.label) ?? ['Cz']).map((label) => (
-                  <option key={label} value={label}>{label}</option>
-                ))}
-              </select>
+                onChange={(label) => onReferenceChange({ mode: 'electrode', label })}
+                options={(recording?.channels.map((c) => c.label) ?? ['Cz']).map((label) => ({ value: label, label }))}
+              />
             </>
           )}
           <p className="eeg-hint">三种参考数值各不相同；切换参考不重新跑模型。</p>
@@ -232,32 +238,28 @@ export default function EegWaveTab(props: EegWaveTabProps) {
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-montage">导联</label>
-          <select
+          <Dropdown
             id="eeg-montage"
-            aria-label="导联"
+            ariaLabel="导联"
+            width="fill"
             value={montage}
-            onChange={(e) => onMontageChange(e.target.value as MontageKey)}
-          >
-            {MONTAGES.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+            onChange={onMontageChange}
+            options={MONTAGES.map((m) => ({ value: m, label: m }))}
+          />
           <p className="eeg-hint">切换导联重建传感器配置（10-20 为 19 导）。</p>
         </div>
 
         <div className="eeg-control-group">
           <label htmlFor="eeg-channel">通道</label>
-          <select
+          <Dropdown
             id="eeg-channel"
-            aria-label="通道"
+            ariaLabel="通道"
+            width="fill"
             value={selectedChannel}
             disabled={!recording}
-            onChange={(e) => onSelectedChannelChange(e.target.value)}
-          >
-            {(recording?.channels.map((c) => c.label) ?? []).map((label) => (
-              <option key={label} value={label}>{label}</option>
-            ))}
-          </select>
+            onChange={onSelectedChannelChange}
+            options={(recording?.channels.map((c) => c.label) ?? []).map((label) => ({ value: label, label }))}
+          />
           <p className="eeg-hint">点波形行也可切换通道。</p>
         </div>
       </div>
