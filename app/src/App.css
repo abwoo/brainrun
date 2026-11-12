@@ -1372,3 +1372,16 @@ body {
   .stage { flex: none; }
   .workspace-tools input[type="range"] { display: none; }
 }
+
+/* Adjustable lab windows; narrow screens remain scrollable and reachable. */
+.modal.screen { resize: both; overflow: auto; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); min-width: min(320px, calc(100vw - 24px)); }
+.modal-backdrop { padding: 12px; box-sizing: border-box; }
+.eeg-lab-inline { min-width: 0; overflow-x: auto; }
+button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-offset: 3px; }
+@media (max-width: 600px) {
+ .topbar-controls { flex-wrap: wrap; gap: 6px; }
+ .chip, .brainrun-dropdown-native { min-height: 40px; }
+ .modal.screen { resize: none; width: calc(100vw - 24px); }
+ .modal [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+ .eeg-lab-inline table, .modal table { display: block; max-width: 100%; overflow-x: auto; }
+}

@@ -36,12 +36,37 @@ try {
 
  // The native select allows standard keyboard navigation and label-based selection.
  await page.locator('button[data-mode="eeg"]').click();
- const montage=page.getByRole('combobox',{name:'导联'});
+ const montage=page.getByRole('combobox',{name:'Montage'});
  await montage.selectOption('10-10');
  assert.equal(await montage.inputValue(),'10-10');
  await montage.selectOption('10-05');
  assert.equal(await montage.inputValue(),'10-05');
+ await page.getByRole('combobox',{name:'Reference',exact:true}).selectOption('electrode');
+ await page.getByRole('combobox',{name:'Reference electrode',exact:true}).waitFor();
  assert.ok((await page.locator('.brainrun-dropdown').count())>=7);
+ // English covers labels, scientific paragraphs, SVG and aria text throughout labs.
+ const assertEnglish = async () => {
+   const text = (await page.locator('body').innerText()).replaceAll('简体中文','');
+   assert.doesNotMatch(text, /[\u3400-\u9fff]/, 'Untranslated visible text');
+ };
+ await assertEnglish();
+ for (const tab of ['Spectrum','ERP','Time-frequency','Topography','Source localization']) {
+   await page.getByRole('tab',{name:tab,exact:true}).click(); await assertEnglish();
+ }
+ await page.locator('button[data-mode="play"]').click();
+ for (const name of ['Cellular lab','Stimulation lab','Comparisons','Dipole lab','Head physics']) {
+   // Explicit app-shell names are stable; DIPOLE/HEAD remain product abbreviations.
+   const control = name==='Dipole lab' ? page.getByRole('button',{name:'DIPOLE LAB',exact:true})
+     : name==='Head physics' ? page.getByRole('button',{name:'HEAD EEG',exact:true})
+     : page.getByRole('button',{name,exact:true});
+   await control.click(); await assertEnglish(); await page.keyboard.press('Escape');
+ }
+ await page.getByRole('button',{name:'Quick experiments',exact:true}).click();
+ await assertEnglish(); await page.keyboard.press('Escape');
+ await page.setViewportSize({width:390,height:844});
+ await assertEnglish();
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+
 
  // Language preference and layout preference never change scientific model params.
  await page.locator('button[data-mode="play"]').click();

@@ -53,3 +53,12 @@ test('control audit is updated, not weakened by migrating 36 selects',()=>{
  assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,37);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
+
+test('presentation translation preserves scientific data and covers rendered Chinese phrases',()=>{
+ const dictionary = read('app/src/lib/uiTranslations.ts');
+ assert.ok(dictionary.includes('单通道记录不支持多电极地形或源定位'));
+ const runtime = read('app/src/lib/localizedText.ts');
+ assert.ok(!runtime.includes("result['value']"));
+ assert.match(runtime, /'aria-label'/);
+ assert.match(read('app/tsconfig.app.json'), /jsxImportSource/);
+});

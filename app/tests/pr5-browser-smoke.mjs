@@ -40,7 +40,7 @@ try {
   assert.ok(originalPeak > 0.05,
     'PR1–PR4 original BrainRun neural stimulus still produces a real peak');
 
-  await page.getByRole('button', { name: 'DIPOLE LAB' }).click();
+  await page.getByRole('button', { name: '偶极子实验' }).click();
   const modal = page.getByRole('dialog', { name: '电流偶极子物理实验' });
   await modal.waitFor();
   await modal.getByText('均匀、各向同性、无限导体', { exact: false }).waitFor();
@@ -83,7 +83,7 @@ try {
   await page.screenshot({ path: '../tests/pr5/shots/dipole-lab.png', fullPage: true });
   // MNE four-layer sphere: layout switching, physical gain changes and reset.
   await modal.getByRole('button', { name: '关闭' }).click();
-  await page.getByRole('button', { name: 'HEAD EEG' }).click();
+  await page.getByRole('button', { name: '头皮 EEG' }).click();
   const head = page.getByRole('dialog', { name: '分层球形头EEG物理实验' });
   await head.getByText('mne-four-layer-sphere-ras-v1', {exact:false}).waitFor();
   await head.getByLabel('选中电极').selectOption('Fp1');

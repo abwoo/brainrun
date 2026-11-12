@@ -195,6 +195,24 @@ export default function App() {
     try { localStorage.setItem('brainrun.stage-share.v1', String(stageWidth)); }
     catch { /* storage may be unavailable */ }
   }, [stageWidth]);
+  // Keyboard layout actions never change model parameters.
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key === 'Escape') {
+        setShowModelInfo(false); setShowDipoleLab(false); setShowHeadSphereLab(false);
+        setShowEegLab(false); setShowCellularLab(false); setShowStimLab(false);
+        setShowExperimentLab(false); setShowLocalBEM(false); setShowScenarioLauncher(false);
+        setFocus3D(false);
+      } else if (event.key.toLowerCase() === 'f' && !event.metaKey && !event.ctrlKey &&
+                 !document.querySelector('[role="dialog"]')) {
+        setFocus3D(v => !v);
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, []);
   const [data, setData] = useState<BrainData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -1078,11 +1096,6 @@ export default function App() {
           )}
         </div>
       </header>
-      {locale === 'en-US' && (
-        <div className="workspace-note" role="status" style={{padding:'3px 14px'}}>
-          {t('lang.preview')}
-        </div>
-      )}
 
       {mode === 'eeg' ? (
         <main className="main main-eeg">

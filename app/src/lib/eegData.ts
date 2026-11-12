@@ -11,7 +11,7 @@
  */
 import type { Vec3Mm } from './volumeConduction.ts';
 import type { MontageKey } from './sphereForward.ts';
-import type { ExperimentProvenance } from './experimentSession';
+import type { ExperimentProvenance, ExperimentSessionSnapshot } from './experimentSession';
 
 export interface EegChannel {
   label: string;
@@ -35,6 +35,7 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  experiment?: { session: ExperimentSessionSnapshot; parameters: Record<string, unknown> };
   /** Optional P0-2 provenance; absent in legacy scientific fixtures. */
   provenance?: ExperimentProvenance & {
     /** Derived/live signal origin in absolute Worker ms, not resampled time. */

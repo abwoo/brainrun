@@ -528,6 +528,17 @@ export class SimClient {
     return this.experiment.getSnapshot();
   }
 
+  /** Export actual model inputs, accepted commands and restorable Worker snapshots. */
+  getExperimentBundle() {
+    return {
+      schemaVersion: 1,
+      session: this.getExperimentSession(),
+      parameters: this.getParams(), seed: this.getSeed(),
+      background: this.getModeParams(), weights: this.getWeights(),
+      snapshots: [...this.snapshots.entries()].map(([id, value]) => ({ ...value, id })),
+    };
+  }
+
   subscribeExperimentSession(cb: (session: ExperimentSessionSnapshot) => void): () => void {
     return this.experiment.subscribe(cb);
   }
@@ -1059,6 +1070,7 @@ export class SimClient {
       getParams: () => this.getParams(),
       getMarkers: () => this.getMarkers(),
       getExperimentSession: () => this.getExperimentSession(),
+      getExperimentBundle: () => this.getExperimentBundle(),
       // PR2 调试桥：基线 / 响应窗口 / max|ΔE| / 响应汇总 / 三类标记 / 回放状态。
       // 全部只读已记录的真实快照，不产生额外活动；窗口快照的 e/i 转成
       // 普通数组，便于 Playwright 里直接 JSON 序列化读取。

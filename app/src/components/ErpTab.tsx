@@ -11,8 +11,8 @@
  * 表格峰值约 0 µV；late 实验的 oddball 峰才是 0.174 µV @352 ms。
  * 两条路径的文案是条件化的：0.17 µV 那句只在 late 数据下出现，
  * 壳记录路径下如实写窗内无响应，界面写的数与实际算出的数永不脱节。
- * “运行实验”在 EEG 页，B1 的按钮；本 tab 的 late 按钮只改 epochs，
- * 不碰壳的 recording/events（壳仍由 B1 持有，见 PR8-NUMFIX 与契约 §1.8）。
+ * “运行实验”在 EEG 页，B1 的按钮；本 tab 的 late 按钮同时提交 Raw、events、epochs，
+ * 由壳原子更新共享数据（壳仍由 B1 持有，见 PR8-NUMFIX 与契约 §1.8）。
  *
  * 分段口径（MNE）：−200–800 ms、基线 −200–0 ms、峰峰值 >150 µV 剔除。
  * 峰值窗 250–600 ms、窗均值 300–500 ms，与 ds003061 约束口径一致。
@@ -59,7 +59,7 @@ export default function ErpTab({
   recording: EegRecording | null;
   events: EegEvent[];
   epochs: EpochSet | null;
-  onEpochsChange: (epochs: EpochSet, origin: 'raw' | 'independent-late') => void;
+  onEpochsChange: (epochs: EpochSet, origin: 'raw' | 'independent-late', input?: { recording: EegRecording; events: EegEvent[]; parameters: Record<string, unknown> }) => void;
   channel: string;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -112,10 +112,10 @@ export default function ErpTab({
   const handleLateExperiment = () => {
     setError(null);
     try {
-      const { recording: rec, events: evs } = runOddballExperiment({});
+      const { recording: rec, events: evs, paramsSnapshot } = runOddballExperiment({});
       const ep = epochOddballExperiment(rec, evs);
       setEpochSource({ kind: 'late', kept: ep.trials.length, total: evs.length });
-      onEpochsChange(ep, 'independent-late');
+      onEpochsChange(ep, 'independent-late', { recording: rec, events: evs, parameters: paramsSnapshot });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -192,12 +192,11 @@ export default function ErpTab({
             fontSize: 13,
           }}
         >
-          运行独立 oddball（替换 ERP/TFR 试次）
+          运行 oddball（同步全部分析）
         </button>
         <p style={note}>
           右边按钮跑 late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 + 8 oddball），
-          不依赖 EEG 页的记录；这会替换 ERP 与时频分析使用的试次，但不会替换 EEG 原始记录、
-          PSD、地形或源定位的数据。两者目前属于不同实验，不能作为同一次实验直接对照。
+          此操作同时载入原始记录、事件与试次；EEG、PSD、ERP、时频与可适用的分析使用同一次运行。单通道记录不支持多电极地形或源定位。
           左边按钮只切分 EEG 页的当前记录；late 实验才有 0.174 µV 的晚期峰。
         </p>
         {error && <p style={{ ...note, color: '#ff9d9d' }}>{error}</p>}

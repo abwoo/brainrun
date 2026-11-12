@@ -132,6 +132,7 @@ export default function EegAnalysisLab({
     }
     try {
       setRecording(reReferenceRecording(recording, ref));
+      setEpochs(null);
     } catch (e) {
       setRunError(String(e));
     }
@@ -175,7 +176,12 @@ export default function EegAnalysisLab({
           id: 'events', runId, kind: 'events', tMs: 0,
           sourceId: 'local-column-stimulus-schedule', methodId: 'runExperiment-v1',
         });
-        setRecording({ ...rec, provenance: session.provenance });
+        setRecording({ ...rec, provenance: session.provenance,
+          experiment: { session: session.getSnapshot(), parameters: {
+            durationMs, montage, reference, sourceModel, noise, seed,
+            sourcePositionMm: [0, 0, 16], sourceNormalHead: [0, 0, 1],
+            secondSourcePositionMm: [16, -16, 16], secondSourceNormalHead: [0, 0, 1],
+          } } });
         setEvents(evs.map(event => ({ ...event, runId })));
         setEpochs(null);
         if (!rec.channels.some((c) => c.label === selectedChannel)) {
@@ -189,23 +195,36 @@ export default function EegAnalysisLab({
     }, 30);
   };
 
-  const handleEpochsChange = (ep: EpochSet, origin: 'raw' | 'independent-late') => {
+  const handleEpochsChange = (
+    ep: EpochSet, origin: 'raw' | 'independent-late',
+    input?: { recording: EegRecording; events: EegEvent[]; parameters: Record<string, unknown> },
+  ) => {
     if (origin === 'raw' && recording?.provenance) {
-      setEpochs({
-        ...ep, provenance: recording.provenance,
-        events: ep.events.map(event => ({ ...event, runId: recording.provenance!.runId })),
-      });
+      setEpochs({ ...ep, provenance: recording.provenance,
+        events: ep.events.map(event => ({ ...event, runId: recording.provenance!.runId })) });
       return;
     }
-    // A separate late mechanism must never reuse the current Raw runId.
+    if (!input) throw new Error('Independent epochs must include their original Raw and events');
     const session = new ExperimentSession({
-      origin: 'independent', solverId: 'late-oddball-independent-v1',
-      anatomyId: SPHERE_MODEL_ID, registration: 'unregistered', seed: 0,
+      origin: 'independent', solverId: input.recording.sourceModelId,
+      anatomyId: input.recording.forwardModelId, registration: 'unregistered',
+      seed: input.recording.seed,
     });
-    setEpochs({
-      ...ep, provenance: session.provenance,
-      events: ep.events.map(event => ({ ...event, runId: session.runId })),
-    });
+    session.recordModelTime(session.runId, Math.max(0, input.recording.timesMs.at(-1) ?? 0));
+    for (const kind of ['eeg-raw', 'events', 'epochs'] as const) {
+      session.recordArtifact({ id: kind, runId: session.runId, kind, tMs: 0,
+        sourceId: input.recording.sourceModelId, methodId: 'late-oddball-v1' });
+    }
+    const rec = { ...input.recording, provenance: session.provenance,
+      experiment: { session: session.getSnapshot(), parameters: input.parameters } };
+    // React batches this transaction: every analysis tab receives the same run.
+    setRecording(rec);
+    setEvents(input.events.map(event => ({ ...event, runId: session.runId })));
+    setEpochs({ ...ep, provenance: session.provenance,
+      events: ep.events.map(event => ({ ...event, runId: session.runId })) });
+    setSelectedChannel(input.recording.channels[0].label);
+    setReference(input.recording.reference);
+    setLiveStatus(null);
   };
 
   // PR8-LINK：从直播推导记录——读 SimClient 的 60 Hz 快照历史（最近约
@@ -250,7 +269,10 @@ export default function EegAnalysisLab({
           sourceId: upstream.runId, methodId: LIVE_DERIVATION_ID,
         });
         setRecording({
-          ...rec, provenance: {
+          ...rec, experiment: { session: derived.getSnapshot(), parameters: {
+            node, positionMm: ls.positionMm, montage, reference, noise, seed,
+            upstreamSession: sim.getExperimentBundle(),
+          } }, provenance: {
             ...derived.provenance, upstreamStartMs: t0Ms,
             effectiveSourceSnapshotHz: snapshotHz,
           },
@@ -278,7 +300,7 @@ export default function EegAnalysisLab({
   };
 
   const labBody = (
-    <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'}>
+    <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'} data-analysis-run-id={recording?.provenance?.runId}>
       <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
       <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">
         {TABS.map((t) => (
@@ -377,8 +399,8 @@ export default function EegAnalysisLab({
           </p>
         )}
         <p className="panel-text eeg-foot">
-          正向模型 {SPHERE_MODEL_ID} · 当前 EEG 记录供基础分析使用；独立 late ERP 可替换 ERP/TFR 试次，
-          地形页右侧正向采样图另用独立偶极子，尚非统一实验会话 ·
+          正向模型 {SPHERE_MODEL_ID} · 原始记录、事件与试次同步更新；
+          地形页右侧正向采样图另用独立偶极子 ·
           噪声是伪迹，不作神经源活动解释。
           {recording
             ? recording.sourceModelId === LIVE_DERIVATION_ID
