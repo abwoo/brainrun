@@ -28,7 +28,7 @@ try {
   const box=await scene.boundingBox();
   assert.ok(box?.width>250 && box?.height>250);
   const x=box.x+box.width/2, y=box.y+box.height/2-40;
-  const sim=(code)=>page.evaluate(code);
+  const sim=(code,arg)=>page.evaluate(code,arg);
   await sim(()=>window.__brainSim.reset());
   await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms>=0);
   await page.waitForTimeout(150);
