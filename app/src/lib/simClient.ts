@@ -261,6 +261,9 @@ export class SimClient {
     origin: 'live-wasm', solverId: 'rust-wasm-wilson-cowan-76',
     anatomyId: 'tvb-demo-connectome-76', registration: 'unregistered', seed: 0,
   });
+  private initialInputs: {
+    weights: number[]; lengths: number[]; parameters: SimParams; seed: number;
+  } | null = null;
   private commandSequence = 0;
   private pendingCommandInputs = new Map<number, Record<string, string | number | boolean>>();
   private pendingStimulusMarkers = new Map<number, StimulusMarker>();
@@ -325,6 +328,7 @@ export class SimClient {
   /** 启动 Worker 并用连接矩阵初始化引擎。 */
   start(weights: number[][], lengths: number[][]): void {
     if (this.worker) return;
+    this.initialInputs = { weights: weights.flat(), lengths: lengths.flat(), parameters: { ...this.params }, seed: this.seed };
     this.worker = new Worker(new URL('../worker/simWorker.ts', import.meta.url), {
       type: 'module',
     });
@@ -533,7 +537,11 @@ export class SimClient {
     return {
       schemaVersion: 1,
       session: this.getExperimentSession(),
-      parameters: this.getParams(), seed: this.getSeed(),
+      modelVersion: 'brainrun-wc-1ms-v1',
+      initialInputs: this.initialInputs,
+      requestedParameters: this.getParams(), seed: this.getSeed(),
+      pendingCommandCount: this.pendingCommandInputs.size,
+      retentionLimits: { commands: 1000, artifactDescriptors: 500, snapshotTimes: 600 },
       background: this.getModeParams(), weights: this.getWeights(),
       snapshots: [...this.snapshots.entries()].map(([id, value]) => ({ ...value, id })),
     };

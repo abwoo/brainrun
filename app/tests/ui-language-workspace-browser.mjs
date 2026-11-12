@@ -53,6 +53,25 @@ try {
  for (const tab of ['Spectrum','ERP','Time-frequency','Topography','Source localization']) {
    await page.getByRole('tab',{name:tab,exact:true}).click(); await assertEnglish();
  }
+ // The late experiment atomically changes Raw, events and epochs to one run.
+ await page.getByRole('tab',{name:'ERP',exact:true}).click();
+ await page.getByRole('button',{name:/Run oddball/}).click();
+ await page.waitForFunction(()=>{
+  const raw=document.querySelector('[data-eeg-run-id]')?.getAttribute('data-eeg-run-id');
+  return raw && raw===document.querySelector('[data-epoch-run-id]')?.getAttribute('data-epoch-run-id');
+ });
+ await assertEnglish();
+ await page.getByRole('tab',{name:'EEG',exact:true}).click();
+ const downloadEvent=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export JSON',exact:true}).click();
+ const download=await downloadEvent;
+ const stream=await download.createReadStream(); let body='';
+ for await (const chunk of stream) body+=chunk.toString();
+ const bundle=JSON.parse(body);
+ assert.equal(bundle.provenance.runId,bundle.epochs.provenance.runId);
+ assert.ok(bundle.events.every(e=>e.runId===bundle.provenance.runId));
+ assert.ok(bundle.experiment.parameters.protocol);
+ assert.deepEqual(bundle.channels.map(c=>c.label),['Pz']);
  await page.locator('button[data-mode="play"]').click();
  for (const name of ['Cellular lab','Stimulation lab','Comparisons','Dipole lab','Head physics']) {
    // Explicit app-shell names are stable; DIPOLE/HEAD remain product abbreviations.

@@ -118,12 +118,15 @@ test('C04: scenario launcher does not pretend navigation imports scenario result
   assert.match(app, /场景摘要尚未自动载入实验台/);
 });
 
-test('C05/C07: independent late ERP epochs cannot be silently described as shared raw EEG', () => {
+test('C05/C07: late ERP publishes its source Raw, events and epochs together', () => {
   const erp = source('app/src/components/ErpTab.tsx');
   const shell = source('app/src/components/EegAnalysisLab.tsx');
-  assert.match(erp, /运行独立 oddball（替换 ERP\/TFR 试次）/);
-  assert.match(erp, /不会替换 EEG 原始记录/);
-  assert.match(shell, /late ERP 可替换 ERP\/TFR 试次/);
+  assert.match(erp, /运行 oddball（同步全部分析）/);
+  assert.match(erp, /onEpochsChange\(ep, 'independent-late', \{ recording: rec, events: evs, parameters: paramsSnapshot \}\)/);
+  assert.match(shell, /setRecording\(rec\)/);
+  assert.match(shell, /setEvents\(input\.events\.map/);
+  assert.match(shell, /setEpochs\(\{ \.\.\.ep, provenance: session\.provenance/);
+  assert.match(shell, /setSelectedChannel\(input\.recording\.channels\[0\]\.label\)/);
 });
 
 test('C06: separate source projection is labeled 2D and independent', () => {
