@@ -69,7 +69,18 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay }: 
       buf.push({ t_ms: snap.t_ms, e: snap.e[id], i: snap.i[id] });
       while (buf.length > 0 && snap.t_ms - buf[0].t_ms > 12_000) buf.shift();
     });
-    return unsub;
+    // Read-only cross-view diagnostic: the browser test compares chart samples
+    // with the SAME timestamped Worker snapshots, not just a matching label.
+    const bridge = {
+      getSelectedId: () => selectedRef.current,
+      getBufferedSamples: () => bufferRef.current.slice(-80).map(s => ({ ...s })),
+    };
+    const w = window as unknown as { __brainActivity?: typeof bridge };
+    w.__brainActivity = bridge;
+    return () => {
+      unsub();
+      if (w.__brainActivity === bridge) delete w.__brainActivity;
+    };
   }, [sim]);
 
   // 绘图循环：只读缓冲，不改模型。
