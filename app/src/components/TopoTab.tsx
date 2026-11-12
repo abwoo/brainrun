@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-11 地形 tab（B3）。
  *
@@ -245,11 +246,11 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               矩方向：
-              <select value={srcAxis} onChange={(e) => setSrcAxis(e.target.value as 'X' | 'Y' | 'Z')}>
+              <Dropdown value={srcAxis} onChange={(e) => setSrcAxis(e.target.value as 'X' | 'Y' | 'Z')}>
                 <option value="X">X</option>
                 <option value="Y">Y</option>
                 <option value="Z">Z</option>
-              </select>
+              </Dropdown>
             </label>
             <label>
               矩（nA·m）：
@@ -258,10 +259,10 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             </label>
             <label>
               参考：
-              <select value={reference} onChange={(e) => setReference(e.target.value as 'average' | 'infinity')}>
+              <Dropdown value={reference} onChange={(e) => setReference(e.target.value as 'average' | 'infinity')}>
                 <option value="average">average（减 345 点均值）</option>
                 <option value="infinity">infinity</option>
-              </select>
+              </Dropdown>
             </label>
           </div>
           <p className="panel-text">源位置限制在 ±48 mm（lead-field 网格边界，越界抛错）；矩 ±30 nA·m 与 PR5 的 HeadSphereLab 同范围。</p>
