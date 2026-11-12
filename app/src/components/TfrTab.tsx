@@ -1,3 +1,4 @@
+import Dropdown from './ui/Dropdown';
 /**
  * PR-10 时频 tab（B3）。
  *
@@ -198,21 +199,21 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
         <label>
           方法：
-          <select value={method} onChange={(e) => setMethod(e.target.value as TfrMethod)} style={{ marginLeft: 6 }}>
+          <Dropdown value={method} onChange={(e) => setMethod(e.target.value as TfrMethod)} style={{ marginLeft: 6 }}>
             <option value="morlet">Morlet 小波</option>
             <option value="stft">STFT</option>
             <option value="multitaper">Multitaper</option>
-          </select>
+          </Dropdown>
         </label>
         <label>
           频段：
-          <select value={band} onChange={(e) => setBand(e.target.value as EegBandName)} style={{ marginLeft: 6 }}>
+          <Dropdown value={band} onChange={(e) => setBand(e.target.value as EegBandName)} style={{ marginLeft: 6 }}>
             {(Object.keys(EEG_BANDS) as EegBandName[]).map((b) => (
               <option key={b} value={b}>
                 {b} {EEG_BANDS[b][0]}–{EEG_BANDS[b][1]} Hz
               </option>
             ))}
-          </select>
+          </Dropdown>
         </label>
       </div>
       <p className="panel-text" style={{ marginTop: 0 }}>{METHOD_NOTE[method]}</p>
