@@ -310,3 +310,78 @@ TMS 场——默认目标 [0,0,70] 在圆环线圈轴上，感应电场按对称
 - numfix 冒烟回归：36/36 passed，exit=0（~/workspace/numfix-smoke-link.log）。
   ERP late path 峰 0.174 @352、StimLab Level B 目标 |E| 0.793 / 网格最大 2.164，
   数值修复未被联动改动破坏。
+
+## PR8-LAYOUT 布局修复（2026-11-12）
+
+### 开工核对
+- 本地 clone 到手时 HEAD 79c4f65，远程 pr8-polish-release 为 eedd0a8；
+  任务简报称“树一致”，实测 `git diff 79c4f65 eedd0a8` 为空（两提交树
+  相同，eedd0a8 是“push working tree”提交），干净 fast-forward 到
+  eedd0a81283bf24cf0213217bc201d2a1ea992f7 后开工，无未提交改动。
+
+### 复现探针（tests/pr8/probe-layout-repro.py，量测存 layout-repro.json）
+- 修前 1920（showMore 开、pulse(40) 选 lAMYG #40）：固定面板
+  194+738+391+394=1717px + 间距，塞进 980px 高的 .main；REGION 面板
+  高仅 44px、内容 918px；文档被撑到 1878px（多出 798px 可滚）；
+  滚到底后 BIAS 按钮与权重滑杆命中检测失败（hit=false，点不到）。
+  左列第二屏：舞台底部视口 y=267，其下取点命中裸 HTML = 纯黑空地。
+- 修前 978：REGION 能靠文档滚动到达（biasHit=true），问题只在
+  顶栏 128px 与长页 1935px；390：顶栏 7 行、高 273px。
+- 模型信息弹窗：框 620×929 在视口内，但“知道了”在 y=1431，
+  框底 1004，初次不可见。
+- L-01 根因：Chromium 给 input[type=range] 默认 margin:2px；
+  width:100% 的滑杆右缘比容器多 2px、两侧 margin 共 +4px
+  scrollWidth（HeadSphere 1 个滑杆、Dipole/Stim 各 2 个，均 +4px）。
+  不是 flex gap 取整残留（审计时的猜测已证伪）。
+- L-02：λ² 输入框值 0.1111111111111111，框 72px、实占 64px、
+  scrollWidth 130px（+66px），只见 0.11111；对照表写 0.111。
+- 探针教训：画布与响应行随仿真逐帧重渲染，Playwright 严格点击
+  等不到 stable 而超时；探针与断言改用 `__brainSim.pulse(40)` +
+  JS 点 `.resp-row[data-node='40']`（link-smoke 同款做法）。
+
+### 修复（只改布局/样式，不改接线与计算）
+- 右列：`.panels` 加 `overflow-y:auto` 成为滚动容器；`.region-panel`
+  由 `flex:1 + overflow-y:auto` 改为普通面板随整列滚动；
+  `.app` 加 `overflow:hidden`，桌面端文档不再滚动；
+  LIVE ACTIVITY 用 `position:sticky; top:0` 置顶（列滚到底仍可见）。
+- 第二屏空地：由文档滚动消除——修后文档高 = 视口高（1080=1080）。
+- 手机：新增 ≤768px 断点——顶栏 nowrap + 横向滚动、副标题隐藏、
+  chip 不压缩；`.lab-split` 窄屏单列；弹窗边距收窄。
+- 弹窗：`.modal` 纵向 flex，`.modal-body` 为唯一滚动区；
+  模型信息“知道了”移入固定 `.modal-foot`；七台统一封顶 86vh
+  （HeadSphere/Dipole/Stim/LocalBEM 内联 94vh、EEG 90vh 均改到 86vh）。
+- L-01：`.modal input[type=range] { margin: 0; }` 一条规则覆盖三台。
+- L-02：InverseTab 输入框值改 `lambda2.toFixed(3)`（显示 0.111），
+  状态里仍存完整浮点数，不改计算。
+- 统一：HeadSphere/Dipole 共用 `.lab-split` 分栏（原各写一份内联 grid）；
+  HEAD/DIPOLE 读数区加“最大电极”一行（只读展示，默认方向仍为 X 轴）。
+- 修中自查发现的回归：首版在 ≤1100px 媒体查询里把 `.live-panel`
+  写成 `position:static`，与 `.screen` 的 `position:relative` 同权、
+  后写胜出，面板失去定位，LIVE 标题 absolute 逃到页面左上角、
+  在 390/978 下盖住顶栏；已改为 `position:relative`（不置顶、
+  但仍是标题的定位基准），390/978 实测标题回到面板内。
+
+### 修复后实测（断言 tests/pr8/layout-assert.py，26/26）
+- 1920：文档高 1080=视口；右列 scrollH 2721 / clientH 980（列内滚）；
+  REGION 高 920px（修前 44px）；滚到底后首权重滑杆 y=376–404、
+  BIAS 按钮 y=960–985，均在视口内且命中检测通过；LIVE 置顶可见。
+- 978：CONNECTION 滚到底可见且可点（同修前）；390：顶栏 1 行、
+  高 58px（修前 7 行 273px）、横向可滚（scrollW 1524 / clientW 390）、
+  舞台宽 374px。
+- 模型信息“知道了”y=957–987，初次可见；七台弹窗均在视口内、
+  关闭按钮初次可见、横向溢出 0；L-01 三台 +4px→0；L-02 值 0.111、dx=0。
+- 断言修前基线 11/26（15 项失败，正好是本轮要修的项；StimLab 也
+  检出 +4px，属同一根因）；修后 26/26，零页面报错/零控制台报错。
+- 截图：tests/pr8/layout-shots-after/（1920 列底、1920 顶、390 顶）。
+- 修正两处任务简报里的源码推断：390 下舞台实测 374px 宽、脑列
+  可用，不是“只剩约 40px”；“侧栏固定 320px”在主布局不存在，
+  320px 只出现在 InverseTab/TfrTab/TopoTab 的 minmax(320px,1fr)
+  网格里，390 下内容宽 338px、单列 320px 能放下，无溢出。
+
+### 回归（本轮改动后）
+- 构建：tsc + vite build 通过；PR5 node 80/80；PR6 node 59/59；
+  PR8 methods + modes node 49/49；Python unittest（eeg-venv）：
+  PR6 45/45、PR8 12/12、PR5 35 通过（7 skipped）。
+  注：brainrun venv 缺 scipy，Python 套件须用 eeg-venv 跑（环境问题，
+  与本次改动无关）。
+- 浏览器冒烟：link-smoke（88 项）与 numfix-smoke（36 项）结果见下节。

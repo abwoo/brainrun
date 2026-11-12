@@ -1,0 +1,944 @@
+{
+  "1920": {
+    "default": {
+      "vw": 1920,
+      "vh": 1080,
+      "docScrollW": 0,
+      "docScrollH": 1080,
+      "docScrollHMinusVh": 0,
+      "bodyScrollH": 1080,
+      "appH": 1080,
+      "mainRect": {
+        "x": 0,
+        "y": 51,
+        "w": 1920,
+        "h": 996,
+        "top": 51,
+        "bottom": 1047
+      },
+      "stageRect": {
+        "x": 8,
+        "y": 59,
+        "w": 1295,
+        "h": 980,
+        "top": 59,
+        "bottom": 1039
+      },
+      "panelsRect": {
+        "x": 1311,
+        "y": 59,
+        "w": 601,
+        "h": 980,
+        "top": 59,
+        "bottom": 1039
+      },
+      "panelsScrollH": 980,
+      "panelsClientH": 980,
+      "panelsScrollTop": 0,
+      "panelsOverflowY": "auto",
+      "topbarH": 51,
+      "topbarRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 51,
+        "top": 0,
+        "bottom": 51
+      },
+      "bottombarRect": {
+        "x": 0,
+        "y": 1047,
+        "w": 1920,
+        "h": 33,
+        "top": 1047,
+        "bottom": 1080
+      },
+      "kids": [
+        {
+          "title": "LIVE ACTIVITY",
+          "cls": "screen panel live-panel",
+          "h": 194,
+          "scrollH": 192,
+          "rect": {
+            "x": 1311,
+            "y": 59,
+            "w": 601,
+            "h": 194,
+            "top": 59,
+            "bottom": 253
+          }
+        },
+        {
+          "title": "刺激响应 · RESPONSE",
+          "cls": "screen panel response-panel",
+          "h": 232,
+          "scrollH": 230,
+          "rect": {
+            "x": 1311,
+            "y": 261,
+            "w": 601,
+            "h": 232,
+            "top": 261,
+            "bottom": 493
+          }
+        },
+        {
+          "title": "更多",
+          "cls": "screen panel more-panel",
+          "h": 112,
+          "scrollH": 110,
+          "rect": {
+            "x": 1311,
+            "y": 501,
+            "w": 601,
+            "h": 112,
+            "top": 501,
+            "bottom": 613
+          }
+        }
+      ],
+      "conn": {}
+    },
+    "more": {
+      "vw": 1920,
+      "vh": 1080,
+      "docScrollW": 0,
+      "docScrollH": 1080,
+      "docScrollHMinusVh": 0,
+      "bodyScrollH": 1080,
+      "appH": 1080,
+      "mainRect": {
+        "x": 0,
+        "y": 51,
+        "w": 1920,
+        "h": 996,
+        "top": 51,
+        "bottom": 1047
+      },
+      "stageRect": {
+        "x": 8,
+        "y": 59,
+        "w": 1295,
+        "h": 980,
+        "top": 59,
+        "bottom": 1039
+      },
+      "panelsRect": {
+        "x": 1311,
+        "y": 59,
+        "w": 601,
+        "h": 980,
+        "top": 59,
+        "bottom": 1039
+      },
+      "panelsScrollH": 2721,
+      "panelsClientH": 980,
+      "panelsScrollTop": 0,
+      "panelsOverflowY": "auto",
+      "topbarH": 51,
+      "topbarRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 51,
+        "top": 0,
+        "bottom": 51
+      },
+      "bottombarRect": {
+        "x": 0,
+        "y": 1047,
+        "w": 1920,
+        "h": 33,
+        "top": 1047,
+        "bottom": 1080
+      },
+      "kids": [
+        {
+          "title": "LIVE ACTIVITY",
+          "cls": "screen panel live-panel",
+          "h": 194,
+          "scrollH": 192,
+          "rect": {
+            "x": 1311,
+            "y": 59,
+            "w": 601,
+            "h": 194,
+            "top": 59,
+            "bottom": 253
+          }
+        },
+        {
+          "title": "刺激响应 · RESPONSE",
+          "cls": "screen panel response-panel",
+          "h": 790,
+          "scrollH": 788,
+          "rect": {
+            "x": 1311,
+            "y": 261,
+            "w": 601,
+            "h": 790,
+            "top": 261,
+            "bottom": 1051
+          }
+        },
+        {
+          "title": "背景活动 · BACKGROUND",
+          "cls": "screen panel background-panel",
+          "h": 391,
+          "scrollH": 389,
+          "rect": {
+            "x": 1311,
+            "y": 1059,
+            "w": 601,
+            "h": 391,
+            "top": 1059,
+            "bottom": 1450
+          }
+        },
+        {
+          "title": "PARAMETERS",
+          "cls": "screen panel",
+          "h": 394,
+          "scrollH": 392,
+          "rect": {
+            "x": 1311,
+            "y": 1458,
+            "w": 601,
+            "h": 394,
+            "top": 1458,
+            "bottom": 1852
+          }
+        },
+        {
+          "title": "REGION / CONNECTION",
+          "cls": "screen panel region-panel",
+          "h": 920,
+          "scrollH": 918,
+          "rect": {
+            "x": 1311,
+            "y": 1860,
+            "w": 601,
+            "h": 920,
+            "top": 1860,
+            "bottom": 2780
+          }
+        }
+      ],
+      "conn": {
+        "regionRect": {
+          "x": 1311,
+          "y": 1860,
+          "w": 601,
+          "h": 920,
+          "top": 1860,
+          "bottom": 2780
+        },
+        "regionScrollH": 918,
+        "regionClientH": 918,
+        "regionScrollTopMax": 0,
+        "connTitle": {
+          "x": 1324,
+          "y": 2060,
+          "w": 575,
+          "h": 25,
+          "top": 2060,
+          "bottom": 2085
+        },
+        "firstSlider": {
+          "x": 1360,
+          "y": 2117,
+          "w": 379,
+          "h": 28,
+          "top": 2117,
+          "bottom": 2145
+        },
+        "biasTitle": {
+          "x": 1324,
+          "y": 2604,
+          "w": 575,
+          "h": 25,
+          "top": 2604,
+          "bottom": 2629
+        },
+        "biasBtn": {
+          "x": 1324,
+          "y": 2701,
+          "w": 58,
+          "h": 25,
+          "top": 2701,
+          "bottom": 2726
+        }
+      }
+    },
+    "scroll": {
+      "panelsScrollTop": 1741,
+      "panelsMax": 1741,
+      "regionScrollTop": 0,
+      "regionMax": 0,
+      "winScrollY": 0,
+      "docScrollH": 1080
+    },
+    "after_scroll": {
+      "vh": 1080,
+      "regionName": {
+        "x": 1324,
+        "y": 150,
+        "w": 575,
+        "h": 29,
+        "top": 150,
+        "bottom": 179,
+        "inViewport": true,
+        "visiblePart": 29
+      },
+      "facts": {
+        "x": 1324,
+        "y": 187,
+        "w": 575,
+        "h": 124,
+        "top": 187,
+        "bottom": 311,
+        "inViewport": true,
+        "visiblePart": 124.34375
+      },
+      "connTitle": {
+        "x": 1324,
+        "y": 319,
+        "w": 575,
+        "h": 25,
+        "top": 319,
+        "bottom": 344,
+        "inViewport": true,
+        "visiblePart": 24.9375
+      },
+      "firstSlider": {
+        "x": 1360,
+        "y": 376,
+        "w": 379,
+        "h": 28,
+        "top": 376,
+        "bottom": 404,
+        "inViewport": true,
+        "visiblePart": 28
+      },
+      "biasTitle": {
+        "x": 1324,
+        "y": 863,
+        "w": 575,
+        "h": 25,
+        "top": 863,
+        "bottom": 888,
+        "inViewport": true,
+        "visiblePart": 24.9375
+      },
+      "biasBtn": {
+        "x": 1324,
+        "y": 960,
+        "w": 58,
+        "h": 25,
+        "top": 960,
+        "bottom": 985,
+        "inViewport": true,
+        "visiblePart": 25
+      },
+      "biasBtnHit": true,
+      "biasBtnHitTag": "BUTTON.chip",
+      "sliderHit": true,
+      "belowStageProbe": {
+        "y": 1070,
+        "stageBottom": 1039,
+        "hit": "FOOTER.bottombar",
+        "hitText": "点击刺激 · 按住持续输入 · 拖动旋转 · 滚轮缩放 · 双击背景恢复视角LI"
+      }
+    },
+    "page_errors": []
+  },
+  "1920_model_modal": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "drill": [],
+    "overhang": [],
+    "modal": {
+      "x": 650,
+      "y": 76,
+      "w": 620,
+      "h": 929,
+      "top": 76,
+      "bottom": 1004,
+      "exceedsVh": false,
+      "bottomBeyondVh": -76
+    },
+    "closeBtns": [
+      {
+        "text": "知道了",
+        "top": 957,
+        "bottom": 987,
+        "inViewport": true
+      }
+    ],
+    "clipped": []
+  },
+  "1920_headsphere": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "drill": [],
+    "overhang": [],
+    "modal": {
+      "x": 365,
+      "y": 203,
+      "w": 1190,
+      "h": 675,
+      "top": 203,
+      "bottom": 877,
+      "exceedsVh": false,
+      "bottomBeyondVh": -203
+    },
+    "closeBtns": [
+      {
+        "text": "关闭",
+        "top": 210,
+        "bottom": 235,
+        "inViewport": true
+      }
+    ],
+    "clipped": []
+  },
+  "1920_dipole": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "drill": [],
+    "overhang": [],
+    "modal": {
+      "x": 400,
+      "y": 215,
+      "w": 1120,
+      "h": 650,
+      "top": 215,
+      "bottom": 865,
+      "exceedsVh": false,
+      "bottomBeyondVh": -215
+    },
+    "closeBtns": [
+      {
+        "text": "关闭",
+        "top": 222,
+        "bottom": 247,
+        "inViewport": true
+      }
+    ],
+    "clipped": []
+  },
+  "1920_eeg_modal": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "drill": [],
+    "overhang": [],
+    "modal": {
+      "x": 410,
+      "y": 295,
+      "w": 1100,
+      "h": 490,
+      "top": 295,
+      "bottom": 785,
+      "exceedsVh": false,
+      "bottomBeyondVh": -295
+    },
+    "closeBtns": [
+      {
+        "text": "关闭",
+        "top": 340,
+        "bottom": 365,
+        "inViewport": true
+      }
+    ],
+    "clipped": []
+  },
+  "L02": [
+    {
+      "value": "0.111",
+      "clientW": 64,
+      "scrollW": 64,
+      "dx": 0,
+      "styleW": "72px",
+      "rectW": 72,
+      "visibleText": "0.111"
+    }
+  ],
+  "978": {
+    "more": {
+      "vw": 978,
+      "vh": 800,
+      "docScrollW": 0,
+      "docScrollH": 3344,
+      "docScrollHMinusVh": 2544,
+      "bodyScrollH": 3344,
+      "appH": 3344,
+      "mainRect": {
+        "x": 0,
+        "y": 128,
+        "w": 978,
+        "h": 3183,
+        "top": 128,
+        "bottom": 3311
+      },
+      "stageRect": {
+        "x": 8,
+        "y": 136,
+        "w": 962,
+        "h": 496,
+        "top": 136,
+        "bottom": 632
+      },
+      "panelsRect": {
+        "x": 8,
+        "y": 640,
+        "w": 962,
+        "h": 2663,
+        "top": 640,
+        "bottom": 3303
+      },
+      "panelsScrollH": 2663,
+      "panelsClientH": 2663,
+      "panelsScrollTop": 0,
+      "panelsOverflowY": "auto",
+      "topbarH": 128,
+      "topbarRect": {
+        "x": 0,
+        "y": 0,
+        "w": 978,
+        "h": 128,
+        "top": 0,
+        "bottom": 128
+      },
+      "bottombarRect": {
+        "x": 0,
+        "y": 3311,
+        "w": 978,
+        "h": 33,
+        "top": 3311,
+        "bottom": 3344
+      },
+      "kids": [
+        {
+          "title": "LIVE ACTIVITY",
+          "cls": "screen panel live-panel",
+          "h": 194,
+          "scrollH": 192,
+          "rect": {
+            "x": 8,
+            "y": 640,
+            "w": 962,
+            "h": 194,
+            "top": 640,
+            "bottom": 834
+          }
+        },
+        {
+          "title": "刺激响应 · RESPONSE",
+          "cls": "screen panel response-panel",
+          "h": 816,
+          "scrollH": 814,
+          "rect": {
+            "x": 8,
+            "y": 842,
+            "w": 962,
+            "h": 816,
+            "top": 842,
+            "bottom": 1658
+          }
+        },
+        {
+          "title": "背景活动 · BACKGROUND",
+          "cls": "screen panel background-panel",
+          "h": 340,
+          "scrollH": 338,
+          "rect": {
+            "x": 8,
+            "y": 1666,
+            "w": 962,
+            "h": 340,
+            "top": 1666,
+            "bottom": 2006
+          }
+        },
+        {
+          "title": "PARAMETERS",
+          "cls": "screen panel",
+          "h": 394,
+          "scrollH": 392,
+          "rect": {
+            "x": 8,
+            "y": 2014,
+            "w": 962,
+            "h": 394,
+            "top": 2014,
+            "bottom": 2409
+          }
+        },
+        {
+          "title": "REGION / CONNECTION",
+          "cls": "screen panel region-panel",
+          "h": 887,
+          "scrollH": 885,
+          "rect": {
+            "x": 8,
+            "y": 2417,
+            "w": 962,
+            "h": 887,
+            "top": 2417,
+            "bottom": 3303
+          }
+        }
+      ],
+      "conn": {
+        "regionRect": {
+          "x": 8,
+          "y": 2417,
+          "w": 962,
+          "h": 887,
+          "top": 2417,
+          "bottom": 3303
+        },
+        "regionScrollH": 885,
+        "regionClientH": 885,
+        "regionScrollTopMax": 0,
+        "connTitle": {
+          "x": 21,
+          "y": 2617,
+          "w": 936,
+          "h": 25,
+          "top": 2617,
+          "bottom": 2642
+        },
+        "firstSlider": {
+          "x": 57,
+          "y": 2674,
+          "w": 740,
+          "h": 28,
+          "top": 2674,
+          "bottom": 2702
+        },
+        "biasTitle": {
+          "x": 21,
+          "y": 3145,
+          "w": 936,
+          "h": 25,
+          "top": 3145,
+          "bottom": 3170
+        },
+        "biasBtn": {
+          "x": 21,
+          "y": 3224,
+          "w": 58,
+          "h": 25,
+          "top": 3224,
+          "bottom": 3249
+        }
+      }
+    },
+    "scroll": {
+      "panelsScrollTop": 0,
+      "panelsMax": 0,
+      "regionScrollTop": 0,
+      "regionMax": 0,
+      "winScrollY": 2544,
+      "docScrollH": 3344
+    },
+    "after_scroll": {
+      "vh": 800,
+      "regionName": {
+        "x": 21,
+        "y": -96,
+        "w": 936,
+        "h": 29,
+        "top": -96,
+        "bottom": -67,
+        "inViewport": false,
+        "visiblePart": 0
+      },
+      "facts": {
+        "x": 21,
+        "y": -59,
+        "w": 936,
+        "h": 124,
+        "top": -59,
+        "bottom": 65,
+        "inViewport": true,
+        "visiblePart": 64.9375
+      },
+      "connTitle": {
+        "x": 21,
+        "y": 73,
+        "w": 936,
+        "h": 25,
+        "top": 73,
+        "bottom": 98,
+        "inViewport": true,
+        "visiblePart": 24.9375
+      },
+      "firstSlider": {
+        "x": 57,
+        "y": 130,
+        "w": 740,
+        "h": 28,
+        "top": 130,
+        "bottom": 158,
+        "inViewport": true,
+        "visiblePart": 28
+      },
+      "biasTitle": {
+        "x": 21,
+        "y": 601,
+        "w": 936,
+        "h": 25,
+        "top": 601,
+        "bottom": 626,
+        "inViewport": true,
+        "visiblePart": 24.9375
+      },
+      "biasBtn": {
+        "x": 21,
+        "y": 680,
+        "w": 58,
+        "h": 25,
+        "top": 680,
+        "bottom": 705,
+        "inViewport": true,
+        "visiblePart": 25
+      },
+      "biasBtnHit": true,
+      "biasBtnHitTag": "BUTTON.chip",
+      "sliderHit": true,
+      "belowStageProbe": {
+        "y": -1812,
+        "stageBottom": -1912,
+        "hit": null,
+        "hitText": ""
+      }
+    }
+  },
+  "390": {
+    "main": {
+      "vw": 390,
+      "vh": 844,
+      "docScrollW": 0,
+      "docScrollH": 1257,
+      "docScrollHMinusVh": 413,
+      "bodyScrollH": 1257,
+      "appH": 1257,
+      "mainRect": {
+        "x": 0,
+        "y": 58,
+        "w": 390,
+        "h": 1119,
+        "top": 58,
+        "bottom": 1176
+      },
+      "stageRect": {
+        "x": 8,
+        "y": 66,
+        "w": 374,
+        "h": 523,
+        "top": 66,
+        "bottom": 589
+      },
+      "panelsRect": {
+        "x": 8,
+        "y": 597,
+        "w": 374,
+        "h": 572,
+        "top": 597,
+        "bottom": 1168
+      },
+      "panelsScrollH": 572,
+      "panelsClientH": 572,
+      "panelsScrollTop": 0,
+      "panelsOverflowY": "auto",
+      "topbarH": 58,
+      "topbarRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 58,
+        "top": 0,
+        "bottom": 58
+      },
+      "bottombarRect": {
+        "x": 0,
+        "y": 1176,
+        "w": 390,
+        "h": 81,
+        "top": 1176,
+        "bottom": 1257
+      },
+      "kids": [
+        {
+          "title": "LIVE ACTIVITY",
+          "cls": "screen panel live-panel",
+          "h": 194,
+          "scrollH": 192,
+          "rect": {
+            "x": 8,
+            "y": 597,
+            "w": 374,
+            "h": 194,
+            "top": 597,
+            "bottom": 791
+          }
+        },
+        {
+          "title": "刺激响应 · RESPONSE",
+          "cls": "screen panel response-panel",
+          "h": 250,
+          "scrollH": 248,
+          "rect": {
+            "x": 8,
+            "y": 799,
+            "w": 374,
+            "h": 250,
+            "top": 799,
+            "bottom": 1049
+          }
+        },
+        {
+          "title": "更多",
+          "cls": "screen panel more-panel",
+          "h": 112,
+          "scrollH": 110,
+          "rect": {
+            "x": 8,
+            "y": 1057,
+            "w": 374,
+            "h": 112,
+            "top": 1057,
+            "bottom": 1168
+          }
+        }
+      ],
+      "conn": {}
+    },
+    "topbar": {
+      "rows": 2,
+      "vw": 390,
+      "docOverflowX": 0,
+      "topbarH": 58,
+      "chips": [
+        {
+          "t": "PLAY",
+          "y": 14,
+          "h": 29,
+          "w": 58,
+          "right": 150
+        },
+        {
+          "t": "WAVES",
+          "y": 14,
+          "h": 29,
+          "w": 70,
+          "right": 226
+        },
+        {
+          "t": "EEG",
+          "y": 14,
+          "h": 29,
+          "w": 51,
+          "right": 283
+        },
+        {
+          "t": "EXPLORE",
+          "y": 14,
+          "h": 29,
+          "w": 85,
+          "right": 373
+        },
+        {
+          "t": "更多 ▼",
+          "y": 13,
+          "h": 30,
+          "w": 68,
+          "right": 460
+        },
+        {
+          "t": "一键场景",
+          "y": 13,
+          "h": 30,
+          "w": 76,
+          "right": 544
+        },
+        {
+          "t": "PLAY — 运行中",
+          "y": 13,
+          "h": 30,
+          "w": 117,
+          "right": 670
+        },
+        {
+          "t": "CONNECT — 显示",
+          "y": 13,
+          "h": 30,
+          "w": 136,
+          "right": 813
+        },
+        {
+          "t": "RESET",
+          "y": 14,
+          "h": 29,
+          "w": 65,
+          "right": 887
+        },
+        {
+          "t": "HEAD EEG",
+          "y": 14,
+          "h": 29,
+          "w": 91,
+          "right": 986
+        },
+        {
+          "t": "EEG 分析",
+          "y": 13,
+          "h": 30,
+          "w": 80,
+          "right": 1074
+        },
+        {
+          "t": "DIPOLE LAB",
+          "y": 14,
+          "h": 29,
+          "w": 105,
+          "right": 1187
+        },
+        {
+          "t": "细胞实验",
+          "y": 13,
+          "h": 30,
+          "w": 76,
+          "right": 1271
+        },
+        {
+          "t": "刺激实验",
+          "y": 13,
+          "h": 30,
+          "w": 76,
+          "right": 1356
+        },
+        {
+          "t": "对照实验",
+          "y": 13,
+          "h": 30,
+          "w": 76,
+          "right": 1440
+        },
+        {
+          "t": "模型信息",
+          "y": 13,
+          "h": 30,
+          "w": 76,
+          "right": 1524
+        }
+      ]
+    }
+  }
+}

@@ -279,7 +279,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true"
       aria-label="真实模板 MRI BEM 实验" onClick={e=>e.stopPropagation()}
-      style={{width:'min(1180px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
+      style={{width:'min(1180px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',
         alignItems:'center',right:0,pointerEvents:'auto'}}>
         FSAVERAGE · MRI/BEM PHYSICS

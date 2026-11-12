@@ -1136,7 +1136,7 @@ export default function App() {
         </section>
 
         <aside className="panels">
-          <section className="screen panel">
+          <section className="screen panel live-panel">
             <div className="screen-title">LIVE ACTIVITY</div>
             <ActivityChart
               sim={simRef.current}
@@ -2011,6 +2011,8 @@ export default function App() {
                 数据许可核查见仓库 docs/data-license.md；
                 代码 MIT，第三方说明见 NOTICE.md。
               </p>
+            </div>
+            <div className="modal-foot">
               <button type="button" className="chip modal-close" onClick={() => setShowModelInfo(false)}>
                 知道了
               </button>

@@ -200,3 +200,61 @@ GUI 框太小显示不全内容、横向溢出、文字截断、对话框出视�
   - S1（TIME 不前进）未复现：TIME 在两视口均正常前进。
 - 第一阶段未改任何产品代码（`app/src`、`crates` 均未动）；
   新增文件只在 `tests/pr8/` 与 `docs/` 下。
+
+---
+
+# 第二阶段：布局修复（2026-11-12，PR8-LAYOUT）
+
+> 第一阶段只量横向溢出，没量主界面纵向滚动深度，结论不覆盖
+> CONNECTION 问题。本阶段用 `tests/pr8/probe-layout-repro.py` 复测、
+> 用 `tests/pr8/layout-assert.py`（26 项）卡住，修复前后数字如下。
+
+## 修复前后对照（选 lAMYG #40、showMore 开）
+
+| 量测 | 1920×1080 修前 | 1920×1080 修后 | 978×800 修后 | 390×844 修后 |
+|---|---|---|---|---|
+| 文档高 / 视口高 | 1878 / 1080（多滚 798px） | 1080 / 1080 | 长页 1935（列式堆叠，既定） | 1473（长页，既定） |
+| 右列 scrollH / clientH | 1819 / 980（overflow visible，兜不住） | 2721 / 980（overflow-y:auto，列内滚） | — | — |
+| REGION 面板高 | 44px（内容 918px） | 920px | 887px | — |
+| 首权重滑杆（滚到底后） | 不在视口内，命中失败 | y=376–404，在视口内，可点 | 在视口内，可点 | — |
+| BIAS 开关（滚到底后） | 不在视口内，命中失败 | y=960–985，在视口内，可点 | 在视口内，可点 | — |
+| 第二屏空地 | 舞台底视口 y=267，其下裸 HTML 纯黑 | 无文档滚动，空地消除 | — | — |
+| 顶栏 | 1 行 51px | 1 行 51px | 3 行 128px（既定） | 1 行 58px（修前 7 行 273px） |
+| 模型信息“知道了” | y=1431，初次不可见 | y=957–987，初次可见 | — | — |
+| L-01 控制区溢出 | HeadSphere/Dipole/Stim 各 +4px | 0 | 0 | — |
+| L-02 λ² 输入框 | 0.1111111111111111，dx +66px | 0.111，dx 0 | 0.111，dx 0 | — |
+| 横向溢出 / 页面报错 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+## 根因（修前复测确认）
+
+1. **CONNECTION 滚不到**：定高面板（LIVE 194 + RESPONSE 738 +
+   BACKGROUND 391 + PARAMETERS 394 ≈ 1717px）塞进 980px 高的 `.main`，
+   只有 `.region-panel` 能内部滚，于是它被 flex 压扁到 44px；
+   `.panels` 本身 `overflow: visible`，列内容溢出 100vh 的 `.app`，
+   逼出文档滚动，CONNECTION 主体既不在列内也不在文档滚动的可点位置。
+   修法：`.panels` 改为滚动容器、REGION 改为普通面板随整列滚动、
+   `.app` 加 `overflow:hidden`、LIVE 用 sticky 置顶。
+2. **第二屏纯黑空地**：第 1 条的文档滚动所致——滚到底后左列舞台
+   之下没有任何内容。文档滚动消除后，空地随之消除。
+3. **手机顶栏**：无 ≤768px 断点，16 个 chip 在 390px 下折成 7 行。
+   修法：新增断点，顶栏单行横向滚动。另核实：390 下舞台实测
+   374px 宽（脑列可用），“只剩约 40px”是源码推断有误；主布局
+   也无固定 320px 侧栏，320px 只在三处 tab 网格的 minmax 里，390 下
+   内容宽 338px、单列能放下。
+4. **弹窗按钮初次不可见**：模型信息弹窗整框滚动，底部按钮在
+   内容最末（修前 y=1431）。修法：弹窗纵向 flex，正文为唯一滚动区，
+   按钮移入固定底部；七台统一封顶 86vh。
+5. **L-01**：Chromium 给 `input[type=range]` 默认 `margin: 2px`，
+   `width:100%` 的滑杆右缘比容器多 2px、两侧共 +4px scrollWidth。
+   不是 flex gap 取整残留。修法：`.modal input[type=range] { margin: 0; }`。
+6. **L-02**：λ² 框存完整浮点数未格式化。修法：框内显示
+   `toFixed(3)`（0.111），与对照表一致；状态仍存完整值，不改计算。
+
+## 断言与回归
+
+- `tests/pr8/layout-assert.py`：26 项，修前 11/26、修后 26/26。
+- 构建 tsc + vite 通过；PR5 node 80/80、PR6 node 59/59、
+  PR8 methods + modes node 49/49；Python unittest（eeg-venv）PR6 45/45、
+  PR8 12/12、PR5 35 通过（7 skipped）。
+- 浏览器冒烟 link-smoke / numfix-smoke 结果见 `tests/pr8/debug-rounds.md`
+  本轮小节。截图：`tests/pr8/layout-shots-after/`。

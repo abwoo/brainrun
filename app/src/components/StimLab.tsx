@@ -346,7 +346,7 @@ export default function StimLab({ onClose, selectedRegion, regions, onPulse }: {
 
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="脑刺激实验室"
-      onClick={e => e.stopPropagation()} style={{ width: 'min(1120px,96vw)', maxWidth: 'none', maxHeight: '94vh' }}>
+      onClick={e => e.stopPropagation()} style={{ width: 'min(1120px,96vw)', maxWidth: 'none', maxHeight: '86vh' }}>
       <div className="screen-title" style={{ display: 'flex', justifyContent: 'space-between', right: 0, pointerEvents: 'auto' }}>
         PR-14 · STIMULATION LAB
         <button className="chip chip-small" type="button" onClick={onClose}>关闭</button>

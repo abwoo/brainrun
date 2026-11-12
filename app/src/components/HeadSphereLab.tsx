@@ -176,7 +176,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true"
       aria-label="分层球形头EEG物理实验" onClick={e=>e.stopPropagation()}
-      style={{width:'min(1190px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
+      style={{width:'min(1190px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',alignItems:'center',right:0,pointerEvents:'auto'}}>
         FOUR-LAYER SPHERE · PHYSICS EEG
         <button type="button" className="chip chip-small" onClick={onClose}>关闭</button>
@@ -206,7 +206,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
         {error&&<p role="alert" className="panel-text">{error}</p>}
         {!data&&!error&&<p className="panel-text">正在加载 MNE 正向模型…</p>}
         {data&&<p className="panel-text">模型 {SPHERE_MODEL_ID} · MNE {data.mne_version} · 电极头坐标方向径向投影到 95 mm 球面 · 源位置插值（已独立验证误差）</p>}
-        <div style={{display:'grid',gridTemplateColumns:'minmax(0, 1.5fr) minmax(230px, 1fr)',gap:12}}>
+        <div className="lab-split">
           <div ref={mount} role="img" aria-label="MNE四层球形头模型与可拖动源"
             style={{width:'100%',height:425,border:'1px solid #133954'}}/>
           <div style={{minWidth:0}}>
@@ -243,6 +243,9 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource}:{onClose:(
             </label>
             <p className="panel-text">源位置 mm：{position.map(x=>x.toFixed(1)).join(', ')}</p>
             <p className="panel-text">当前电极电位：{vSelected===undefined?'—':vSelected.toFixed(4)+' µV'}</p>
+            {peaks.length > 0 && (
+              <p className="panel-text">最大电极：{peaks[0].label} {peaks[0].v.toFixed(4)} µV（{peaks.length} 导中幅值最大，尖峰时跟最大值走）</p>
+            )}
             <button type="button" className="chip chip-small" onClick={()=>{
               setPosition([0,0,16]);setMoment(10);setAxis('X');setMontage('10-20');setReference('average');setSelectedElectrode('Cz');
               setLiveMode(false);

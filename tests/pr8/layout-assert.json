@@ -1,0 +1,464 @@
+{
+  "checks": [
+    {
+      "name": "LAY-1a 文档不滚动（右列溢出由列内滚动兜底）",
+      "ok": true,
+      "detail": "docScrollH-vh=0 docScrollH=1080"
+    },
+    {
+      "name": "LAY-1b 右列是内部滚动容器",
+      "ok": true,
+      "detail": "overflowY=auto scrollH=2695 clientH=980"
+    },
+    {
+      "name": "LAY-1c REGION 面板不再被压扁",
+      "ok": true,
+      "detail": "regionH=920 regionScrollH=918 select=OK"
+    },
+    {
+      "name": "LAY-1d CONNECTION 滚到底后可见且可点",
+      "ok": true,
+      "detail": "slider={'top': 376, 'bottom': 404, 'inViewport': True, 'fullyIn': True} hit=True bias={'top': 960, 'bottom': 985, 'inViewport': True, 'fullyIn': True} hit=True"
+    },
+    {
+      "name": "LAY-1e 滚到底后 LIVE ACTIVITY 仍置顶可见",
+      "ok": true,
+      "detail": "liveTop=59"
+    },
+    {
+      "name": "LAY-2 舞台底部在视口内、无第二屏空地",
+      "ok": true,
+      "detail": "stageBottom=1039 vh=1080"
+    },
+    {
+      "name": "LAY-3a 主界面无横向溢出",
+      "ok": true,
+      "detail": "docOverflowX=0"
+    },
+    {
+      "name": "LAY-4a 模型信息弹窗不出视口、“知道了”初次可见",
+      "ok": true,
+      "detail": "modal={'w': 620, 'h': 929, 'top': 76, 'bottom': 1004, 'right': 1270, 'left': 650} closeBtn={'top': 957, 'bottom': 987, 'inViewport': True, 'text': '知道了'}"
+    },
+    {
+      "name": "LAY-4b HEAD EEG 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1190, 'h': 675, 'top': 203, 'bottom': 877, 'right': 1555, 'left': 365} close={'top': 210, 'bottom': 235, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-5 L-01 HEAD EEG 控制区横向溢出为 0",
+      "ok": true,
+      "detail": "maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-8 HEAD EEG 读数区有“最大电极”一行",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LAY-4b LocalBEM 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1180, 'h': 124, 'top': 478, 'bottom': 602, 'right': 1550, 'left': 370} close={'top': 485, 'bottom': 510, 'inViewport': True, 'text': '关闭'} maxDx=0"
+    },
+    {
+      "name": "LAY-4b DIPOLE LAB 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1120, 'h': 650, 'top': 215, 'bottom': 865, 'right': 1520, 'left': 400} close={'top': 222, 'bottom': 247, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-5 L-01 DIPOLE LAB 控制区横向溢出为 0",
+      "ok": true,
+      "detail": "maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-8 DIPOLE LAB 读数区有“最大电极”一行",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LAY-4b EEG 分析 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1100, 'h': 484, 'top': 298, 'bottom': 782, 'right': 1510, 'left': 410} close={'top': 343, 'bottom': 368, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-6 L-02 λ² 输入框显示 0.111、内容不溢出",
+      "ok": true,
+      "detail": "{'found': True, 'value': '0.111', 'clientW': 64, 'scrollW': 64, 'dx': 0}"
+    },
+    {
+      "name": "LAY-4b 细胞实验 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1100, 'h': 734, 'top': 173, 'bottom': 907, 'right': 1510, 'left': 410} close={'top': 180, 'bottom': 205, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-4b 刺激实验 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1120, 'h': 707, 'top': 186, 'bottom': 894, 'right': 1520, 'left': 400} close={'top': 193, 'bottom': 218, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-4b 对照实验 弹窗不出视口、关闭按钮初次可见、无横向溢出",
+      "ok": true,
+      "detail": "modal={'w': 1100, 'h': 929, 'top': 76, 'bottom': 1004, 'right': 1510, 'left': 410} close={'top': 83, 'bottom': 108, 'inViewport': True, 'text': '关闭'} maxDx=0 worst=None"
+    },
+    {
+      "name": "LAY-7a 1920 全程零页面报错 / 零控制台报错",
+      "ok": true,
+      "detail": "0 errors"
+    },
+    {
+      "name": "LAY-3b 978 无横向溢出",
+      "ok": true,
+      "detail": "docOverflowX=0"
+    },
+    {
+      "name": "LAY-9 978 滚到底后 CONNECTION 可见且可点",
+      "ok": true,
+      "detail": "{'bias': {'inViewport': True}, 'biasHit': True, 'slider': {'inViewport': True}, 'sliderHit': True}"
+    },
+    {
+      "name": "LAY-3c 390 顶栏单行（横向滚动、不折多行）",
+      "ok": true,
+      "detail": "rows=1 topbarH=58 wrap=nowrap overflowX=auto"
+    },
+    {
+      "name": "LAY-3d 390 无横向溢出、舞台全宽可用",
+      "ok": true,
+      "detail": "docOverflowX=0 stageW=374 panelsW=374"
+    },
+    {
+      "name": "LAY-7b 978/390 全程零页面报错",
+      "ok": true,
+      "detail": "0 errors"
+    }
+  ],
+  "1920_main": {
+    "vw": 1920,
+    "vh": 1080,
+    "docScrollW": 0,
+    "docScrollH": 1080,
+    "docOverflowY": 0,
+    "appOverflowY": "hidden",
+    "panelsScrollH": 2695,
+    "panelsClientH": 980,
+    "panelsOverflowY": "auto",
+    "panelsRect": {
+      "x": 1311,
+      "y": 59,
+      "w": 601,
+      "h": 980,
+      "top": 59,
+      "bottom": 1039
+    },
+    "regionH": 920,
+    "regionScrollH": 918,
+    "stageRect": {
+      "x": 8,
+      "y": 59,
+      "w": 1295,
+      "h": 980,
+      "top": 59,
+      "bottom": 1039
+    },
+    "topbarH": 51,
+    "liveRect": {
+      "x": 1311,
+      "y": 59,
+      "w": 601,
+      "h": 194,
+      "top": 59,
+      "bottom": 253
+    }
+  },
+  "1920_connection": {
+    "vh": 1080,
+    "panelsScrollTop": 1715,
+    "connTitle": {
+      "top": 319,
+      "bottom": 344,
+      "inViewport": true,
+      "fullyIn": true
+    },
+    "firstSlider": {
+      "top": 376,
+      "bottom": 404,
+      "inViewport": true,
+      "fullyIn": true
+    },
+    "sliderHit": true,
+    "biasTitle": {
+      "top": 863,
+      "bottom": 888,
+      "inViewport": true,
+      "fullyIn": true
+    },
+    "biasBtn": {
+      "top": 960,
+      "bottom": 985,
+      "inViewport": true,
+      "fullyIn": true
+    },
+    "biasBtnHit": true,
+    "liveTop": 59,
+    "liveTitleVisible": true
+  },
+  "1920_model_modal": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 620,
+      "h": 929,
+      "top": 76,
+      "bottom": 1004,
+      "right": 1270,
+      "left": 650
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 957,
+      "bottom": 987,
+      "inViewport": true,
+      "text": "知道了"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 927,
+    "modalClientH": 927
+  },
+  "lab_HEAD EEG": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1190,
+      "h": 675,
+      "top": 203,
+      "bottom": 877,
+      "right": 1555,
+      "left": 365
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 210,
+      "bottom": 235,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 673,
+    "modalClientH": 673
+  },
+  "lab_LocalBEM": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1180,
+      "h": 124,
+      "top": 478,
+      "bottom": 602,
+      "right": 1550,
+      "left": 370
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 485,
+      "bottom": 510,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 122,
+    "modalClientH": 122
+  },
+  "lab_DIPOLE LAB": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1120,
+      "h": 650,
+      "top": 215,
+      "bottom": 865,
+      "right": 1520,
+      "left": 400
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 222,
+      "bottom": 247,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 648,
+    "modalClientH": 648
+  },
+  "lab_EEG 分析": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1100,
+      "h": 484,
+      "top": 298,
+      "bottom": 782,
+      "right": 1510,
+      "left": 410
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 343,
+      "bottom": 368,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 482,
+    "modalClientH": 482
+  },
+  "L02": {
+    "found": true,
+    "value": "0.111",
+    "clientW": 64,
+    "scrollW": 64,
+    "dx": 0
+  },
+  "lab_细胞实验": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1100,
+      "h": 734,
+      "top": 173,
+      "bottom": 907,
+      "right": 1510,
+      "left": 410
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 180,
+      "bottom": 205,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 732,
+    "modalClientH": 732
+  },
+  "lab_刺激实验": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1120,
+      "h": 707,
+      "top": 186,
+      "bottom": 894,
+      "right": 1520,
+      "left": 400
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 193,
+      "bottom": 218,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 705,
+    "modalClientH": 705
+  },
+  "lab_对照实验": {
+    "open": true,
+    "vw": 1920,
+    "vh": 1080,
+    "modal": {
+      "w": 1100,
+      "h": 929,
+      "top": 76,
+      "bottom": 1004,
+      "right": 1510,
+      "left": 410
+    },
+    "fitsViewport": true,
+    "closeBtn": {
+      "top": 83,
+      "bottom": 108,
+      "inViewport": true,
+      "text": "关闭"
+    },
+    "maxDx": 0,
+    "worst": null,
+    "modalScrollH": 927,
+    "modalClientH": 927
+  },
+  "978_main": {
+    "vw": 978,
+    "vh": 800,
+    "docScrollW": 0,
+    "docScrollH": 3344,
+    "docOverflowY": 2544,
+    "appOverflowY": "hidden",
+    "panelsScrollH": 2663,
+    "panelsClientH": 2663,
+    "panelsOverflowY": "auto",
+    "panelsRect": {
+      "x": 8,
+      "y": 640,
+      "w": 962,
+      "h": 2663,
+      "top": 640,
+      "bottom": 3303
+    },
+    "regionH": 887,
+    "regionScrollH": 885,
+    "stageRect": {
+      "x": 8,
+      "y": 136,
+      "w": 962,
+      "h": 496,
+      "top": 136,
+      "bottom": 632
+    },
+    "topbarH": 128,
+    "liveRect": {
+      "x": 8,
+      "y": 640,
+      "w": 962,
+      "h": 194,
+      "top": 640,
+      "bottom": 834
+    }
+  },
+  "978_connection": {
+    "bias": {
+      "inViewport": true
+    },
+    "biasHit": true,
+    "slider": {
+      "inViewport": true
+    },
+    "sliderHit": true
+  },
+  "390_main": {
+    "vw": 390,
+    "vh": 844,
+    "rows": 1,
+    "topbarH": 58,
+    "topbarFlexWrap": "nowrap",
+    "topbarOverflowX": "auto",
+    "docOverflowX": 0,
+    "docScrollH": 1257,
+    "stageW": 374,
+    "stageH": 523,
+    "panelsW": 374
+  }
+}

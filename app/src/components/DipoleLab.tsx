@@ -44,6 +44,13 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
     momentNAm: [dir[0]*moment, dir[1]*moment, dir[2]*moment],
   }], sensors, { mode: reference }, conductivity), [position, dir, moment, sensors, reference, conductivity]);
   const maxAbs = Math.max(0.001, ...voltage.map(Math.abs));
+  // PR8-LAYOUT（参考项）：幅值最大的示意电极，只读展示，供尖峰时跟最大值走；
+  // 不改任何电位计算。默认偶极方向仍为 X 轴，Cz 读数小是深部源增益本身小。
+  const maxSensor = useMemo(() => {
+    let bi = 0;
+    voltage.forEach((v, i) => { if (Math.abs(v) > Math.abs(voltage[bi])) bi = i; });
+    return { label: sensors[bi]?.label ?? '—', v: voltage[bi] ?? 0 };
+  }, [voltage, sensors]);
 
   useEffect(() => {
     const host = mount.current;
@@ -133,7 +140,7 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
 
   return <div className="modal-backdrop" onClick={onClose}>
     <div className="modal screen" role="dialog" aria-modal="true" aria-label="电流偶极子物理实验"
-      onClick={e=>e.stopPropagation()} style={{width:'min(1120px,96vw)',maxWidth:'none',maxHeight:'94vh'}}>
+      onClick={e=>e.stopPropagation()} style={{width:'min(1120px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',right:0,pointerEvents:'auto'}}>
         PR5 · DIPOLE PHYSICS LAB
         <button className="chip chip-small" type="button" onClick={onClose}>关闭</button>
@@ -157,7 +164,7 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
           </p>
         )}
         <p className="panel-text">拖动橙色电流源，旋转场景，修改偶极矩及方向。12个示意传感器电位由解析公式实时计算。</p>
-        <div style={{display:'grid',gridTemplateColumns:'minmax(0, 1.5fr) minmax(230px, 1fr)',gap:12}}>
+        <div className="lab-split">
           <div ref={mount} role="img" aria-label="交互式三维电流源与模拟传感器"
             style={{height:420,width:'100%',border:'1px solid #133954'}}/>
           <div style={{minWidth:0}}>
@@ -186,6 +193,7 @@ export default function DipoleLab({ onClose, liveSource }: { onClose: () => void
               setLiveMode(false);
             }}>重置实验（回到手动偶极子）</button>
             <div className="conn-title">示意电极电位 · µV</div>
+            <p className="panel-text">最大电极：{maxSensor.label} {maxSensor.v.toFixed(3)} µV（12 导中幅值最大，尖峰时跟最大值走）</p>
             {sensors.map((s,i)=><div key={s.label} style={{display:'flex',alignItems:'center',gap:5}}>
               <span style={{width:28}}>{s.label}</span>
               <div style={{flex:1,background:'#122637',height:8,position:'relative'}}>
