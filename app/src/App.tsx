@@ -189,6 +189,9 @@ export default function App() {
   const [showConnections, setShowConnections] = useState(true);
   const [resetSignal, setResetSignal] = useState(0);
   const [simReady, setSimReady] = useState(false);
+  const [runOverview, setRunOverview] = useState<{
+    runId: string; tMs: number | null; confirmed: number;
+  } | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showDipoleLab, setShowDipoleLab] = useState(false);
@@ -356,7 +359,14 @@ export default function App() {
         windowT1_ms: w?.t1_ms ?? null,
       };
     });
-    sim.onReady(() => setSimReady(true));
+    sim.onReady(() => {
+      setSimReady(true);
+      const session = sim.getExperimentSession();
+      setRunOverview({
+        runId: session.provenance.runId,
+        tMs: session.lastModelTimeMs, confirmed: session.commands.length,
+      });
+    });
     sim.start(data.connectivity.weights, data.connectivity.lengths);
     // 约 15 Hz 更新 React 面板（时间、读数、锁定横幅）；快照本身 60 Hz，
     // 3D 着色与波形由各自订阅直接消费，不经过 React。
@@ -366,6 +376,11 @@ export default function App() {
         lastUiUpdateRef.current = now;
         setSnap(s);
         setPaused(s.paused);
+        const session = sim.getExperimentSession();
+        setRunOverview({
+          runId: session.provenance.runId,
+          tMs: session.lastModelTimeMs, confirmed: session.commands.length,
+        });
         const hold = sim.getHold();
         setHoldMs(hold ? hold.heldMs : null);
       }
@@ -380,6 +395,7 @@ export default function App() {
       unsub();
       sim.stop();
       simRef.current = null;
+      setRunOverview(null);
     };
   }, [data]);
 
@@ -927,6 +943,15 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-title">BRAIN PHYSICS</div>
         <div className="topbar-sub">PLAYGROUND · LIVE SIMULATION</div>
+        {showMore && runOverview && (
+          <div className="topbar-sub" role="status"
+            data-live-run-id={runOverview.runId}
+            title="Worker 确认的实验会话 ID 与模型时间；不是 EEG 采样率">
+            LIVE Run {runOverview.runId.slice(0, 8)}
+            {' · '}t={runOverview.tMs === null ? '—' : (runOverview.tMs / 1000).toFixed(2)} s
+            {' · '}Worker ACK {runOverview.confirmed}
+          </div>
+        )}
         <div className="topbar-controls">
           <div className="mode-switch" role="group" aria-label="模式">
             {APP_MODES.map((m) => (
