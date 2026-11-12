@@ -31,6 +31,8 @@ export interface ExperimentCommand {
   tMs: number;
   /** Worker queues stimuli with start = tMs; parameter edits apply immediately. */
   status: 'accepted' | 'applied';
+  /** Command inputs recorded from the exact request; no browser wall time. */
+  inputs?: Record<string, string | number | boolean>;
 }
 export interface ExperimentArtifact {
   id: string;
@@ -108,7 +110,7 @@ export class ExperimentSession {
     return {
       provenance: this.provenance,
       lastModelTimeMs: this.lastModelTimeMs,
-      commands: this.commands.map(x => ({ ...x })),
+      commands: this.commands.map(x => ({ ...x, inputs: x.inputs ? { ...x.inputs } : undefined })),
       artifacts: this.artifacts.map(x => ({ ...x })),
       snapshotTimesMs: [...this.snapshotTimesMs],
     };
@@ -170,7 +172,7 @@ export class ExperimentSession {
     if (this.commands.some(x => x.id === command.id)) {
       throw new Error('Duplicate command acknowledgement');
     }
-    this.commands.push({ ...command });
+    this.commands.push({ ...command, inputs: command.inputs ? { ...command.inputs } : undefined });
     cap(this.commands, 1000);
     this.publish();
     return true;
