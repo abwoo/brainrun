@@ -11,7 +11,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import ts from '../../app/node_modules/typescript/lib/typescript.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const CONTROL_FILES = [
@@ -34,25 +33,41 @@ const CONTROL_FILES = [
   'app/src/components/BrainScene.tsx',
 ];
 function source(p) { return readFileSync(join(ROOT, p), 'utf8'); }
+// TypeScript 7 uses a native compiler and does not expose the historical
+// lib/typescript.js parser. Scan JSX opening tags with balanced {…} and quoted
+// strings instead. This is a SOURCE-LEVEL audit, not an AST or runtime proof.
 function scan() {
   const rows = [];
   for (const path of CONTROL_FILES) {
-    const sf = ts.createSourceFile(path, source(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    assert.equal(sf.parseDiagnostics.length, 0, `${path} must parse`);
-    function walk(n) {
-      if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-        const name = n.tagName.getText(sf);
-        if (['button', 'input', 'select', 'textarea'].includes(name)) {
-          const attrs = n.attributes.properties.filter(ts.isJsxAttribute)
-            .map(a => a.name.getText(sf));
-          const lc = sf.getLineAndCharacterOfPosition(n.getStart(sf));
-          rows.push({ path, line: lc.line + 1, name, attrs,
-            callback: attrs.filter(a => a.startsWith('on')) });
+    const code = source(path);
+    const re = /<(button|input|select|textarea)\\b/g;
+    for (const match of code.matchAll(re)) {
+      const pos = match.index;
+      let depth = 0;
+      let quote = null;
+      let escaped = false;
+      let end = -1;
+      for (let i = pos; i < code.length; i++) {
+        const ch = code[i];
+        if (quote !== null) {
+          if (escaped) { escaped = false; continue; }
+          if (ch === '\\\\') { escaped = true; continue; }
+          if (ch === quote) quote = null;
+          continue;
         }
+        if (ch === '"' || ch === "'" || ch === '`') { quote = ch; continue; }
+        if (ch === '{') { depth++; continue; }
+        if (ch === '}' && depth > 0) { depth--; continue; }
+        if (ch === '>' && depth === 0) { end = i; break; }
       }
-      ts.forEachChild(n, walk);
+      assert.ok(end !== -1, `Unterminated <${match[1]}> opening tag: ${path}:${pos}`);
+      const openingTag = code.slice(pos, end + 1);
+      const attrs = [...openingTag.matchAll(/\\b([A-Za-z_][A-Za-z_0-9]*)\\s*=/g)]
+        .map(m => m[1]);
+      const line = code.slice(0, pos).split('\\n').length;
+      rows.push({ path, line, name: match[1], attrs,
+        callback: attrs.filter(a => a.startsWith('on')) });
     }
-    walk(sf);
   }
   return rows;
 }
