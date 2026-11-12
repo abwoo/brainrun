@@ -262,6 +262,7 @@ export class SimClient {
     anatomyId: 'tvb-demo-connectome-76', registration: 'unregistered', seed: 0,
   });
   private commandSequence = 0;
+  private pendingCommandInputs = new Map<number, Record<string, string | number | boolean>>();
   private pendingStimulusMarkers = new Map<number, StimulusMarker>();
   /** 自上次清零以来各脑区 E 的峰值（60 Hz 快照流逐条更新）。主线程
    *  每帧只读到最新快照，200 ms 的脉冲瞬态会被帧率采样漏掉；峰值
@@ -334,7 +335,9 @@ export class SimClient {
         this.experiment.recordAcknowledgement(msg.run_id, {
           id: msg.command_id, runId: msg.run_id, command: msg.command_type,
           tMs: msg.t_ms, status: msg.phase,
+          inputs: this.pendingCommandInputs.get(msg.command_id),
         });
+        this.pendingCommandInputs.delete(msg.command_id);
         // Legacy pulse marker is now corrected to the time at which the
         // Worker actually accepted the stimulation command; the dispatch
         // snapshot (<=16 ms old) is not the true stimulus timestamp.
@@ -660,6 +663,21 @@ export class SimClient {
       return null;
     }
     const command_id = ++this.commandSequence;
+    // Keep only small, meaningful, serializable experimental parameters.
+    // Never copy full MRI, BEM, state JSON or 76x76 connectome into metadata.
+    const inputs: Record<string, string | number | boolean> = {};
+    for (const [k, v] of Object.entries(msg)) {
+      if (k === 'type' || k === 'run_id' || k === 'command_id' ||
+          k === 'json' || k === 'weights' || k === 'lengths') continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        inputs[k] = v;
+      } else if (k === 'params' && v && typeof v === 'object') {
+        for (const [pk, pv] of Object.entries(v)) {
+          if (typeof pv === 'number') inputs[pk] = pv;
+        }
+      }
+    }
+    this.pendingCommandInputs.set(command_id, inputs);
     this.worker.postMessage({
       ...msg, run_id: this.experiment.runId, command_id,
     } satisfies WorkerInMessage);
@@ -756,6 +774,7 @@ export class SimClient {
   reset(): void {
     this.experiment.newRun({ seed: this.seed });
     this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     this.markers = [];
     this.holdStartWall = null;
     this.peakE = null;
@@ -783,6 +802,7 @@ export class SimClient {
   resetPaused(): void {
     this.experiment.newRun({ seed: this.seed });
     this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     this.markers = [];
     this.holdStartWall = null;
     this.peakE = null;
@@ -982,6 +1002,7 @@ export class SimClient {
     }
     this.experiment.newRun({ seed: this.seed });
     this.pendingStimulusMarkers.clear();
+    this.pendingCommandInputs.clear();
     return new Promise((resolve) => {
       const list = this.restoreWaiters.get(id) ?? [];
       list.push(resolve);
