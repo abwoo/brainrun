@@ -192,12 +192,13 @@ export default function ErpTab({
             fontSize: 13,
           }}
         >
-          运行 oddball 实验（late 机制）并切分
+          运行独立 oddball（替换 ERP/TFR 试次）
         </button>
         <p style={note}>
           右边按钮跑 late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 + 8 oddball），
-          不依赖 EEG 页的记录；左边按钮切分 EEG 页已有的壳实验记录。壳记录是 plain 模型、
-          窗内基本无响应，late 实验才有 0.174 µV 的晚期峰（见下方说明）。
+          不依赖 EEG 页的记录；这会替换 ERP 与时频分析使用的试次，但不会替换 EEG 原始记录、
+          PSD、地形或源定位的数据。两者目前属于不同实验，不能作为同一次实验直接对照。
+          左边按钮只切分 EEG 页的当前记录；late 实验才有 0.174 µV 的晚期峰。
         </p>
         {error && <p style={{ ...note, color: '#ff9d9d' }}>{error}</p>}
         {!recording && <p style={note}>还没有 EEG 记录。先在 EEG 页运行实验（或直接点 late 机制按钮）。</p>}
