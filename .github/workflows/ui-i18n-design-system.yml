@@ -1,0 +1,30 @@
+name: UI Design System, Dropdown and i18n Gate
+on:
+  pull_request:
+    branches: [main, p0-1-control-causality-audit]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+      - name: Shared native Dropdown and locale/workspace source invariants
+        run: node --test tests/ui/design-system-i18n.test.mjs
+      - name: Full UI control scope and P0-1 causal source contracts
+        run: node --test tests/p0-1/control-flow.test.mjs
+      - name: Frontend typecheck
+        working-directory: app
+        run: npx tsc -b
+      - name: Frontend lint
+        working-directory: app
+        run: npm run lint
