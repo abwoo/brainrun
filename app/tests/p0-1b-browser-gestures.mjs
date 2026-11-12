@@ -52,11 +52,18 @@ try {
 
   // Reset camera using explicitly visual-only background double click.
   await page.mouse.dblclick(box.x+15,box.y+15);
-  await page.waitForTimeout(1000);
+  // SwiftShader may render <5 FPS. Check that the actual 3D camera completes
+  // its 600ms RAF-based flight, not that the wall clock advanced by 1000ms.
+  await page.waitForFunction(()=>{
+    const sc=window.__brainScene;
+    const pos=sc?.getCameraPosition(), target=sc?.getDefaultCameraPosition();
+    return !!pos && !!target &&
+      Math.hypot(...pos.map((v,i)=>v-target[i]))<5;
+  },null,{timeout:20000,polling:100});
   const cameraNow=await sim(()=>window.__brainScene.getCameraPosition());
   const target=await sim(()=>window.__brainScene.getDefaultCameraPosition());
   assert.ok(Math.hypot(...cameraNow.map((v,i)=>v-target[i]))<5,
-    'double click background returns camera close to default, without a solver event');
+    'double click background must really return the 3D camera to default');
   assert.equal(await markCount(),markersBefore);
 
   await page.mouse.click(x,y,{button:'right'});
