@@ -157,3 +157,33 @@ test('P0-1B: explicit non-JSX gesture, wheel, and multi-view causal observers re
   assert.match(control, /onChangeRef\.current\(/);
   assert.match(control, /onChange\(Number\(e\.target\.value\) \/ 1000\)/);
 });
+
+test('P0-1B: every native JSX control has a scientific-scope entry, not a fabricated runtime proof', () => {
+  const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
+  const actual = scan();
+  assert.equal(registry.counts.total, actual.length);
+  assert.equal(actual.length, 212, 'P0-1B current full 19-component static control census');
+  assert.equal(registry.entries.length, actual.length);
+  assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
+    'every JSX control needs a distinct audit ID');
+  const allowed = new Set(['LIVE', 'SELECTION', 'VISUAL', 'NAV', 'EXPORT',
+    'INDEPENDENT', 'DERIVED', 'CONFIG', 'MIXED', 'DIAGNOSTIC', 'REVIEW']);
+  const currentByFile = new Map();
+  for (const row of actual) {
+    const file = row.path.split('/').at(-1).replace('.tsx', '');
+    const n = (currentByFile.get(file) ?? 0) + 1;
+    currentByFile.set(file, n);
+    const expected = registry.entries.find(x => x.controlId ===
+      file + ':' + row.name + ':' + n);
+    assert.ok(expected, 'missing registry entry ' + row.path + ':' + row.line);
+    assert.equal(expected.path, row.path);
+    assert.ok(allowed.has(expected.category));
+    assert.equal(expected.evidence, 'static-handler-bound (not runtime-proven)');
+    assert.ok(expected.modelBoundary?.length > 10,
+      'every control needs a documented physical/model scope');
+    if (row.name === 'button') assert.ok(expected.events.includes('onClick'));
+    else assert.ok(expected.events.includes('onChange'));
+  }
+  assert.equal(registry.nativeCanvas.events.length, 7,
+    '3D native pointer events must be audited outside static JSX census');
+});
