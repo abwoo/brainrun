@@ -26,7 +26,7 @@
 | EXPLORE | 6 | 搜索和脑区选择；坐标演示与细胞台导航 |
 | CellularLab | 18 | 独立 LIF/HH/多房室；可选假设增益反向写回 |
 | 场景启动器 | 5 | S1–S3 LIVE，S4–S15 大多 INDEPENDENT；入口仅 NAV |
-| EEG 分析及 EEG 波形 | 12 | 独立记录/直播推导/重新参考/导出 |
+| EEG 分析及 EEG 波形 | 15 | 独立记录/直播推导/重新参考/导出 |
 | ERP/TFR/地形/逆解/WAVES | 26 | 记录派生、late 独立事件、独立正向采样图 |
 | HEAD/DIPOLE/LocalBEM | 30 | 独立正向/本地模板解；直播源仅部分接入 |
 | StimLab | 29 | 简化 TES/TMS/感觉输入，场→神经增益未校准 |
