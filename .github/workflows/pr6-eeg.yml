@@ -12,7 +12,7 @@ name: PR6 EEG Analysis Checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, p0-1-control-causality-audit] # stacked P0-1B PR; remove extra branch when rebased onto main
   workflow_dispatch:
 
 permissions:

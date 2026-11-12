@@ -713,6 +713,10 @@ export default function BrainScene({
       if (!simRef.current?.isReady()) return;
       holding = true;
       holdStartPerf = performance.now();
+      // A true hold is an intentional selection; pointerdown alone is not.
+      // Deferring selection prevents an orbit drag from silently switching
+      // the selected region / cellular boundary input.
+      onSelectRef.current(downRegion);
       spawnMarker(downRegion, downPoint);
       onHoldStartRef.current(downRegion);
     };
@@ -779,6 +783,9 @@ export default function BrainScene({
       else renderer.domElement.style.cursor = 'grab';
     };
     const onPointerDown = (e: PointerEvent) => {
+      // Right/middle mouse buttons are OrbitControls pan/zoom, never a
+      // neuroscience command. Ignore secondary touch/pen contacts as well.
+      if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
       cancelFly(); // 用户接手操作，立即停止视角飞行
       downX = e.clientX;
       downY = e.clientY;
@@ -791,7 +798,7 @@ export default function BrainScene({
       downRegion = hit?.region ?? null;
       downPoint = hit?.point ?? null;
       if (downRegion !== null) {
-        onSelectRef.current(downRegion);
+        // No selection until a short completed tap or a genuine hold.
         clearHoldTimer();
         // 计时器到时直接启动按住（见 HOLD_DELAY_MS 说明）：启动任务
         // 在 300 ms 时入队，真正的按住不会被卡顿推迟到松开之后。
@@ -809,12 +816,15 @@ export default function BrainScene({
       }
     };
     const onPointerUp = (e: PointerEvent) => {
+      // Stray pointerup after pointercancel/leave, or a non-primary contact,
+      // must not reuse the previous downRegion and synthesize a new pulse.
+      if (!pointerDown || !e.isPrimary) return;
       pointerDown = false;
       const wasHolding = holding;
       endHold();
-      if (moved) return; // 拖拽旋转，不触发刺激
-      const id = downRegion ?? pickRegion(e.clientX, e.clientY);
-      if (id === null) return;
+      if (moved) return; // 拖拽旋转：既不刺激也不改变选中脑区
+      const id = downRegion;
+      if (id === null) return; // background-down may not become a cortex pulse
       // PR4：慢机器上的短点击纠正——计时器任务可能在松开事件被处理
       // 之前就已触发（主线程卡顿时输入事件按帧投递、计时器先跑），
       // 按住因此“提前”启动；但松开事件的时间戳证明这次按压实际短于
@@ -832,6 +842,9 @@ export default function BrainScene({
       // 不制造虚假的持续输入与锁定。
       // PR1 小修：引擎未就绪时不画确认标记、不发脉冲（同 startHold）。
       if (!simRef.current?.isReady()) return;
+      // Selecting a region now is part of the confirmed cortex click, not
+      // a side-effect of pressing a button to orbit the camera.
+      onSelectRef.current(id);
       // PR3：确认环画在松开点的射线命中处（与按下点同一触点优先）；
       // 拾取不到时回落到按下点，再不行回落到脑区中心。
       const hitUp = pickHit(e.clientX, e.clientY);

@@ -2,7 +2,7 @@ name: PR5 Physics Baseline Checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, p0-1-control-causality-audit] # stacked P0-1B PR; remove extra branch when rebased onto main
   workflow_dispatch:
 
 permissions:
@@ -110,6 +110,9 @@ jobs:
       - name: P0-1 browser causal interaction smoke (shared selection + cell solvers)
         working-directory: app
         run: node tests/p0-1-browser-causality.mjs
+      - name: P0-1B real 3D gestures and shared-solver cross-view contract
+        working-directory: app
+        run: node tests/p0-1b-browser-gestures.mjs
       - name: Upload P0-1 causal browser screenshot
         if: always()
         uses: actions/upload-artifact@v4
