@@ -1176,10 +1176,15 @@ export default function App() {
             <section className="screen panel explore-panel">
               <div className="screen-title">EXPLORE · 解剖 / 图谱 / 坐标</div>
               <div className="panel-body">
-                <ExplorePanel data={data} onOpenCellular={() => setShowCellularLab(true)} />
+                <ExplorePanel
+                  data={data}
+                  selectedRegionId={selectedId}
+                  onSelectRegion={setSelectedId}
+                  onOpenCellular={() => setShowCellularLab(true)}
+                />
                 <p className="panel-text">
-                  场景 13（Hodgkin–Huxley 注入电流看动作电位）可在「一键场景」里跑，
-                  算完再点“打开实验台”进细胞实验。
+                  场景 13 可生成独立 Hodgkin–Huxley 演示摘要。进入细胞实验后需重新运行；
+                  场景摘要尚未自动载入实验台（统一实验会话将在 P0-2 实现）。
                 </p>
               </div>
             </section>
