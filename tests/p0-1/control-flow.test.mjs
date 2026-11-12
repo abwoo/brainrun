@@ -1,6 +1,6 @@
 /**
  * P0-1A: exhaustive *syntactic* inventory of native JSX controls and
- * targeted semantic regression checks. The AST scan is NOT a substitute for
+ * targeted semantic regression checks. The source-level scan is NOT a substitute for
  * Playwright causal verification or scientific validation.
  *
  * Run after `cd app && npm ci`:
@@ -40,7 +40,7 @@ function scan() {
   const rows = [];
   for (const path of CONTROL_FILES) {
     const code = source(path);
-    const re = /<(button|input|select|textarea)\\b/g;
+    const re = /<(button|input|select|textarea)\b/g;
     for (const match of code.matchAll(re)) {
       const pos = match.index;
       let depth = 0;
@@ -51,7 +51,7 @@ function scan() {
         const ch = code[i];
         if (quote !== null) {
           if (escaped) { escaped = false; continue; }
-          if (ch === '\\\\') { escaped = true; continue; }
+          if (ch === '\\') { escaped = true; continue; }
           if (ch === quote) quote = null;
           continue;
         }
@@ -62,9 +62,9 @@ function scan() {
       }
       assert.ok(end !== -1, `Unterminated <${match[1]}> opening tag: ${path}:${pos}`);
       const openingTag = code.slice(pos, end + 1);
-      const attrs = [...openingTag.matchAll(/\\b([A-Za-z_][A-Za-z_0-9]*)\\s*=/g)]
+      const attrs = [...openingTag.matchAll(/\b([A-Za-z_][A-Za-z_0-9]*)\s*=/g)]
         .map(m => m[1]);
-      const line = code.slice(0, pos).split('\\n').length;
+      const line = code.slice(0, pos).split('\n').length;
       rows.push({ path, line, name: match[1], attrs,
         callback: attrs.filter(a => a.startsWith('on')) });
     }
