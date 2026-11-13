@@ -119,6 +119,9 @@ jobs:
       - name: Native Dropdown, locale persistence and adjustable workbench browser E2E
         working-directory: app
         run: node tests/ui-language-workspace-browser.mjs
+      - name: Native integration acquisition and EEG export
+        working-directory: app
+        run: node tests/native-acquisition-browser.mjs
       - name: Upload manual physics and language screenshots
         if: always()
         uses: actions/upload-artifact@v4

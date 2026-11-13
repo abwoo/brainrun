@@ -3,13 +3,13 @@
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
   "disclaimer": "216 static JSX controls including 36 native Dropdown lab instances and locale switch; all are source-classified, not all runtime proven.",
   "counts": {
-    "total": 235,
+    "total": 236,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
       "CellularLab": 18,
       "ScenarioLauncher": 5,
-      "EegAnalysisLab": 3,
+      "EegAnalysisLab": 4,
       "EegWaveTab": 12,
       "ErpTab": 2,
       "TfrTab": 6,
@@ -34,7 +34,7 @@
       "MIXED": 17,
       "SELECTION": 4,
       "DIAGNOSTIC": 2,
-      "CONFIG": 47,
+      "CONFIG": 48,
       "INDEPENDENT": 74,
       "EXPORT": 3,
       "DERIVED": 13
@@ -1155,7 +1155,7 @@
         "onClick"
       ],
       "category": "NAV",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1169,21 +1169,21 @@
         "onClick"
       ],
       "category": "NAV",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
-      "controlId": "EegAnalysisLab:button:3",
+      "controlId": "EegAnalysisLab:button:4",
       "path": "app/src/components/EegAnalysisLab.tsx",
       "line": 333,
       "element": "button",
-      "visibleName": "用最近约 10 秒的直播快照推导一份 EEG 记录（六个 tab 共用）；改 G、换选区、改刺激强度后重跑，数值跟着变",
+      "visibleName": "Record selected region EEG from native integration history",
       "events": [
         "onClick"
       ],
       "category": "DERIVED",
-      "modelBoundary": "Independent Raw or history-derived LIVE approximation, incomplete cross-tab lineage",
+      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -3360,6 +3360,20 @@
       ],
       "category": "VISUAL",
       "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "EegAnalysisLab:Dropdown:3",
+      "path": "app/src/components/EegAnalysisLab.tsx",
+      "line": 1,
+      "element": "Dropdown",
+      "visibleName": "Native EEG sample rate",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     }

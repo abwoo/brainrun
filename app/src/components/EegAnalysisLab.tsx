@@ -11,6 +11,8 @@
  * recording，不许各写一套不相关的模拟波形。
  */
 import { useEffect, useState } from 'react';
+import Dropdown from './ui/Dropdown';
+import {runNativeExperiment,NATIVE_EEG_ID} from '../lib/nativeEeg';
 import { useI18n } from '../lib/i18n';
 import { configurationForRecording, configurationsEqual, type EegRunConfiguration } from '../lib/eegConfiguration';
 import {
@@ -22,15 +24,13 @@ import {
 import type { EegEvent, EegRecording, EegReference, EpochSet, NoiseParams } from '../lib/eegData';
 import {
   getLiveRecordingStore,
-  LIVE_DERIVATION_ID,
   reReferenceRecording,
   runExperiment,
-  runLiveExperiment,
   setLiveRecordingStore,
   type SourceModel,
 } from '../lib/eegRecording';
 import type { SimClient } from '../lib/simClient';
-import { ExperimentSession, makeDerivedSession } from '../lib/experimentSession';
+import { ExperimentSession } from '../lib/experimentSession';
 import type { Vec3Mm } from '../lib/volumeConduction';
 import EegWaveTab from './EegWaveTab';
 import WavesTab from './WavesTab';
@@ -96,22 +96,19 @@ export default function EegAnalysisLab({
   const [activeTab, setActiveTab] = useState<EegLabTab>(initialTab ?? 'eeg');
   const [atTimeMs, setAtTimeMs] = useState(storedLive?.workspace?.atTimeMs??400);
 
+  const [nativeRate,setNativeRate]=useState<250|500>(storedLive?.workspace?.nativeRate??250);
   const configuration:EegRunConfiguration={sourceModel,durationMs,montage,reference,noise,seed};
   const pending=!!recording&&(!configurationsEqual(configuration,configurationForRecording(recording))
     ||recording.provenance?.origin==='live-derived'||recording.sourceModelId.includes('late'));
   // PR8-LINK：记录一变就写回 store（两路都进同一份 store；挂载时已从 store 恢复）。
   useEffect(() => {
     if (recording) setLiveRecordingStore({ recording, events, epochs,
-      workspace:{configuration:{sourceModel,durationMs,montage,reference,noise,seed},selectedChannel,atTimeMs} });
-  }, [recording, events, epochs,sourceModel,durationMs,montage,reference,noise,seed,selectedChannel,atTimeMs]);
+      workspace:{configuration:{sourceModel,durationMs,montage,reference,noise,seed},selectedChannel,atTimeMs,nativeRate} });
+  }, [recording, events, epochs,sourceModel,durationMs,montage,reference,noise,seed,selectedChannel,atTimeMs,nativeRate]);
 
   // PR8-LINK 直播推导的状态（与独立柱模型的 running 分开）。
+  const [nativeResult,setNativeResult]=useState<{rate:number;peak:number}|null>(null);
   const [liveRunning, setLiveRunning] = useState(false);
-  const [liveStatus, setLiveStatus] = useState<string | null>(
-    storedLive?.recording?.sourceModelId === LIVE_DERIVATION_ID
-      ? '当前记录来自直播推导（关弹窗前跑的，还在）。'
-      : null,
-  );
 
   // PR8-A：initialTab 变化时切过去（例如已在 EEG 模式时从场景启动器点
   // “打开实验台 ERP”）；只在有明确要求时切，不碰用户自己切的 tab。
@@ -159,6 +156,7 @@ export default function EegAnalysisLab({
   const handleRunExperiment = () => {
     if (!fixture || running) return;
     setRunning(true);
+    setNativeResult(null);
     setRunError(null);
     // 让“运行中…”先画出来，再跑同步计算（10 秒双源约几百毫秒）。
     window.setTimeout(() => {
@@ -233,31 +231,29 @@ export default function EegAnalysisLab({
     setEpochs({ ...ep, provenance: session.provenance, dataRevision:input.recording.dataRevision??0,
       events: ep.events.map(event => ({ ...event, runId: session.runId })) });
     setSelectedChannel(input.recording.channels[0].label);
+    setNativeResult(null);
     const loaded=configurationForRecording(rec);
     setReference(loaded.reference);setMontage(loaded.montage);setNoise(loaded.noise);setSeed(loaded.seed);
     setDurationMs(loaded.durationMs);setSourceModel(loaded.sourceModel);
-    setLiveStatus(null);
   };
 
-  // PR8-LINK：从直播推导记录——读 SimClient 的 60 Hz 快照历史（最近约
-  // 10 s）+ 真实脉冲标记，经 runLiveExperiment 走同一条 q→leadfield
-  // 管线。改 G / 换选区 / 改刺激强度后重跑，记录跟着变（数值见
-  // tests/pr8/methods-link.test.mjs 的 L1–L3）；源模型与种子对此路无效
-  //（用的是直播 WC 网络，不是独立柱模型），时长取历史实际跨度。
+  // Native 1 ms solver history -> anti-alias FIR -> 250/500 Hz EEG.
+  // The TVB-to-sphere source mapping is still explicitly unregistered.
   const handleRunLive = () => {
     const ls = liveSource;
     if (!fixture || !ls || !ls.sim || ls.node === null || !ls.positionMm || liveRunning) return;
     setLiveRunning(true);
+    setNativeResult(null);
     setRunError(null);
-    setLiveStatus(null);
     window.setTimeout(() => {
       try {
         const sim = ls.sim!;
         const node = ls.node!;
-        const samples = sim.getSnapshotHistory();
-        if (samples.length < 2) throw new Error('直播快照历史不足：等仿真跑满 1 秒再推导');
+        const samples = sim.getNativeHistory();
+        if (samples.length < 1001) throw new Error(text('原生积分记录不足，请等待至少 1 秒。','Wait for at least 1 second of native integration history.'));
         const first = samples[0];
-        const { recording: rec, events: evs, snapshotHz, t0Ms } = runLiveExperiment({
+        const { recording: rec, events: evs, t0Ms } = runNativeExperiment({
+          sfreqHz:nativeRate,
           fixture,
           samples,
           node,
@@ -271,22 +267,26 @@ export default function EegAnalysisLab({
           seed,
         });
         const upstream = sim.getExperimentSession().provenance;
-        const derived = makeDerivedSession(upstream, LIVE_DERIVATION_ID);
+        const derived = new ExperimentSession({
+          origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:rec.forwardModelId,
+          registration:'unregistered',seed,parentRunId:upstream.runId,clock:'solver-integration-ms',
+        });
         const runId = derived.runId;
         // This recording is a 250 Hz interpolation of ≈60 Hz visual
         // snapshots; the actual source clock and rate remain visible.
         derived.recordModelTime(runId, rec.timesMs.at(-1) ?? 0);
         derived.recordArtifact({
           id: 'raw', runId, kind: 'eeg-raw', tMs: 0,
-          sourceId: upstream.runId, methodId: LIVE_DERIVATION_ID,
+          sourceId: upstream.runId, methodId: NATIVE_EEG_ID,
         });
         setRecording({
           ...rec, experiment: { session: derived.getSnapshot(), parameters: {
-            node, positionMm: ls.positionMm, montage, reference, noise, seed,
+            node, positionMm: ls.positionMm, montage, reference, noise, seed,sfreqHz:nativeRate,
+            acquisition:rec.acquisition,
             upstreamSession: sim.getExperimentBundle(),
           } }, provenance: {
             ...derived.provenance, upstreamStartMs: t0Ms,
-            effectiveSourceSnapshotHz: snapshotHz,
+
           },
         });
         setEvents(evs.map(event => ({ ...event, runId })));
@@ -297,12 +297,8 @@ export default function EegAnalysisLab({
         const pzIdx = rec.channels.findIndex((c) => c.label === 'Pz');
         const pzPeak =
           pzIdx >= 0 ? Math.max(...rec.dataUv[pzIdx].map(Math.abs)) : NaN;
-        const spanS = rec.timesMs.length > 0 ? rec.timesMs[rec.timesMs.length - 1] / 1000 : 0;
-        setLiveStatus(
-          `直播推导完成：窗口 ${spanS.toFixed(1)} s（仿真 ${(t0Ms / 1000).toFixed(1)}–${((t0Ms + rec.timesMs[rec.timesMs.length - 1]) / 1000).toFixed(1)} s）· ` +
-            `快照 ${samples.length} 条（实测 ${snapshotHz.toFixed(1)} Hz）· 事件 ${evs.length} 个（真实脉冲）· ` +
-            `Pz 峰值 ${Number.isFinite(pzPeak) ? pzPeak.toFixed(3) : '—'} µV · 源位置钳制进球网格。`,
-        );
+        setNativeResult({rate:nativeRate,peak:pzPeak});
+
       } catch (e) {
         setRunError(String(e));
       } finally {
@@ -351,23 +347,25 @@ export default function EegAnalysisLab({
       </div>
         {liveSource && (
           <div>
-            <p className="panel-text">
-              直播推导：{liveSource.node === null
-                ? '未选脑区——先在主界面点一个脑区，再从直播推导记录。'
-                : `源脑区 #${liveSource.node} ${liveSource.regionLabel ?? ''}（中心 ${liveSource.positionMm ? liveSource.positionMm.map((v) => v.toFixed(1)).join(', ') : '—'} mm，TVB 坐标、未配准 HEAD，钳制进 ±48 mm 球网格）`}
-              · 60 Hz 快照 → 线性插值 250 Hz（有效采样率 60 Hz，4 ms 网格上的高频成分为插值产物，不是实测）
-              · 基线取窗口首样本 E/I · 事件只取真实脉冲标记 · 源模型与种子对此路无效（用直播 WC 网络）。
-            </p>
-            <button
-              type="button"
-              className="chip chip-small"
+            <p className="panel-text">{text(
+              '主网络信号来自每 1 ms 的求解器积分状态，经抗混叠滤波后记录；与画面刷新率无关。TVB 到头部源位置仍是未配准的演示映射。',
+              'Network signals use every 1 ms solver state, followed by anti-alias filtering, independently of display rate. TVB-to-head source positions remain an unregistered demonstration mapping.'
+            )}</p>
+            <label className="panel-text">{text('原生 EEG 采样率','Native EEG sample rate')}
+             <Dropdown aria-label={text('原生 EEG 采样率','Native EEG sample rate')} value={nativeRate}
+              onChange={e=>setNativeRate(Number(e.target.value) as 250|500)}>
+              <option value={250}>250 Hz</option><option value={500}>500 Hz</option>
+             </Dropdown>
+            </label>
+            <button type="button" className="chip chip-small"
               disabled={!fixture || !liveSource.sim || liveSource.node === null || !liveSource.positionMm || liveRunning}
-              onClick={handleRunLive}
-              title="从约 60 Hz 可视化快照构造近似 EEG 记录；不是 250 Hz 原生采样。late ERP 与地形右侧物理源仍可能独立，P0-3/4 待完成。"
-            >
-              {liveRunning ? '推导中…' : '从直播推导记录'}
+              onClick={handleRunLive}>
+              {liveRunning?text('记录中…','Recording…'):text('记录当前脑区 EEG','Record selected region EEG')}
             </button>
-            {liveStatus && <p className="panel-text">{liveStatus}</p>}
+            {nativeResult&&<p className="panel-text">{text(
+              '原生记录完成：'+nativeResult.rate+' Hz，来自每 1 ms 的积分状态；边缘各舍弃 64 ms。Pz 峰值 ',
+              'Native recording: '+nativeResult.rate+' Hz from 1 ms integration states; 64 ms discarded at each edge. Pz peak '
+            )}{Number.isFinite(nativeResult.peak)?nativeResult.peak.toFixed(3):'—'} µV</p>}
           </div>
         )}
         {runError && <p className="eeg-error">{runError}</p>}
@@ -411,7 +409,7 @@ export default function EegAnalysisLab({
         {activeTab === 'inverse' && <InverseTab recording={recording} fixture={fixture} />}
         {recording?.provenance && (
           <p className="panel-text" data-eeg-run-id={recording.provenance.runId}>
-            Raw：{recording.provenance.origin === 'live-derived' ? '主仿真快照派生' : '独立神经群体'}
+            Raw：{recording.acquisition ? text('主求解器原生积分记录','Native solver integration recording') : recording.provenance.origin === 'live-derived' ? '主仿真快照派生' : '独立神经群体'}
             {' · '}Run {recording.provenance.runId.slice(0, 8)}
             {recording.provenance.parentRunId
               ? ` · 上游 Worker Run ${recording.provenance.parentRunId.slice(0, 8)}` : ''}

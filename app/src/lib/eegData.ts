@@ -35,6 +35,11 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  acquisition?: {
+    source:'solver-integration';integrationRateHz:number;sampleRateHz:250|500;
+    validStartMs:number;validEndMs:number;
+    filter:{method:string;taps:number;cutoffHz:number;discardedEdgeMs:number;phase:'offline-zero-phase'};
+  };
   /** Processing revision within one acquisition run; zero is the original Raw. */
   dataRevision?: number;
   processingHistory?: Array<{

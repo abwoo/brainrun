@@ -123,6 +123,7 @@ export type WorkerOutMessage =
   | { type: 'command_ack'; run_id: string; command_id: number;
       command_type: WorkerInMessage['type']; t_ms: number;
       phase: 'accepted' | 'applied' }
+  | import('../lib/nativeAcquisition').NativeChunk
   | Snapshot
   | { type: 'mode_applied'; params: ModeParams }
   | { type: 'snapshot_saved'; id: string; t_ms: number; json: string; run_id?: string }
