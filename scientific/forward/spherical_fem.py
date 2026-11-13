@@ -156,7 +156,42 @@ def project_sensors(unit,faces,directions):
     return np.asarray(result),np.asarray(weights),np.asarray(indices)
 
 
+def central_layered_sphere(sensor_positions,sigmas):
+    # Exact l=1 interface solution. Normalize radii to avoid an ill-scaled SI matrix.
+    radii=[.90,.92,.97]
+    A=np.zeros((7,7));b=np.zeros(7)
+    def row(layer,r,flux=False):
+        v=np.zeros(7)
+        if layer==0:
+            v[0]=sigmas[0] if flux else r
+            known=-2*sigmas[0]/r**3 if flux else 1/r**2
+        else:
+            j=2*layer-1
+            v[j]=sigmas[layer] if flux else r
+            v[j+1]=-2*sigmas[layer]/r**3 if flux else 1/r**2
+            known=0.
+        return v,known
+    for i,r in enumerate(radii):
+        for flux in [False,True]:
+            j=2*i+int(flux)
+            left,lc=row(i,r,flux);right,rc=row(i+1,r,flux)
+            A[j]=left-right;b[j]=rc-lc
+    A[6,5]=1;A[6,6]=-2
+    coefficients=np.linalg.solve(A,b)
+    amplitude=(coefficients[5]+coefficients[6])*1e-9/(4*np.pi*sigmas[0]*.095**2)*1e6
+    directions=sensor_positions/np.linalg.norm(sensor_positions,axis=1,keepdims=True)
+    return directions*amplitude
+
+
 def mne_reference(positions,sensor_positions,sigmas):
+    central=np.linalg.norm(positions,axis=1)<1e-14
+    if central.any():
+        out=np.zeros((len(sensor_positions),len(positions)*3))
+        if (~central).any():
+            noncentral=mne_reference(positions[~central],sensor_positions,sigmas)
+            out.reshape(len(sensor_positions),-1,3)[:,~central,:]=noncentral.reshape(len(sensor_positions),-1,3)
+        out.reshape(len(sensor_positions),-1,3)[:,central,:]=central_layered_sphere(sensor_positions,sigmas)[:,None,:]
+        return out
     import mne
     assert mne.__version__=="1.11.0"
     origin = np.array([0.,0.,0.04])
@@ -170,7 +205,9 @@ def mne_reference(positions,sensor_positions,sigmas):
         np.repeat(positions+origin,3,axis=0),np.full(len(positions)*3,1e-9),
         np.tile(np.eye(3),(len(positions),1)),np.ones(len(positions)*3))
     fwd,_ = mne.make_forward_dipole(dipoles,sphere,info,verbose=False)
-    return np.asarray(fwd["sol"]["data"])*1e-3
+    result=np.asarray(fwd["sol"]["data"])*1e-3
+    assert np.isfinite(result).all(), "Nonfinite independent reference"
+    return result
 
 
 def build(level=3,skull=.004):

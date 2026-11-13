@@ -2812,7 +2812,7 @@
       ],
       "category": "CONFIG",
       "modelBoundary": "Corresponding analytic or P1-FEM matrix; solver change bounds both sources and resets moved electrodes",
-      "evidence": "static-handler-bound (not runtime-proven); spherical-fem-browser separately exercises the actual solver path",
+      "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:6",
       "line": 384
