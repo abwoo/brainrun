@@ -34,7 +34,12 @@ try{
  assert.ok(changed.globalMaxDifference>1e-6,'changing only G must change the actual full-network trajectory');
  await page.getByRole('button',{name:'English',exact:true}).click();
  await page.getByRole('button',{name:'Advanced labs',exact:true}).click();
- await page.getByRole('button',{name:/^Compare and replay/}).click();
+ await page.getByRole('button',{name:/^Signal analysis/}).click();
+ await page.getByRole('button',{name:'Run experiment',exact:true}).click();
+ await page.getByTestId('eeg-summary').waitFor();
+ const previousRun=await page.locator('[data-analysis-run-id]').getAttribute('data-analysis-run-id');
+ await page.getByRole('button',{name:'More',exact:true}).click();
+ await page.getByRole('button',{name:'Comparisons',exact:true}).click();
  await page.getByRole('button',{name:'Compare A/B from this state',exact:true}).click();
  await page.getByTestId('network-comparison-result').waitFor({timeout:30000});
  const ready=page.waitForEvent('download');
@@ -50,6 +55,7 @@ try{
  const rawDownload=await rawEvent,rawStream=await rawDownload.createReadStream();let rawText='';
  for await(const chunk of rawStream)rawText+=chunk.toString();
  const rec=JSON.parse(rawText);
+ assert.notEqual(rec.provenance.runId,previousRun,'an already mounted EEG view must load the chosen branch, not retain its previous Raw');
  assert.equal(rec.provenance.parentRunId,paired.b.run.provenance.runId);
  assert.equal(rec.experiment.parameters.comparisonBranch,'b');assert.equal(rec.acquisition.integrationRateHz,1000);
  assert.equal(rec.sourceSeries.sources[0].momentsNAm.length,rec.timesMs.length);

@@ -451,7 +451,7 @@ export default function ExperimentLab({
        <h3 style={title}>{text('全脑网络 A/B · 同一完整状态分叉','Whole-network A/B · fork one complete state')}</h3>
        <p style={note}>{text('暂停主模型，从同一随机状态、延迟历史、输入和控制器状态分叉。A 保留当前 G，B 只改变 G；两条轨迹均记录每 1 ms 的 E/I。完成后主模型停回原点，手动选择查看或分析分支。','Pause the main model and fork identical RNG, delay history, inputs and controller state. A retains G; B changes only G. Both record E/I every 1 ms. The model returns paused to the origin; choose a branch to inspect or analyze.')}</p>
        <div style={row}>
-        <label style={label}>B · G <input style={input} aria-label="B branch G" type="number" min={0} max={.4} step={.01} value={networkG} disabled={networkBusy} onChange={e=>setNetworkG(e.target.value)}/></label>
+        <label style={label}>{text("B 分支：网络耦合强度 G","B: network coupling G")} <input style={input} aria-label={text("B 分支耦合强度 G","B branch G")} type="number" min={0} max={.4} step={.01} value={networkG} disabled={networkBusy} onChange={e=>setNetworkG(e.target.value)}/></label>
         <button style={button} disabled={!live?.sim||live.node===null||networkBusy} onClick={()=>void handleNetworkCompare()}>{networkBusy?text('计算中…','Computing…'):text('从当前状态比较 A/B','Compare A/B from this state')}</button>
        </div>
        {networkError&&<p role="alert" style={note}>{networkError}</p>}
