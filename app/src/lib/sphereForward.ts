@@ -1,9 +1,9 @@
 /**
- * Read-only browser runtime for an MNE-Python generated four-layer sphere EEG
+ * Read-only browser runtime for precomputed analytic MNE or P1-FEM spherical EEG
  * forward lead field. Coordinates are head-RAS, sphere-centred millimetres.
  * All gain coefficients are µV/(nA.m); moments are nA.m.
  *
- * The physical forward solve is performed by MNE offline. Live source moves
+ * The physical forward solve is performed offline by the identified solver. Live source moves
  * perform TRILINEAR INTERPOLATION between validated grid solutions, not a new
  * BEM/FEM solve. This module must NOT be used as a cortical atlas transform.
  */
@@ -20,7 +20,24 @@ export interface SphereSensor {
   /** Original MNE montage head RAS position before radial projection; mm. */
   original_head_mm: Vec3Mm;
 }
+/** Numerical identity retained in exported projections; the geometry remains spherical. */
+export interface FemNumerics {
+ solver:'P1-tetrahedral-conductivity';mesh_sha256:string;nodes:number;tetrahedra:number;surface_vertices:number;
+ pair_separation_mm:number;source_load:'barycentric-current-balanced-Cartesian-pairs';
+ boundary:'insulating-Neumann';datum:'surface-area-mean-zero';relative_residual:number;reciprocity_error:number;
+ max_mne_relative_l2:number;offgrid_max_mne_relative_l2:number;validation_scope:string;
+ numpy_version:string;scipy_version:string;
+}
+export const FEM_MODEL_ID='p1-four-layer-spherical-fem-v1';
+export const isSphericalFemModel=(id:string):boolean=>[FEM_MODEL_ID,FEM_MODEL_ID+'-skull-0.002',FEM_MODEL_ID+'-skull-0.008'].includes(id);
+export function sphereAssetFile(id:string):string {
+ const base=isSphericalFemModel(id)?FEM_MODEL_ID:SPHERE_MODEL_ID;
+ if(![base,base+'-skull-0.002',base+'-skull-0.008'].includes(id))throw new Error('Unknown spherical conductor');
+ const prefix=base===FEM_MODEL_ID?'fem':'sphere';
+ return id===base?prefix+'-model.json':prefix+'-skull-'+id.slice(-5)+'.json';
+}
 export interface SphereFixture {
+  fem?:FemNumerics;
   scalp_field_grid?: {
     positions_mm:Vec3Mm[];triangles:number[];gain_uv_per_nAm:number[][];method:string;
   };
@@ -40,7 +57,8 @@ export const SPHERE_MODEL_ID = 'mne-four-layer-sphere-ras-v1';
 const MONTAGES: MontageKey[] = ['10-20', '10-10', '10-05'];
 
 export function validateSphereFixture(data: SphereFixture): void {
-  if (![SPHERE_MODEL_ID,SPHERE_MODEL_ID+'-skull-0.002',SPHERE_MODEL_ID+'-skull-0.008'].includes(data.model_id) ||
+  const isFem=isSphericalFemModel(data.model_id);
+  if ((!isFem&&![SPHERE_MODEL_ID,SPHERE_MODEL_ID+'-skull-0.002',SPHERE_MODEL_ID+'-skull-0.008'].includes(data.model_id)) ||
       data.coordinate_frame !== 'head-RAS-sphere-centered' ||
       !Array.isArray(data.source_grid_axis_mm) ||
       data.source_grid_axis_mm.length < 2 ||
@@ -52,6 +70,19 @@ export function validateSphereFixture(data: SphereFixture): void {
       data.brain_inner_radius_mm <= 0) {
     throw new Error('Invalid sphere forward model metadata');
   }
+  if(isFem){
+    const f=data.fem;
+    if(!f||f.solver!=='P1-tetrahedral-conductivity'||!/^[a-f0-9]{64}$/.test(f.mesh_sha256)||
+      ![f.nodes,f.tetrahedra,f.surface_vertices].every(n=>Number.isInteger(n)&&n>0)||
+      f.surface_vertices!==data.scalp_field_grid?.positions_mm.length||
+      f.pair_separation_mm!==2||f.source_load!=='barycentric-current-balanced-Cartesian-pairs'||
+      f.boundary!=='insulating-Neumann'||f.datum!=='surface-area-mean-zero'||
+      ![f.relative_residual,f.reciprocity_error,f.max_mne_relative_l2,f.offgrid_max_mne_relative_l2].every(n=>Number.isFinite(n)&&n>=0)||
+      f.relative_residual>=1e-8||f.reciprocity_error>=1e-9||f.max_mne_relative_l2>=.05||f.offgrid_max_mne_relative_l2>=.05||
+      data.source_grid_axis_mm.join(',')!=='-16,16'||data.conductivities_S_m?.length!==4||
+      data.conductivities_S_m.some((v,i)=>v!==[.33,1,data.model_id.endsWith('0.002') ? 0.002 : data.model_id.endsWith('0.008') ? 0.008 : 0.004,.33][i]))
+       throw new Error('Invalid FEM numerical identity or validation metadata');
+  }else if(data.fem)throw new Error('FEM coefficients cannot be labeled as an analytic MNE model');
   const grid = data.source_grid_axis_mm;
   if (grid.some((a, i) => i > 0 && a <= grid[i - 1])) {
     throw new Error('Source grid must be strictly ascending');
@@ -71,7 +102,7 @@ export function validateSphereFixture(data: SphereFixture): void {
     }
     names.add(s.label);
     const radii = Math.hypot(...s.position_mm);
-    if (Math.abs(radii - data.radius_mm) > 0.01) {
+    if (isFem ? radii<data.radius_mm*.99||radii>data.radius_mm+.01 : Math.abs(radii - data.radius_mm) > 0.01) {
       throw new Error('EEG sensor does not lie on the expected spherical scalp');
     }
     const row = data.gain_uv_per_nAm[i];
@@ -182,7 +213,7 @@ export function sphereElectrodePotentials(
   };
 }
 
-/** Constrained electrode moves SNAP to an independently MNE-evaluated scalp vertex.
+/** Constrained electrode moves SNAP to an independently solved scalp vertex.
  * Replace both position AND leadfield row. No stale standard-montage matrix survives.
  */
 export function moveSphereElectrodes(fixture:SphereFixture,vertices:Record<string,number>):SphereFixture {

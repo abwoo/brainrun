@@ -1190,7 +1190,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:1",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 157,
+      "line": 160,
       "element": "Dropdown",
       "visibleName": "eeg-source-model",
       "events": [
@@ -1204,7 +1204,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:2",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 171,
+      "line": 174,
       "element": "Dropdown",
       "visibleName": "eeg-duration",
       "events": [
@@ -1218,7 +1218,7 @@
     {
       "controlId": "EegWaveTab:input:3",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 185,
+      "line": 189,
       "element": "input",
       "visibleName": "eeg-seed",
       "events": [
@@ -1232,7 +1232,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:4",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 198,
+      "line": 202,
       "element": "Dropdown",
       "visibleName": "eeg-reference",
       "events": [
@@ -1246,7 +1246,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:5",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 219,
+      "line": 223,
       "element": "Dropdown",
       "visibleName": "eeg-reference-electrode",
       "events": [
@@ -1260,7 +1260,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:6",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 236,
+      "line": 240,
       "element": "Dropdown",
       "visibleName": "eeg-montage",
       "events": [
@@ -1274,7 +1274,7 @@
     {
       "controlId": "EegWaveTab:Dropdown:7",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 251,
+      "line": 255,
       "element": "Dropdown",
       "visibleName": "eeg-channel",
       "events": [
@@ -1288,7 +1288,7 @@
     {
       "controlId": "EegWaveTab:input:8",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 268,
+      "line": 272,
       "element": "input",
       "visibleName": "添加噪声（伪迹，非神经源） {noise && (",
       "events": [
@@ -1302,7 +1302,7 @@
     {
       "controlId": "EegWaveTab:input:9",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 287,
+      "line": 291,
       "element": "input",
       "visibleName": "{noise[key].toFixed(1)}",
       "events": [
@@ -1316,7 +1316,7 @@
     {
       "controlId": "EegWaveTab:button:10",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 305,
+      "line": 309,
       "element": "button",
       "visibleName": "{running ? '运行中…' : '运行实验'}",
       "events": [
@@ -1330,7 +1330,7 @@
     {
       "controlId": "EegWaveTab:button:11",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 314,
+      "line": 318,
       "element": "button",
       "visibleName": "导出 CSV <button ty",
       "events": [
@@ -1344,7 +1344,7 @@
     {
       "controlId": "EegWaveTab:button:12",
       "path": "app/src/components/EegWaveTab.tsx",
-      "line": 322,
+      "line": 326,
       "element": "button",
       "visibleName": "导出 JSON {fixtureError && <s",
       "events": [
@@ -2736,7 +2736,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:1",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 354,
+      "line": 356,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2750,7 +2750,7 @@
     {
       "controlId": "HeadSphereLab:button:2",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 362,
+      "line": 364,
       "element": "button",
       "visibleName": "Reverse current direction",
       "events": [
@@ -2764,7 +2764,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:3",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 366,
+      "line": 368,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2787,7 +2787,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:4",
-      "line": 372
+      "line": 374
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2801,21 +2801,21 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:button:5",
-      "line": 378
+      "line": 380
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "Dropdown",
-      "visibleName": "Physical source / conductor / electrode geometry",
+      "visibleName": "Spherical solver and skull conductivity",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "modelBoundary": "Corresponding analytic or P1-FEM matrix; solver change bounds both sources and resets moved electrodes",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:6",
-      "line": 382
+      "line": 384
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2829,7 +2829,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:input:7",
-      "line": 386
+      "line": 402
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2843,12 +2843,12 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:8",
-      "line": 389
+      "line": 405
     },
     {
       "controlId": "HeadSphereLab:Dropdown:9",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 402,
+      "line": 418,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2870,7 +2870,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
       "controlId": "HeadSphereLab:button:10",
-      "line": 408,
+      "line": 424,
       "explicitFollowUp": false
     },
     {
@@ -2884,7 +2884,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
       "controlId": "HeadSphereLab:button:11",
-      "line": 409,
+      "line": 425,
       "explicitFollowUp": false
     },
     {
@@ -2898,13 +2898,13 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
       "controlId": "HeadSphereLab:input:12",
-      "line": 411,
+      "line": 427,
       "explicitFollowUp": false
     },
     {
       "controlId": "HeadSphereLab:Dropdown:13",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 417,
+      "line": 433,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2918,7 +2918,7 @@
     {
       "controlId": "HeadSphereLab:button:14",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 426,
+      "line": 443,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2932,7 +2932,7 @@
     {
       "controlId": "HeadSphereLab:button:15",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 437,
+      "line": 454,
       "element": "button",
       "visibleName": "关闭",
       "events": [
@@ -2946,7 +2946,7 @@
     {
       "controlId": "HeadSphereLab:button:16",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 440,
+      "line": 457,
       "element": "button",
       "visibleName": "打开本地真实 MRI BEM",
       "events": [
@@ -2960,7 +2960,7 @@
     {
       "controlId": "HeadSphereLab:input:17",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 446,
+      "line": 463,
       "element": "input",
       "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
       "events": [
@@ -2974,7 +2974,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:18",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 470,
+      "line": 487,
       "element": "Dropdown",
       "visibleName": "电极布局",
       "events": [
@@ -2988,7 +2988,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:19",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 478,
+      "line": 495,
       "element": "Dropdown",
       "visibleName": "球形头电流源方向",
       "events": [
@@ -3002,7 +3002,7 @@
     {
       "controlId": "HeadSphereLab:input:20",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 484,
+      "line": 501,
       "element": "input",
       "visibleName": "球形头偶极矩",
       "events": [
@@ -3016,7 +3016,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:21",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 487,
+      "line": 504,
       "element": "Dropdown",
       "visibleName": "球形头参考方式",
       "events": [
@@ -3030,7 +3030,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:22",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 494,
+      "line": 511,
       "element": "Dropdown",
       "visibleName": "选中电极",
       "events": [
@@ -3044,7 +3044,7 @@
     {
       "controlId": "HeadSphereLab:button:23",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 504,
+      "line": 521,
       "element": "button",
       "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
       "events": [

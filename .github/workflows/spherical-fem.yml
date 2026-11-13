@@ -1,0 +1,36 @@
+name: Spherical FEM numerical benchmark
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scientific/forward/spherical_fem.py'
+      - '.github/workflows/spherical-fem.yml'
+      - 'tests/pr5/test_spherical_fem.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fem-numerics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      OPENBLAS_NUM_THREADS: 1
+      OMP_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned scientific dependencies
+        run: python -m pip install mne==1.11.0 scikit-fem==12.0.2
+      - name: Check conforming topology, independent assembly and homogeneous analytic field
+        run: python -m unittest discover -s tests/pr5 -p 'test_spherical_fem.py' -v
+      - name: Solve and compare refined four-layer tetrahedral FEM with fresh MNE
+        run: python scientific/forward/spherical_fem.py --levels 2 3 --report fem-report.json
+      - name: Upload numerical report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spherical-fem-numerics
+          path: fem-report.json
+          if-no-files-found: error

@@ -1,3 +1,4 @@
+import {useI18n} from '../lib/i18n';
 import Dropdown from './ui/Dropdown';
 /**
  * PR-07 EEG tab（B1）：运行实验、参考、导联、噪声、通道选择、多导波形显示。
@@ -116,6 +117,8 @@ function WaveRow({
 }
 
 export default function EegWaveTab(props: EegWaveTabProps) {
+  const {locale}=useI18n();
+  const femDatum=locale==='zh-CN'?'FEM · 头皮面积均值为零':'FEM · zero scalp-area mean';
   const {
     recording, reference, onReferenceChange, montage, onMontageChange,
     noise, onNoiseChange, onRunExperiment, running,
@@ -211,7 +214,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             }}
           >
             <option value="average">平均参考</option>
-            <option value="infinity">无限远参考</option>
+            <option value="infinity">{recording?.forwardModelId.startsWith('p1-four-layer-spherical-fem-v1')?femDatum:'无限远参考'}</option>
             <option value="electrode">电极参考</option>
           </Dropdown>
           {refMode === 'electrode' && (
@@ -337,7 +340,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
           <p className="panel-text eeg-summary" data-testid="eeg-summary">
             {recording.channels.length} 通道 · {recording.timesMs.length} 采样 ·{' '}
             {(recording.timesMs[recording.timesMs.length - 1] / 1000).toFixed(1)} 秒 ·{' '}
-            {recording.sfreqHz} Hz · {referenceLabel(recording.reference)} · {recording.montage} ·{' '}
+            {recording.sfreqHz} Hz · {recording.reference.mode==='infinity'&&recording.forwardModelId.startsWith('p1-four-layer-spherical-fem-v1')?femDatum:referenceLabel(recording.reference)} · {recording.montage} ·{' '}
             {recording.sourceModelId === 'local-wc-cortical-column-assumed-dipole-v1'
               ? 'WC'
               : recording.sourceModelId === 'local-jansen-rit-assumed-dipole-v1'

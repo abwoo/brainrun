@@ -73,6 +73,14 @@ jobs:
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.002 --output app/public/forward-assets/sphere-skull-0.002.json
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.008 --output app/public/forward-assets/sphere-skull-0.008.json
 
+      - name: Solve and validate the public spherical FEM assets
+        env:
+          OPENBLAS_NUM_THREADS: 1
+          OMP_NUM_THREADS: 1
+        run: |
+          python -m pip install numpy==2.5.4 scipy==1.18.1
+          python scientific/forward/spherical_fem.py --output-dir app/public/forward-assets --report fem-report.json
+
       - name: Install template geometry tools
         run: python3 -m pip install 'nibabel>=5,<6' 'trimesh>=4,<5' 'fast-simplification>=0.1,<1'
       - name: Cache pinned fsaverage inputs

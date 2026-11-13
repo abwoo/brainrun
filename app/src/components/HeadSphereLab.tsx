@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  SPHERE_MODEL_ID, sphereElectrodePotentials, validateSphereFixture,
+  SPHERE_MODEL_ID, FEM_MODEL_ID, isSphericalFemModel, sphereAssetFile, sphereElectrodePotentials, validateSphereFixture,
   moveSphereElectrodes,type SphereFixture, type MontageKey,
 } from '../lib/sphereForward';
 import { clampSourcePositionMm } from '../lib/eegRecording';
@@ -33,6 +33,8 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
   const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   const [baseData,setBaseData]=useState<SphereFixture|null>(null);
   const [modelId,setModelId]=useState(embedded?manualHeadState.modelId:SPHERE_MODEL_ID);
+  const isFem=isSphericalFemModel(modelId);
+  const sourceLimit=isFem?16:48;
   const [electrodeVertices,setElectrodeVertices]=useState<Record<string,number>>(embedded?manualHeadState.electrodeVertices:{});
   const data=useMemo(()=>baseData&&baseData.model_id===modelId?moveSphereElectrodes(baseData,electrodeVertices):null,[baseData,modelId,electrodeVertices]);
   const [editElectrodes,setEditElectrodes]=useState(false);
@@ -98,7 +100,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
   const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>,q:number,scale:number,selected:string,fieldValues:number[]|null,sensorPositions:Map<string,Vec3Mm>,signalFactor:number)=>void)|null>(null);
   useEffect(()=>{
     const controller=new AbortController();setBaseData(null);setError(null);
-    const file=modelId===SPHERE_MODEL_ID?'sphere-model.json':modelId.endsWith('0.002')?'sphere-skull-0.002.json':'sphere-skull-0.008.json';
+    const file=sphereAssetFile(modelId);
     fetch(import.meta.env.BASE_URL+'forward-assets/'+file,{signal:controller.signal})
       .then(async r=>{
         if(!r.ok)throw new Error('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py');
@@ -231,9 +233,9 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
         return;
       }
       setPosition([
-        THREE.MathUtils.clamp(point.x,-48,48),
-        THREE.MathUtils.clamp(point.y,-48,48),
-        THREE.MathUtils.clamp(point.z,-48,48),
+        THREE.MathUtils.clamp(point.x,data.source_grid_axis_mm[0],data.source_grid_axis_mm.at(-1)!),
+        THREE.MathUtils.clamp(point.y,data.source_grid_axis_mm[0],data.source_grid_axis_mm.at(-1)!),
+        THREE.MathUtils.clamp(point.z,data.source_grid_axis_mm[0],data.source_grid_axis_mm.at(-1)!),
       ]);
     };
     const up=(e:PointerEvent)=>{
@@ -348,7 +350,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
       <div className="control-step"><span>1</span><h2>{text('移动电流源','Move the source')}</h2></div>
       <p className="plain-explanation">{text('直接拖动橙色源点；也可以用下面三个滑杆精确调整。','Drag the orange point, or use these sliders for precise positioning.')}</p>
       {([0,1,2] as const).map(i=><RangeControl key={i} disabled={!data} label={text(['左右位置','前后位置','上下位置'][i],['Left–right position','Front–back position','Vertical position'][i])}
-        value={position[i]} min={-48} max={48} step={1} unit="mm" onChange={value=>setPosition(prev=>[i===0?value:prev[0],i===1?value:prev[1],i===2?value:prev[2]])}/>)}
+        value={position[i]} min={-sourceLimit} max={sourceLimit} step={1} unit="mm" onChange={value=>setPosition(prev=>[i===0?value:prev[0],i===1?value:prev[1],i===2?value:prev[2]])}/>)}
       <div className="control-step"><span>2</span><h2>{text('调整方向与强度','Set direction and strength')}</h2></div>
       <ControlField label={text('电流方向','Current direction')} hint={text('箭头表示方向；改变方向会改变各测量点的电位。','The arrow shows direction. Changing it changes the measured potentials.')}>
         <Dropdown disabled={!data} aria-label={text('电流方向','Current direction')} value={axis} onChange={e=>{if(e.target.value==='free')setOrientation(direction);setAxis(e.target.value as 'X'|'Y'|'Z'|'free');}}>
@@ -378,20 +380,34 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
         <button type="button" className="ui-button" onClick={()=>{setTimeMs(0);setPulsePlaying(true);}}>{text('播放这次源脉冲','Play this source pulse')}</button>
         <p>{text('源在 500–700 ms 按半正弦改变偶极矩；这是明确给定的电流输入，不是认知 ERP。记录直接计算每个采样时刻，播放帧率不改变数据。','Moment follows a half-sine over 500–700 ms: a defined current input, not a cognitive ERP. Each recording sample is calculated directly; playback frame rate does not change the data.')}</p>
        </>}
-       <ControlField label={text('颅骨电导率','Skull conductivity')} hint={text('切换到对应 MNE 正向矩阵；不是只改显示数值。','Loads the corresponding MNE forward matrix.')}>
-        <Dropdown aria-label={text('颅骨电导率','Skull conductivity')} value={modelId} onChange={e=>setModelId(e.target.value)}>
-         <option value={SPHERE_MODEL_ID+'-skull-0.002'}>0.002 S/m</option><option value={SPHERE_MODEL_ID}>0.004 S/m</option><option value={SPHERE_MODEL_ID+'-skull-0.008'}>0.008 S/m</option>
+       <ControlField label={text('颅骨电导率','Skull conductivity')} hint={text('选择解析或有限元计算。切换求解器时会重置已移动电极，并把源限制到对应的已计算范围。','Choose analytic or finite-element calculations. Switching solvers resets moved sensors and bounds sources to that solver’s precomputed range.')}>
+        <Dropdown aria-label={text('颅骨电导率','Skull conductivity')} value={modelId} onChange={e=>{
+          const next=e.target.value,nextFem=isSphericalFemModel(next),limit=nextFem?16:48;
+          if(nextFem!==isFem){
+            const clamp=(p:Vec3Mm):Vec3Mm=>[Math.max(-limit,Math.min(limit,p[0])),Math.max(-limit,Math.min(limit,p[1])),Math.max(-limit,Math.min(limit,p[2]))];
+            setPosition(clamp(position));setSecondary(s=>s?{...s,position:clamp(s.position)}:s);
+            setElectrodeVertices({});
+          }
+          setModelId(next);
+        }}>
+         <optgroup label={text('MNE 解析球形模型','MNE analytic spherical model')}>
+          <option value={SPHERE_MODEL_ID+'-skull-0.002'}>0.002 S/m</option><option value={SPHERE_MODEL_ID}>0.004 S/m</option><option value={SPHERE_MODEL_ID+'-skull-0.008'}>0.008 S/m</option>
+         </optgroup>
+         <optgroup label={text('四层球形 FEM · 数值比较','Four-layer spherical FEM · numerical comparison')}>
+          <option value={FEM_MODEL_ID+'-skull-0.002'}>FEM · 0.002 S/m</option><option value={FEM_MODEL_ID}>FEM · 0.004 S/m</option><option value={FEM_MODEL_ID+'-skull-0.008'}>FEM · 0.008 S/m</option>
+         </optgroup>
         </Dropdown>
        </ControlField>
+       {isFem&&<p data-testid="fem-model-notice">{text('四层球形有限元：电导率进入四面体方程；这不是 MRI 解剖 FEM。源采用 2 mm 源／汇对，活动范围为 ±16 mm。未重参考值采用头皮面积均值为零的数值基准，不代表无限远电位。','Four-layer spherical FEM: conductivity enters the tetrahedral equations. This is not anatomical MRI FEM. Sources use 2 mm source/sink pairs within ±16 mm. Unreferenced values use a zero scalp-area-mean gauge, not an infinity potential.')}</p>}
        <label className="plain-explanation"><input type="checkbox" checked={editElectrodes} onChange={e=>setEditElectrodes(e.target.checked)}/>{text('沿头皮拖动电极','Drag electrodes along the scalp')}</label>
-       <p>{text('电极吸附到 482 个已计算的头皮点；位置与对应矩阵行一起更新，不对任意位置冒充精确求解。','Sensors snap to 482 solved scalp vertices; position and leadfield row update together. Arbitrary locations are not claimed as exact solves.')}</p>
+       <p>{text('电极吸附到已求解的头皮点；位置与矩阵行一起更新。可用点数：','Sensors snap to solved scalp vertices; position and leadfield row update together. Available vertices: ')}{data?.scalp_field_grid?.positions_mm.length??'—'}</p>
        <ControlField label={text('第二个电流源','Second current source')}>
         <Dropdown aria-label={text('第二个电流源','Second current source')} value={secondary?'on':'off'} onChange={e=>setSecondary(e.target.value==='on'?{position:[16,0,16],direction:[1,0,0],moment:10}:undefined)}>
          <option value="off">{text('关闭','Off')}</option><option value="on">{text('添加第二个源','Add a second source')}</option>
         </Dropdown>
        </ControlField>
        {secondary&&<>
-        {([0,1,2] as const).map(i=><RangeControl key={i} label={text(['第二源左右位置','第二源前后位置','第二源上下位置'][i],['Second source X','Second source Y','Second source Z'][i])} unit="mm" value={secondary.position[i]} min={-48} max={48} step={1}
+        {([0,1,2] as const).map(i=><RangeControl key={i} label={text(['第二源左右位置','第二源前后位置','第二源上下位置'][i],['Second source X','Second source Y','Second source Z'][i])} unit="mm" value={secondary.position[i]} min={-sourceLimit} max={sourceLimit} step={1}
          onChange={v=>setSecondary(p=>p?{...p,position:[i===0?v:p.position[0],i===1?v:p.position[1],i===2?v:p.position[2]]}:p)}/>)}
         <RangeControl label={text('第二源强度','Second source strength')} unit="nA·m" value={secondary.moment} min={-30} max={30} step={.5} onChange={v=>setSecondary(p=>p?{...p,moment:v}:p)}/>
         <p>{text('紫色源当前沿 X 轴；正负强度控制极性。总电位是两个源的线性叠加。','The purple source is oriented along X; signed strength controls polarity. Total voltage is the linear sum of both sources.')}</p>
@@ -416,11 +432,12 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
        <ControlField label={text('参考方式','Voltage reference')}>
         <Dropdown aria-label={text('参考方式','Voltage reference')} value={reference} onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
          {reference==='electrode'&&<option value="electrode">{text('电极参考','Electrode reference')} · {referenceSpec.mode==='electrode'?referenceSpec.label:''}</option>}
-         <option value="average">{text('所有电极的平均值','Average over electrodes')}</option><option value="infinity">{text('理论无限远参考','Theoretical infinity reference')}</option>
+         <option value="average">{text('所有电极的平均值','Average over electrodes')}</option><option value="infinity">{isFem?text('数值基准：头皮面积均值为零','Numerical datum: zero scalp-area mean'):text('理论无限远参考','Theoretical infinity reference')}</option>
         </Dropdown>
        </ControlField>
-       <p>{text('四层球形导体依次表示脑组织、脑脊液、颅骨与头皮。MNE 计算的正向模型把源的位置、方向和强度转换为电极电位。坐标为毫米，源强度为纳安米，电位为微伏。','Four conducting layers represent brain, cerebrospinal fluid, skull and scalp. The MNE forward model converts source position, orientation and moment into sensor potentials. Position is in mm, moment in nA·m, and voltage in µV.')}</p>
-       <p>{text('这是半径 95 mm 的球形教学模型，源限制在 ±48 mm 的已计算网格内；它不是个体 MRI，也没有与另一页的脑区网络做解剖配准。','This is a spherical teaching model with radius 95 mm and a precomputed source grid within ±48 mm. It is not individual MRI and is not anatomically registered to the separate region network.')}</p>
+       <p>{text('四层导体依次表示脑组织、脑脊液、颅骨和头皮。所选正向模型把源的位置、方向和强度转换为电极电位。位置单位为 mm，偶极矩为 nA·m，电位为 µV。','Four layers represent brain, cerebrospinal fluid, skull and scalp. The selected forward model converts source position, orientation and moment into sensor potentials. Position is in mm, moment in nA·m, and voltage in µV.')}</p>
+       <p>{text('球形教学模型的半径为 95 mm；源位置使用已计算网格内的三线性插值，当前每轴范围为 ±','The spherical teaching model has radius 95 mm. Source positions use trilinear interpolation within the solved grid, currently ±')}{sourceLimit}{text(' mm。它不是个体 MRI，未与脑区网络做解剖配准。',' mm on each axis. It is not individual MRI and is not anatomically registered to the region network.')}</p>
+       {data?.fem&&<p>{text('有限元网格：','FEM mesh: ')}{data.fem.nodes} / {data.fem.tetrahedra}{text(' 节点／四面体。已检查案例的最大 MNE 场 L2 误差：',' nodes / tetrahedra. Maximum MNE field L2 error in checked examples: ')}{(100*Math.max(data.fem.max_mne_relative_l2,data.fem.offgrid_max_mne_relative_l2)).toFixed(2)}%{text('。这不是全空间或每电极误差保证。','. This is not a whole-space or per-electrode error guarantee.')}</p>}
        <code>{data?.model_id??modelId}</code>
       </details>
       <button type="button" className="ui-button" onClick={()=>{setPosition([16,0,16]);setMoment(10);setAxis('X');setOrientation([1,0,0]);setColorScale(2);setWaveform('constant');setTimeMs(0);setPulsePlaying(false);setSecondary(undefined);setElectrodeVertices({});setEditElectrodes(false);setModelId(SPHERE_MODEL_ID);setMontage('10-20');setSelectedLabels(undefined);setReference('average');setSelectedElectrode('Cz');setLiveMode(false);}}>{text('恢复默认','Restore defaults')}</button>

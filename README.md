@@ -13,11 +13,14 @@ The home page opens directly to **Currents & sensors**. There is no automatic ex
 3. Click a scalp sensor and inspect its potential. Scalp colors, the selected reading and the voltage trace share one forward calculation and a fixed µV scale.
 4. Expand model details for electrode layout/reference, a defined source pulse, a second source, scalp-constrained electrode dragging or skull conductivity. These controls change the corresponding calculation.
 5. Choose **Head model → Anatomical template BEM** for matching anatomy and precomputed cortical-source lead fields. It loads automatically; file preparation is not needed.
-6. Open **Signal analysis** to inspect the same physical source history. Raw, scalp samples, source estimates and exports retain its model, geometry, reference and observation time.
+6. For a numerical comparison, expand **More settings and model details → Skull conductivity** and choose **Four-layer spherical FEM**. Conductivity changes the assembled tetrahedral equations. Source motion is limited to the solved ±16 mm cube; the model is spherical, not MRI-derived anatomical FEM.
+7. Open **Signal analysis** to inspect the same physical source history. Raw, scalp samples, source estimates and exports retain its model, geometry, reference and observation time.
 
 The **Regions & activity** tab shows the 76-region network. Select a region, adjust input strength and duration, and apply an input explicitly. Selecting a region or rotating the view does not stimulate it. The activity trace reads the same Worker snapshots as the 3D view.
 
 Use **Restore defaults** to return to a known configuration. The language switch changes presentation without resetting model parameters or recordings.
+
+The FEM option uses 30,745 nodes / 174,080 tetrahedra, current-balanced 2 mm source/sink basis pairs, and an insulating scalp boundary. Its scalp field, moved electrodes, manual/native EEG, inverse matrix and controller projection use the same named FEM operator. Unreferenced FEM values have a zero scalp-area-mean computational datum; average/electrode differences do not depend on that additive gauge. Export retains numerical identity and validation scope. See [FEM methods and limits](docs/spherical-fem.md).
 
 ## Advanced tools
 
