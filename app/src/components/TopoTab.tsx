@@ -1,3 +1,4 @@
+import {fixtureForPhysicalRecording} from '../lib/physicalExperiment';
 import {templateRecordingForward} from '../lib/templateExperiment';
 import {FSAVERAGE_BEM_MODEL_ID} from '../lib/fsaverageBEM';
 import Dropdown from './ui/Dropdown';
@@ -112,7 +113,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
     try {
       const dir: Vec3Mm = srcAxis === 'X' ? [1, 0, 0] : srcAxis === 'Y' ? [0, 1, 0] : [0, 0, 1];
       const moment: Vec3Mm = [dir[0] * srcMoment, dir[1] * srcMoment, dir[2] * srcMoment];
-      if(recording?.sourceSeries)return recordingForwardAtTime(loadedFixture,recording,atTimeMs);
+      if(recording?.sourceSeries)return recordingForwardAtTime(recording.sourceSnapshot?fixtureForPhysicalRecording(recording):loadedFixture,recording,atTimeMs);
       return forwardHeadPotential(loadedFixture, srcPos, moment, { mode: reference });
     } catch {
       return null;

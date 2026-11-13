@@ -1,9 +1,9 @@
 {
   "auditVersion": "manual-physics-workbench-v1",
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
-  "disclaimer": "239 static JSX controls; source classification is not runtime proof.",
+  "disclaimer": "244 source-classified JSX controls; static inventory is not runtime evidence.",
   "counts": {
-    "total": 239,
+    "total": 244,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -16,7 +16,7 @@
       "TopoTab": 8,
       "InverseTab": 9,
       "WavesTab": 1,
-      "HeadSphereLab": 15,
+      "HeadSphereLab": 20,
       "LocalBEMLab": 15,
       "DipoleLab": 7,
       "StimLab": 29,
@@ -28,13 +28,13 @@
       "LanguageSwitch": 2
     },
     "byScope": {
-      "VISUAL": 23,
+      "VISUAL": 24,
       "LIVE": 21,
       "NAV": 31,
       "MIXED": 17,
       "SELECTION": 4,
       "DIAGNOSTIC": 2,
-      "CONFIG": 49,
+      "CONFIG": 53,
       "INDEPENDENT": 75,
       "EXPORT": 3,
       "DERIVED": 14
@@ -1720,202 +1720,6 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:1",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 203,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:3",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 210,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:4",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 216,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:5",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 221,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:button:6",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 229,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:button:7",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 240,
-      "element": "button",
-      "visibleName": "关闭",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:button:8",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 243,
-      "element": "button",
-      "visibleName": "打开本地真实 MRI BEM",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:input:9",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 249,
-      "element": "input",
-      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
-      "events": [
-        "onChange"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:10",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 273,
-      "element": "Dropdown",
-      "visibleName": "电极布局",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:11",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 281,
-      "element": "Dropdown",
-      "visibleName": "球形头电流源方向",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:input:12",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 287,
-      "element": "input",
-      "visibleName": "球形头偶极矩",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:13",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 290,
-      "element": "Dropdown",
-      "visibleName": "球形头参考方式",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:Dropdown:14",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 297,
-      "element": "Dropdown",
-      "visibleName": "选中电极",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "HeadSphereLab:button:15",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 307,
-      "element": "button",
-      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "DipoleLab:button:1",
       "path": "app/src/components/DipoleLab.tsx",
       "line": 147,
@@ -3042,20 +2846,6 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:2",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 1,
-      "element": "button",
-      "visibleName": "Reverse current direction",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Reverse the signed nA.m dipole moment; recompute sensor and scalp potentials",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "LocalBEMLab:button:1",
       "path": "app/src/components/LocalBEMLab.tsx",
       "line": 314,
@@ -3416,6 +3206,286 @@
       ],
       "category": "LIVE",
       "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:1",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 347,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:2",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 355,
+      "element": "button",
+      "visibleName": "Reverse current direction",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Reverse the signed nA.m dipole moment; recompute sensor and scalp potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:3",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 359,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "element": "Dropdown",
+      "visibleName": "Physical source / conductor / electrode geometry",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "HeadSphereLab:Dropdown:4",
+      "line": 365
+    },
+    {
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "element": "button",
+      "visibleName": "Physical source / conductor / electrode geometry",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "HeadSphereLab:button:5",
+      "line": 371
+    },
+    {
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "element": "Dropdown",
+      "visibleName": "Physical source / conductor / electrode geometry",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "HeadSphereLab:Dropdown:6",
+      "line": 375
+    },
+    {
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "element": "input",
+      "visibleName": "Physical source / conductor / electrode geometry",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "HeadSphereLab:input:7",
+      "line": 379
+    },
+    {
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "element": "Dropdown",
+      "visibleName": "Physical source / conductor / electrode geometry",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "HeadSphereLab:Dropdown:8",
+      "line": 382
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:9",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 395,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:10",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 400,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:11",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 409,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:12",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 420,
+      "element": "button",
+      "visibleName": "关闭",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:13",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 423,
+      "element": "button",
+      "visibleName": "打开本地真实 MRI BEM",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:input:14",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 429,
+      "element": "input",
+      "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
+      "events": [
+        "onChange"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:15",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 453,
+      "element": "Dropdown",
+      "visibleName": "电极布局",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:16",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 461,
+      "element": "Dropdown",
+      "visibleName": "球形头电流源方向",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:input:17",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 467,
+      "element": "input",
+      "visibleName": "球形头偶极矩",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:18",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 470,
+      "element": "Dropdown",
+      "visibleName": "球形头参考方式",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:19",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 477,
+      "element": "Dropdown",
+      "visibleName": "选中电极",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:20",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 487,
+      "element": "button",
+      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     }
