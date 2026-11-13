@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {preview} from 'vite';
+const server=await preview({preview:{port:0,host:'127.0.0.1'},logLevel:'error'});
+let browser;
+try{
+ browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>{const el=document.querySelector('[data-testid="physical-field"]');return el&&el.dataset.fieldMax!=='';});
+ const field=page.getByTestId('physical-field');
+ const original=Number(await field.getAttribute('data-field-max'));
+ await page.getByRole('spinbutton',{name:'源强度 nA·m',exact:true}).fill('20');
+ await page.getByRole('spinbutton',{name:'源强度 nA·m',exact:true}).press('Enter');
+ await page.waitForFunction(x=>Math.abs(Number(document.querySelector('[data-testid="physical-field"]').dataset.fieldMax)-2*x)<1e-10,original);
+ assert.equal(await field.getAttribute('data-color-scale'),'2','scale must not normalize itself as source amplitude changes');
+ const current=Number(await page.getByTestId('selected-potential').getAttribute('data-voltage'));
+ await page.getByRole('button',{name:'反转电流方向',exact:true}).click();
+ await page.waitForFunction(x=>Math.abs(Number(document.querySelector('[data-testid="selected-potential"]').dataset.voltage)+x)<1e-10,current);
+ assert.equal(Number(await page.getByTestId('physical-static-trace').getAttribute('data-voltage')),-current);
+ await page.getByRole('button',{name:'反转电流方向',exact:true}).click();
+ const before=await field.getAttribute('data-direction');
+ const arrow=await page.evaluate(()=>window.__headPhysics.arrow());
+ await page.mouse.move(arrow.x,arrow.y);
+ await page.mouse.down();await page.mouse.move(arrow.x+35,arrow.y-25,{steps:8});await page.mouse.up();
+ assert.notEqual(await field.getAttribute('data-direction'),before,'actual arrow drag must change source orientation');
+ const dir=(await field.getAttribute('data-direction')).split(',').map(Number);
+ assert.ok(Math.abs(Math.hypot(...dir)-1)<1e-10);
+ const target=await page.evaluate(()=>window.__headPhysics.sensor('Fz'));
+ await page.mouse.click(target.x,target.y);
+ assert.equal(await page.getByRole('combobox',{name:'查看电极',exact:true}).inputValue(),'Fz','clicking a 3D electrode changes the measured channel');
+ console.log('MNE scalp field, fixed µV scale, polarity reversal, actual 3D arrow orientation and electrode picking PASS');
+}finally{await browser?.close();await server.httpServer.close();}

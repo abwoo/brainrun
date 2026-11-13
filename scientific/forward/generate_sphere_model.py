@@ -91,7 +91,48 @@ def create_fixture():
         raise AssertionError(f"Bad lead field shape {gains.shape}")
     if not np.isfinite(gains).all():
         raise ValueError("Forward lead field contains nonfinite values")
+
+    # A separate scalp mesh is evaluated by the SAME MNE conductor/source grid.
+    # It is not derived by smoothing the 19 displayed EEG channels.
+    width, height = 32, 16
+    scalp_positions = [[0.0, 0.0, RADIUS_M * 1000]]
+    for lat in range(1, height):
+        theta = np.pi * lat / height
+        for lon in range(width):
+            phi = 2 * np.pi * lon / width
+            scalp_positions.append((RADIUS_M * 1000 * np.array([
+                np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)
+            ])).tolist())
+    south = len(scalp_positions)
+    scalp_positions.append([0.0, 0.0, -RADIUS_M * 1000])
+    triangles = []
+    for lon in range(width):
+        nxt = (lon + 1) % width
+        triangles.extend([0, 1 + lon, 1 + nxt])
+        for lat in range(height - 2):
+            a = 1 + lat * width + lon
+            b = 1 + (lat + 1) * width + lon
+            c = 1 + lat * width + nxt
+            d = 1 + (lat + 1) * width + nxt
+            triangles.extend([a, b, c, c, b, d])
+        last = 1 + (height - 2) * width
+        triangles.extend([south, last + nxt, last + lon])
+    scalp_info = mne.create_info([f"SCALP{i:04d}" for i in range(len(scalp_positions))],
+                                 sfreq=250.0, ch_types="eeg")
+    for channel, point in zip(scalp_info["chs"], scalp_positions):
+        channel["loc"][:3] = ORIGIN_M + np.asarray(point) * 1e-3
+        channel["coord_frame"] = mne.io.constants.FIFF.FIFFV_COORD_HEAD
+    scalp_fwd, _ = mne.make_forward_dipole(dipoles, sphere, scalp_info, verbose=False)
+    scalp_gains = np.asarray(scalp_fwd["sol"]["data"], dtype=np.float64) * 1e-3
+    if not np.isfinite(scalp_gains).all():
+        raise ValueError("Nonfinite scalp vertex lead field")
+
     return {
+        "scalp_field_grid": {
+            "positions_mm": scalp_positions, "triangles": triangles,
+            "gain_uv_per_nAm": np.round(scalp_gains, 9).tolist(),
+            "method": "MNE forward values at scalp vertices; triangle colors interpolate only for rendering",
+        },
         "model_id": "mne-four-layer-sphere-ras-v1",
         "mne_version": mne.__version__,
         "coordinate_frame": "head-RAS-sphere-centered",

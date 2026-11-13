@@ -49,8 +49,8 @@ test('workspace layout is visual-only and responds to focus, resize and reset',(
 });
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
- assert.equal(c.counts.total,236);
- assert.equal(c.entries.length,236);
+ assert.equal(c.counts.total,237);
+ assert.equal(c.entries.length,237);
  assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,43);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
