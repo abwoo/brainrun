@@ -1994,6 +1994,8 @@ export default function App() {
               )}
               <ExperimentLab
                 fixture={expFixture}
+                onRestore={syncFromSnapshot}
+                onOpenAnalysis={()=>{setShowExperimentLab(false);setMode('eeg');setEegInitialTab('eeg');}}
                 onClose={() => setShowExperimentLab(false)}
                 live={{
                   sim: simRef.current,
