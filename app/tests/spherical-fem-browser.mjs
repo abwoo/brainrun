@@ -77,7 +77,7 @@ try{
  await openAnalysis();
  await page.getByRole('combobox',{name:'Native EEG sample rate',exact:true}).selectOption('500');
  await page.getByRole('button',{name:'Record neural EEG at the physical source',exact:true}).click();
- await page.waitForFunction(()=>document.querySelector('[data-testid="eeg-summary"]')?.dataset.sfreqHz==='500');
+ await page.waitForFunction(()=>document.querySelector('[data-source-model="live-wc-integration-fir-v1"]')&&document.querySelector('[data-sfreq-hz="500"]'));
  const native=await exported(),p=native.physicalProjection;
  assert.equal(native.forwardModelId,manual.forwardModelId);
  assert.equal(p.forwardNumerics.mesh_sha256,manual.experiment.parameters.forwardNumerics.mesh_sha256);
