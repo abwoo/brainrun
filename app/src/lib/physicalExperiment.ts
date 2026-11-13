@@ -84,7 +84,7 @@ export function preparePhysicalAnalysis(rate:250|500=250):EegRecording {
    sources:allSources.map(s=>({positionMm:s.position,direction:s.direction,momentsNAm:timesMs.map(t=>s.moment*sourceWaveformAt(source.waveform,t))}))},
   sourceSnapshot:{...source,position:[...source.position] as Vec3Mm},
   provenance:session.provenance,experiment:{session:session.getSnapshot(),parameters:{
-   sourceState:source,durationMs:2000,sfreqHz:rate,montage:source.montage,reference:ref,seed:0,noise:null,
+   sourceState:source,forwardNumerics:fixture.fem?{...fixture.fem}:null,durationMs:2000,sfreqHz:rate,montage:source.montage,reference:ref,seed:0,noise:null,
   }}};
  setForwardContext(rec.sourceSeries,{sphere:fixture});
  const events=source.waveform==='pulse'?[{id:0,runId:session.runId,type:'pulse' as const,tMs:500,condition:'unclassified' as const,drive:source.moment,driveUnit:'nA_m' as const}]:[];

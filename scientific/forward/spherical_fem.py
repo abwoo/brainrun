@@ -127,7 +127,7 @@ def solve(points,tets,regions,geom,sigmas,rhs,faces):
     assert np.max(np.abs((K-K.T).data),initial=0)<1e-14
     factor = splu(K[1:,1:].tocsc(),permc_spec="MMD_AT_PLUS_A")
     values = np.vstack([np.zeros((1,rhs.shape[1])),factor.solve(rhs[1:])])
-    offset = len(points)-len(icosphere_from_faces(faces))
+    offset = len(points)-(int(faces.max())+1)
     # Surface-area mean fixes only the additive Neumann gauge.
     values -= scalp_weights(points,faces,offset)@values[offset:]
     residual = np.linalg.norm(K@values-rhs)/np.linalg.norm(rhs)
@@ -138,9 +138,6 @@ def solve(points,tets,regions,geom,sigmas,rhs,faces):
     assert reciprocity<1e-9
     return values,{"relative_residual":float(residual),"reciprocity_error":float(reciprocity)}
 
-
-def icosphere_from_faces(faces):
-    return np.arange(int(faces.max())+1)
 
 
 def project_sensors(unit,faces,directions):
@@ -197,18 +194,111 @@ def build(level=3,skull=.004):
     return points,tets,regions,unit,faces,positions,values,metrics
 
 
+def offgrid_errors(surface,unit,sigmas):
+    positions=np.array([[0,0,0],[15,-15,15],[-12,4,8],[5,9,-7]],dtype=float)*1e-3
+    columns=[]
+    for p in positions*1e3:
+        weight=(p+16)/32
+        result=np.zeros((len(unit),3))
+        for x in range(2):
+            for y in range(2):
+                for z in range(2):
+                    w=np.prod([weight[k] if j else 1-weight[k] for k,j in enumerate([x,y,z])])
+                    result+=surface[:,3*(x*4+y*2+z):3*(x*4+y*2+z)+3]*w
+        columns.append(result)
+    actual=np.concatenate(columns,axis=1)
+    reference=mne_reference(positions,unit*.095,sigmas)
+    actual-=actual.mean(axis=0)
+    reference-=reference.mean(axis=0)
+    error=np.linalg.norm(actual-reference,axis=0)/np.linalg.norm(reference,axis=0)
+    return float(error.max())
+
+
+def fixture(level=4,skull=.004):
+    import mne
+    import scipy
+    points,tets,regions,unit,faces,positions,values,metrics=build(level,skull)
+    assert metrics["max_mne_relative_l2"]<.05, "Solved-node error exceeds declared 5% tolerance"
+    surface=values[-len(unit):]*1e6
+    sigmas=[.33,1,skull,.33]
+    offgrid=offgrid_errors(surface,unit,sigmas)
+    assert offgrid<.05, "Off-grid example error exceeds declared 5% tolerance"
+    origin=np.array([0.,0.,.04])
+    names_by_montage={}
+    originals={}
+    for key,name in [("10-10","standard_1020"),("10-05","standard_1005")]:
+        montage=mne.channels.make_standard_montage(name)
+        info=mne.create_info(montage.ch_names,250,"eeg")
+        info.set_montage(montage)
+        names_by_montage[key]=montage.ch_names
+        for ch in info["chs"]:
+            originals[ch["ch_name"]]=ch["loc"][:3].copy()
+    names_by_montage["10-20"]="Fp1 Fp2 F7 F3 Fz F4 F8 T7 C3 Cz C4 T8 P7 P3 Pz P4 P8 O1 O2".split()
+    names=list(dict.fromkeys(names_by_montage["10-05"]+names_by_montage["10-10"]))
+    directions=np.array([originals[n]-origin for n in names])
+    directions/=np.linalg.norm(directions,axis=1,keepdims=True)
+    sensor_positions,weights,indices=project_sensors(unit,faces,directions)
+    sensor_gain=np.einsum("ij,ijk->ik",weights,surface[indices])
+    digest=hashlib.sha256()
+    for data,dtype in [(points,"<f8"),(tets,"<i8"),(regions,"<i8")]:
+        digest.update(data.astype(dtype).tobytes())
+    numerics={
+        "solver":"P1-tetrahedral-conductivity","mesh_sha256":digest.hexdigest(),
+        "nodes":len(points),"tetrahedra":len(tets),"surface_vertices":len(unit),
+        "pair_separation_mm":PAIR_M*1e3,"source_load":"barycentric-current-balanced-Cartesian-pairs",
+        "boundary":"insulating-Neumann","datum":"surface-area-mean-zero",
+        "relative_residual":metrics["relative_residual"],
+        "reciprocity_error":metrics["reciprocity_error"],
+        "max_mne_relative_l2":metrics["max_mne_relative_l2"],
+        "offgrid_max_mne_relative_l2":offgrid,
+        "validation_scope":"24 solved Cartesian fields and 12 off-grid example fields; average-referenced whole-field L2; not a global spatial or per-electrode error bound",
+        "numpy_version":np.__version__,"scipy_version":scipy.__version__,
+    }
+    result={
+        "model_id":MODEL_ID+("" if skull==.004 else f"-skull-{skull:.3f}"),
+        "coordinate_frame":"head-RAS-sphere-centered","mne_version":mne.__version__,
+        "origin_in_head_mm":[0.,0.,40.],"radius_mm":95.,"brain_inner_radius_mm":85.5,
+        "relative_radii":[.9,.92,.97,1.],"conductivities_S_m":sigmas,
+        "source_grid_axis_mm":GRID_MM,"source_moment_axes":["x","y","z"],
+        "gain_units":"microvolts_per_nanoampere_metre",
+        "method":"P1 tetrahedral conductivity-weighted FEM; SciPy sparse LU; no analytic gains used in assembly",
+        "limitations":"Concentric faceted spherical geometry, not anatomical MRI/FEM. Source positions limited to a deep +/-16 mm cube. Cartesian 2 mm current-pair basis, not exact point dipoles. Browser uses bounded trilinear source interpolation and boundary P1 sensor interpolation. Unreferenced coefficients use a surface-area-zero-mean computational gauge, not a measured infinity reference. No fitted amplitude scaling or physiological calibration.",
+        "fem":numerics,"montages":names_by_montage,
+        "sensors":[{"label":n,"position_mm":(p*1e3).tolist(),"original_head_mm":(originals[n]*1e3).tolist()}
+                   for n,p in zip(names,sensor_positions)],
+        "gain_uv_per_nAm":np.round(sensor_gain,9).tolist(),
+        "scalp_field_grid":{"positions_mm":(unit*95).tolist(),"triangles":faces.ravel().tolist(),
+            "gain_uv_per_nAm":np.round(surface,9).tolist(),
+            "method":"FEM nodal scalp solutions; piecewise-linear boundary field, not smoothing of montage electrodes"},
+    }
+    print(json.dumps({"model":result["model_id"],"fem":numerics}),flush=True)
+    return result
+
+
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument("--levels",nargs="+",type=int,default=[2,3])
+    parser.add_argument("--levels",nargs="+",type=int,default=[2,3,4])
     parser.add_argument("--report",type=Path,default=Path("fem-report.json"))
+    parser.add_argument("--output-dir",type=Path)
     args=parser.parse_args()
-    reports=[]
-    for level in args.levels:
-        *_,report=build(level)
-        reports.append(report)
-    args.report.write_text(json.dumps({"status":"numerical-prototype-not-public-model","threshold":.05,"meshes":reports},indent=2))
-    assert reports[-1]["max_mne_relative_l2"]<.05, "FEM benchmark exceeds predeclared 5% field L2 tolerance"
-    assert reports[-1]["rms_mne_relative_l2"]<reports[0]["rms_mne_relative_l2"], "Refinement did not improve the field"
+    if args.output_dir:
+        args.output_dir.mkdir(parents=True,exist_ok=True)
+        reports=[]
+        for skull in [.002,.004,.008]:
+            result=fixture(4,skull)
+            name="fem-model.json" if skull==.004 else f"fem-skull-{skull:.3f}.json"
+            (args.output_dir/name).write_text(json.dumps(result,separators=(",",":"),allow_nan=False))
+            reports.append({"model_id":result["model_id"],**result["fem"]})
+        args.report.write_text(json.dumps({"status":"spherical-benchmark-not-anatomical-FEM","threshold":.05,"models":reports},indent=2))
+    else:
+        reports=[]
+        for level in args.levels:
+            *_,report=build(level)
+            reports.append(report)
+        args.report.write_text(json.dumps({"threshold":.05,"meshes":reports},indent=2))
+        assert reports[-1]["max_mne_relative_l2"]<.05, "FEM benchmark exceeds predeclared 5% field L2 tolerance"
+        if len(reports)>1:
+            assert reports[-1]["rms_mne_relative_l2"]<reports[0]["rms_mne_relative_l2"], "Refinement did not improve the field"
 
 
 if __name__=="__main__":

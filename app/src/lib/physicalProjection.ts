@@ -4,9 +4,10 @@ import {getHeadModelSelection} from './headModelSelection.ts';
 import {getPhysicalSource,getPhysicalFixture} from './physicalExperiment.ts';
 import {getTemplateMeasurementSource} from './templateExperiment.ts';
 import {getTemplateModel,templateSourcePotentials} from './fsaverageBEM.ts';
-import {sphereElectrodePotentials,type SphereFixture,type MontageKey} from './sphereForward.ts';
+import {sphereElectrodePotentials,type SphereFixture,type MontageKey,type FemNumerics} from './sphereForward.ts';
 import {setForwardContext} from './forwardContext.ts';
 export interface PhysicalProjection {
+ forwardNumerics?:FemNumerics;
  version:1;headModel:'sphere'|'bem';modelId:string;coordinateFrame:'head-RAS-sphere-centered'|'HEAD_RAS_MM';
  sourceUsage:'native-primary-geometry-only';sourcePositionMm:Vec3Mm;direction:Vec3Mm;sourceRevision:number;
  montage:MontageKey;reference:EegReference;channels:EegChannel[];infinityGainUvPerNAm:number[];
@@ -51,7 +52,7 @@ export function capturePhysicalProjection(fallback:SphereFixture|null=null):Phys
  const p:PhysicalProjection={version:1,headModel:'sphere',modelId:model.model_id,coordinateFrame:'head-RAS-sphere-centered',
   sourceUsage:'native-primary-geometry-only',sourcePositionMm:[...state.position],direction:[...state.direction],sourceRevision:state.revision,
   montage:state.montage,reference:{...state.reference},channels:result.sensors.map(s=>({label:s.label,positionMm:[...s.position_mm] as Vec3Mm})),
-  infinityGainUvPerNAm:[...result.voltageUv],sphereGeometry:{electrodeVertices:{...state.electrodeVertices},
+  ...(model.fem?{forwardNumerics:{...model.fem}}:{}),infinityGainUvPerNAm:[...result.voltageUv],sphereGeometry:{electrodeVertices:{...state.electrodeVertices},
    ...(state.selectedLabels?{selectedLabels:[...state.selectedLabels]}:{})}};
  validatePhysicalProjection(p);setForwardContext(p,{sphere:model});return p;
 }

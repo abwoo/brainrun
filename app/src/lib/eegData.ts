@@ -84,7 +84,9 @@ export interface EegRecording {
   /** null = 无噪声。 */
   noise: NoiseParams | null;
   /**
-   * 未经参考变换的原始多导数据（无限远参考，µV），与 `dataUv` 同形。
+   * 未经参考变换的原始多导数据（µV），与 `dataUv` 同形。
+   * Legacy field name: FEM uses its exported surface-area-mean-zero datum,
+   * not an infinity potential. Average/electrode differences are gauge invariant.
    * PR-07 新增的可选字段：有它时 `reReferenceRecording` 才能无损切换
    * 参考（平均参考会丢掉跨通道均值，无法从 `dataUv` 反推）；缺它时
    * 切换参考会抛错。B2/B3 不依赖本字段，读 `dataUv` 即可。

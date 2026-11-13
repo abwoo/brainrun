@@ -1,10 +1,11 @@
-import type {MontageKey} from './sphereForward.ts';
+import type {MontageKey,FemNumerics} from './sphereForward.ts';
 import {equivalentMomentNAm,validateMorphology,type DipoleMorphology} from './localCorticalColumn.ts';
 /** Fixed model-clock feedback on native neural E or physical EEG, never browser frames.
  * A full native window is required for RMS. A decision at t schedules input
  * no earlier than t+1 ms. This is a simulation controller, not device control.
  */
 export interface FeedbackEegMapping {
+ forwardNumerics?:FemNumerics;
  headModel?:'sphere'|'bem';coordinateFrame?:'head-RAS-sphere-centered'|'HEAD_RAS_MM';sourceRevision?:number;
  templateSource?:{index:number;vertex:number;hemisphere:'lh'|'rh';atlas:string;region:string;anatomicalRegistration:'MNE-fsaverage-MRI-to-HEAD'};
  montage?:MontageKey;gainUvPerNAm:number;baselineE:number;baselineI:number;lowpassHz:number;
