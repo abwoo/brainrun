@@ -15,7 +15,7 @@ try{
 
  const config={node:40,feature:'instant',threshold:0,amplitude:.2,durationMs:100,periodMs:250,windowMs:1000,cooldownMs:2000,delayMs:0,maxTriggers:2};
  const run=async(hz)=>{
-  await page.evaluate(({hz,config})=>{const s=window.__brainSim;s.setSnapshotHz(hz);s.setBackgroundMode('quiet');s.setSeed(7);s.resetPaused();s.configureNativeFeedback(config);s.advanceMs(2500);},{hz,config});
+  await page.evaluate(({hz,config})=>{const s=window.__brainSim;s.setSnapshotHz(hz);s.setBackgroundMode('spontaneous');s.setSeed(7);s.resetPaused();s.configureNativeFeedback(config);s.advanceMs(2500);},{hz,config});
   await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===2500&&window.__brainSim.getNativeFeedback()?.phase==='applied');
   return page.evaluate(()=>{const s=window.__brainSim;return {values:s.getNativeHistory().map(x=>x.e[40]),
     actions:s.getExperimentBundle().nativeFeedback.events.filter(x=>x.phase==='applied').map(x=>({t:x.t_ms,decision:x.action.detectedMs,feature:x.action.featureValue}))};});

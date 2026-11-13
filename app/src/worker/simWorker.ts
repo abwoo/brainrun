@@ -210,8 +210,13 @@ function validateInputHistory(inputs:typeof pulses):void {
 function fullSnapshot():string {
  if(!sim)throw new Error('Engine not ready');
  activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
- return JSON.stringify({...JSON.parse(sim.take_snapshot()),brainrun_native_feedback:feedback?.snapshot()??null,
+ // Preserve the Rust JSON verbatim: rng_state is u64 and must never pass
+ // through a JS Number round-trip (which would lose bits above 2^53).
+ const kernel=sim.take_snapshot().trim();
+ if(!kernel.startsWith('{')||!kernel.endsWith('}'))throw new Error('Invalid kernel snapshot');
+ const extras=JSON.stringify({brainrun_native_feedback:feedback?.snapshot()??null,
   brainrun_pending_pulses:pulses,brainrun_active_inputs:activeInputs,brainrun_holds:[...holds.entries()]});
+ return kernel.slice(0,-1)+','+extras.slice(1);
 }
 function acquireAdvance(ms:number):void {
  if(!sim)return;
