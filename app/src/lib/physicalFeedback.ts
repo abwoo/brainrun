@@ -1,5 +1,5 @@
 import {getHeadModelSelection} from './headModelSelection.ts';
-import {getTemplateSource} from './templateExperiment.ts';
+import {getTemplateMeasurementSource} from './templateExperiment.ts';
 import {getTemplateModel,templateSourcePotentials} from './fsaverageBEM.ts';
 import {getPhysicalSource,getPhysicalFixture} from './physicalExperiment.ts';
 import {sphereElectrodePotentials,type SphereFixture} from './sphereForward.ts';
@@ -10,7 +10,7 @@ import type {FeedbackEegMapping} from './nativeFeedback.ts';
  */
 export function physicalFeedbackMapping(fallback:SphereFixture|null):FeedbackEegMapping {
  if(getHeadModelSelection()==='bem'){
-  const model=getTemplateModel(),state=getTemplateSource();
+  const model=getTemplateModel(),state=getTemplateMeasurementSource();
   if(!model)throw new Error('The selected template BEM is not ready');
   if(!['10-20','10-10','10-05'].includes(model.montage))throw new Error('Unsupported template montage');
   const source=model.source_positions[state.sourceIndex];

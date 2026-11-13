@@ -66,3 +66,20 @@ test('BEM feedback freezes selected source, reference, sensor and HEAD coordinat
   }
  }finally{setHeadModelSelection('sphere');}
 });
+
+test('feedback follows a local-column viewport pose without replacing the retained manual example',async()=>{
+ const {setHeadModelSelection}=await import('../../app/src/lib/headModelSelection.ts');
+ const {setTemplateMeasurementSource,getTemplateSource}=await import('../../app/src/lib/templateExperiment.ts');
+ const {physicalFeedbackMapping}=await import('../../app/src/lib/physicalFeedback.ts');
+ const {templateSourcePotentials}=await import('../../app/src/lib/fsaverageBEM.ts');
+ setTemplateSource({sourceIndex:1,moment:10,direction:[1,0,0],reference:{mode:'average'},electrode:'Cz'});
+ const sourceIndex=5,direction=model.source_positions[sourceIndex].normal_head_unit;
+ setTemplateMeasurementSource({sourceIndex,direction,reference:{mode:'infinity'},electrode:'Pz'});
+ setHeadModelSelection('bem');
+ try{
+  const m=physicalFeedbackMapping(null);
+  assert.equal(m.templateSource.index,sourceIndex);assert.deepEqual(m.direction,direction);
+  assert.equal(m.gainUvPerNAm,templateSourcePotentials(model,sourceIndex,direction,{mode:'infinity'})[model.electrodes.findIndex(e=>e.label==='Pz')]);
+  assert.equal(getTemplateSource().sourceIndex,1,'independent manual experiment is not overwritten by local-column activity');
+ }finally{setHeadModelSelection('sphere');}
+});
