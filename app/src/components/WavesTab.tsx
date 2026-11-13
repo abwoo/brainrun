@@ -100,7 +100,7 @@ export default function WavesTab({
       </div>
     );
   }
-  if (!analysis || analysis.error) {
+  if (!analysis || analysis.error !== null) {
     return (
       <div style={panel}>
         <h3 style={title}>频段 / PSD（WAVES）</h3>
