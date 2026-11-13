@@ -11,6 +11,8 @@
  * recording，不许各写一套不相关的模拟波形。
  */
 import { useEffect, useState } from 'react';
+import {getPhysicalSource,setPhysicalSource} from '../lib/physicalExperiment';
+import {RangeControl} from './ui/ControlField';
 import Dropdown from './ui/Dropdown';
 import {runNativeExperiment,NATIVE_EEG_ID} from '../lib/nativeEeg';
 import { useI18n } from '../lib/i18n';
@@ -100,7 +102,10 @@ export default function EegAnalysisLab({
   const [nativeRate,setNativeRate]=useState<250|500>(storedLive?.workspace?.nativeRate??250);
   const configuration:EegRunConfiguration={sourceModel,durationMs,montage,reference,noise,seed};
   const pending=!!recording&&(!configurationsEqual(configuration,configurationForRecording(recording))
-    ||recording.provenance?.origin==='live-derived'||recording.sourceModelId.includes('late'));
+    ||recording.provenance?.origin==='live-derived'||recording.sourceSnapshot!==undefined||recording.sourceModelId.includes('late'));
+  useEffect(()=>{
+    if(recording)setAtTimeMs(previous=>Math.max(recording.timesMs[0],Math.min(recording.timesMs.at(-1)??0,previous)));
+  },[recording]);
   // PR8-LINK：记录一变就写回 store（两路都进同一份 store；挂载时已从 store 恢复）。
   useEffect(() => {
     if (recording) setLiveRecordingStore({ recording, events, epochs,
@@ -139,7 +144,15 @@ export default function EegAnalysisLab({
       return; // 电极不在当前记录的导联内：只记选择，不重算（下次运行再生效）。
     }
     try {
-      setRecording(reReferenceRecording(recording, ref));
+      const processed=reReferenceRecording(recording,ref);
+      if(recording.sourceSnapshot&&recording.sourceSnapshot.revision===getPhysicalSource().revision){
+        const source=setPhysicalSource({reference:ref});
+        processed.sourceSnapshot={...source};
+        if(processed.experiment)processed.experiment={
+          ...processed.experiment,parameters:{...processed.experiment.parameters,sourceState:source},
+        };
+      }
+      setRecording(processed);
       setEpochs(null);
     } catch (e) {
       setRunError(String(e));
@@ -309,7 +322,7 @@ export default function EegAnalysisLab({
   };
 
   const labBody = (
-    <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'} data-analysis-run-id={recording?.provenance?.runId}>
+    <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'} data-analysis-run-id={recording?.provenance?.runId} data-source-model={recording?.sourceModelId}>
       <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
       {recording&&<div className="panel-text" data-testid="active-recording"
         data-montage={recording.montage} data-reference={recording.reference.mode}
@@ -327,6 +340,15 @@ export default function EegAnalysisLab({
         {text('下方配置用于下一次运行；参考方式可直接作用于当前记录。','Configuration below is for the next run; reference changes can apply to the displayed recording.')}
         {pending&&<strong>{text(' 有待运行的配置，当前波形和导出仍使用上方记录。',' Pending configuration: plots and exports still use the displayed recording above.')}</strong>}
       </div>
+      {recording&&<div className="panel-text">
+        <RangeControl label={text('原始记录观察时刻','Raw recording observation time')}
+          value={atTimeMs} min={recording.timesMs[0]} max={recording.timesMs.at(-1)??0}
+          step={1000/recording.sfreqHz} unit="ms" onChange={setAtTimeMs}/>
+        {recording.sourceSnapshot&&<p>{text(
+          '当前数据来自首页的同一个物理源。静态源产生恒定电位；这里没有自动添加脑电振荡。源位置、方向和强度随记录一起导出。',
+          'This record uses the physical source from the home page. A static source produces constant potentials; no EEG oscillations are added. Source position, direction and moment are exported with the record.'
+        )}</p>}
+      </div>}
       <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">
         {TABS.map((t) => (
           <button
@@ -407,7 +429,7 @@ export default function EegAnalysisLab({
         {activeTab === 'topo' && (
           <TopoTab recording={recording} atTimeMs={atTimeMs} onAtTimeMsChange={setAtTimeMs} />
         )}
-        {activeTab === 'inverse' && <InverseTab recording={recording} fixture={fixture} />}
+        {activeTab === 'inverse' && <InverseTab recording={recording} fixture={fixture} atTimeMs={atTimeMs} />}
         {recording?.provenance && (
           <p className="panel-text" data-eeg-run-id={recording.provenance.runId}>
             Raw：{recording.acquisition ? text('主求解器原生积分记录','Native solver integration recording') : recording.provenance.origin === 'live-derived' ? '主仿真快照派生' : '独立神经群体'}
@@ -426,14 +448,13 @@ export default function EegAnalysisLab({
           </p>
         )}
         <p className="panel-text eeg-foot">
-          正向模型 {SPHERE_MODEL_ID} · 原始记录、事件与试次同步更新；
-          地形页右侧正向采样图另用独立偶极子 ·
-          噪声是伪迹，不作神经源活动解释。
-          {recording
-            ? recording.sourceModelId === LIVE_DERIVATION_ID
-              ? '当前记录来源：直播推导（直播 WC 网络快照流，60 Hz 快照插值到 250 Hz）。'
-              : '当前记录来源：独立柱模型（种子/源模型跑出来的，与直播无关）。'
-            : '尚未运行实验。'}
+          {text('正向模型','Forward model')} {SPHERE_MODEL_ID}
+          {' · '}{recording?.acquisition?text('主求解器原生积分记录','Native solver integration recording'):
+            recording?.sourceSnapshot?text('首页手动物理源','Manual physical source from home'):
+            recording?.sourceModelId===LIVE_DERIVATION_ID?text('旧版显示快照派生记录','Legacy display-snapshot derivation'):
+            text('独立模型实验','Independent model experiment')}
+          {' · '}{text('测量噪声与神经源分开记录。','Measurement noise is separate from neural sources.')}
+
         </p>
     </div>
   );

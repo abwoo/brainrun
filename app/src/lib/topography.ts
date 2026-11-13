@@ -322,3 +322,42 @@ export function topoAtTime(
 
 /** TopoResult 的 2D 网格坐标换算：单位圆坐标 → mm（俯视图，×R）。 */
 export const TOPO_HEAD_RADIUS_MM = 95;
+
+/** Same source time courses and SAME channel reference operator as the Raw.
+ * Dense scalp values exclude measurement noise, which remains a separate artifact.
+ */
+export function recordingForwardAtTime(fixture:SphereFixture,recording:EegRecording,atTimeMs:number):
+ ForwardHeadPotential & {atTimeMs:number;sourceCount:number} {
+ if(recording.forwardModelId!==fixture.model_id||!recording.sourceSeries)
+  throw new Error('Recording has no compatible forward source history');
+ if(!Number.isFinite(atTimeMs))throw new RangeError('Invalid observation time');
+ let index=0;
+ for(let j=1;j<recording.timesMs.length;j++)
+  if(Math.abs(recording.timesMs[j]-atTimeMs)<Math.abs(recording.timesMs[index]-atTimeMs))index=j;
+ const sources=recording.sourceSeries.sources;
+ if(!sources.length)throw new Error('Empty source history');
+ let first:ForwardHeadPotential|null=null;
+ let values=fixture.sensors.map(()=>0);
+ for(const source of sources){
+  if(source.momentsNAm.length!==recording.timesMs.length)throw new Error('Source and Raw clocks differ');
+  const q=source.momentsNAm[index],normal=source.direction;
+  const field=forwardHeadPotential(fixture,source.positionMm,[q*normal[0],q*normal[1],q*normal[2]],{mode:'infinity'});
+  first??=field;values=values.map((v,k)=>v+field.valueUv[k]);
+ }
+ const indices=recording.channels.map(channel=>{
+  const j=fixture.sensors.findIndex(sensor=>sensor.label===channel.label);
+  if(j<0||channel.positionMm.some((x,k)=>Math.abs(x-fixture.sensors[j].position_mm[k])>1e-5))
+   throw new Error('Electrode geometry differs from the recording');
+  return j;
+ });
+ let offset=0;
+ if(recording.reference.mode==='average')offset=indices.reduce((sum,j)=>sum+values[j],0)/indices.length;
+ if(recording.reference.mode==='electrode'){
+  const label=recording.reference.label;
+  const j=recording.channels.findIndex(c=>c.label===label);
+  if(j<0)throw new Error('Reference electrode absent from Raw');
+  offset=values[indices[j]];
+ }
+ return {...first!,valueUv:values.map(v=>v-offset),reference:recording.reference,
+  atTimeMs:recording.timesMs[index],sourceCount:sources.length};
+}

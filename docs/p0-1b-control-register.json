@@ -1477,7 +1477,7 @@
         "onChange"
       ],
       "category": "DERIVED",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1491,7 +1491,7 @@
         "onClick"
       ],
       "category": "DERIVED",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1505,7 +1505,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1519,7 +1519,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1533,7 +1533,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1547,7 +1547,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1561,7 +1561,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1575,7 +1575,7 @@
         "onChange"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Left interpolated Raw; right independent forward source 2D projection",
+      "modelBoundary": "Shared Raw/source observation time; legacy independent controls only shown when source history is unavailable",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },

@@ -33,6 +33,8 @@ export function runNativeExperiment(opts:RunLiveExperimentOptions & {sfreqHz?:25
   version:1,sfreqHz:rate,timesMs,channels,dataUv:applyReference(raw,reference,channels.map(c=>c.label)),
   rawDataUvInfinity:raw,reference:{...reference},montage,forwardModelId:opts.fixture.model_id,
   sourceModelId:NATIVE_EEG_ID,seed,noise,
+  sourceSeries:{coordinateFrame:'head-RAS-sphere-centered',mapping:'tvb-demo-unregistered',
+   sources:[{positionMm:sourcePositionMm,direction:opts.normalHead??[0,0,1],momentsNAm:filtered.values}]},
   acquisition:{source:'solver-integration',integrationRateHz:1000,sampleRateHz:rate,
    validStartMs:t0Ms,validEndMs:t0Ms+(timesMs.at(-1)??0),
    filter:{method:'centered-Hamming-sinc-FIR',taps:filtered.taps,cutoffHz:filtered.cutoffHz,

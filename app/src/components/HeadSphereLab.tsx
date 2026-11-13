@@ -1,3 +1,5 @@
+import {getPhysicalSource,setPhysicalSource,registerPhysicalFixture} from '../lib/physicalExperiment';
+import type {EegReference} from '../lib/eegData';
 import Dropdown from './ui/Dropdown';
 import { ControlField, RangeControl } from './ui/ControlField';
 import { useI18n } from '../lib/i18n';
@@ -17,10 +19,6 @@ import type { Vec3Mm } from '../lib/volumeConduction';
  * NOT to the TVB demo cortex. This is deliberately independent from
  * BrainScene: none of its cortical vertices are claimed to be MNI.
  */
-let manualHeadState: {
- position:Vec3Mm;axis:'X'|'Y'|'Z';moment:number;montage:MontageKey;
- reference:'average'|'infinity';electrode:string;
-} = {position:[16,0,16],axis:'X',moment:10,montage:'10-20',reference:'average',electrode:'Cz'};
 export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=false}:{onClose:()=>void;onOpenReal?:()=>void;embedded?:boolean;
   /**
    * PR8-LINK 直播源（App 传）：选中脑区的 TVB 中心 + 由直播 E/I 经 PR5
@@ -29,6 +27,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
    */
   liveSource?: { positionMm: Vec3Mm; momentNAm: number; regionLabel: string; regionId: number } | null;
 }) {
+  const manualHeadState=getPhysicalSource();
   const {locale}=useI18n();
   const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   const [data,setData]=useState<SphereFixture|null>(null);
@@ -37,8 +36,11 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
   const [axis,setAxis]=useState<'X'|'Y'|'Z'>(embedded?manualHeadState.axis:'X');
   const [moment,setMoment]=useState(embedded?manualHeadState.moment:10);
   const [montage,setMontage]=useState<MontageKey>(embedded?manualHeadState.montage:'10-20');
-  const [reference,setReference]=useState<'average'|'infinity'>(embedded?manualHeadState.reference:'average');
+  const [reference,setReference]=useState<'average'|'infinity'|'electrode'>(embedded?manualHeadState.reference.mode:'average');
   const [selectedElectrode,setSelectedElectrode]=useState(embedded?manualHeadState.electrode:'Cz');
+  const referenceSpec:EegReference=reference==='electrode'
+    ?{mode:'electrode',label:manualHeadState.reference.mode==='electrode'?manualHeadState.reference.label:'Cz'}
+    :{mode:reference};
   // PR8-LINK：直播模式（默认开，只要传了 liveSource）；开着时位置与偶极矩
   // 跟随直播源，手动滑杆与拖动被直播值覆盖（拖动后下一帧即恢复）。
   const [liveMode,setLiveMode]=useState(liveSource != null);
@@ -56,7 +58,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
     setMoment((prev) => (prev === q ? prev : q));
   },[liveMode,liveSource,data]);
   useEffect(()=>{
-    if(embedded)manualHeadState={position:[position[0],position[1],position[2]],axis,moment,montage,reference,electrode:selectedElectrode};
+    if(embedded)setPhysicalSource({position:[position[0],position[1],position[2]],axis,moment,montage,reference:referenceSpec,electrode:selectedElectrode});
   },[embedded,position,axis,moment,montage,reference,selectedElectrode]);
   const mount=useRef<HTMLDivElement>(null);
   const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>,q:number)=>void)|null>(null);
@@ -67,7 +69,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
         if(!r.ok)throw new Error('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py');
         const fixture=await r.json() as SphereFixture;
         validateSphereFixture(fixture);
-        setData(fixture);
+        setData(fixture);if(embedded)registerPhysicalFixture(fixture);
       }).catch(e=>{if(!controller.signal.aborted)setError(String(e));});
     return ()=>controller.abort();
   },[]);
@@ -76,7 +78,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
     if(!data)return null;
     return sphereElectrodePotentials(data,position,[
       direction[0]*moment,direction[1]*moment,direction[2]*moment,
-    ],montage,{mode:reference});
+    ],montage,referenceSpec);
   },[data,position,direction,moment,montage,reference]);
   const voltageMap=useMemo(()=>new Map(readings?.sensors.map((s,i)=>[s.label,readings.voltageUv[i]])??[]),[readings]);
   const peaks=useMemo(()=>[...(readings?.sensors??[])].map(s=>({
@@ -229,6 +231,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
        </ControlField>
        <ControlField label={text('参考方式','Voltage reference')}>
         <Dropdown aria-label={text('参考方式','Voltage reference')} value={reference} onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
+         {reference==='electrode'&&<option value="electrode">{text('电极参考','Electrode reference')} · {referenceSpec.mode==='electrode'?referenceSpec.label:''}</option>}
          <option value="average">{text('所有电极的平均值','Average over electrodes')}</option><option value="infinity">{text('理论无限远参考','Theoretical infinity reference')}</option>
         </Dropdown>
        </ControlField>

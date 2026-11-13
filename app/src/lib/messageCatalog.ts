@@ -3561,4 +3561,9 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
   }
 ,
 {"zh":"导联选择在下次运行时生效，当前波形和导出保持不变。","en":"Montage changes apply on the next run. Current plots and exports remain unchanged."}
+,
+{"zh":"当前观察采样点（","en":"Current observation sample ("},
+{"zh":"当前时刻无可定位的非零信号，或正向模型与通道不匹配。","en":"No localizable nonzero signal at this time, or the forward model and channels do not match."},
+{"zh":"刺激前电位可能为零。可手动选择观察时刻，或跳到最大响应。","en":"Potentials may be zero before stimulation. Choose an observation time or jump to the largest response."},
+{"zh":"左侧 2D 地形读取当前 EEG 记录；右侧示例使用下面单独设置的源位置、方向和强度计算，不是同一时刻、同一源的第二种视图。仅作为独立球形正向求解演示，不要直接比较两图数值。","en":"The left map uses the current EEG record. The right example uses separately configured source parameters, so it is an independent forward demonstration. Do not compare their values directly."}
 ];
