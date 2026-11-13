@@ -79,7 +79,8 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
   // ITC 数值（ERSP 是功率比，仍有意义）；加测量噪声后试次有了差异，
   // ITC 才恢复为可读的测量。阈值与实测见 signalProcessing.ts。
   const itcDegenerate = useMemo(() => {
-    if (!epochs || epochs.trials.length < 2) return false;
+    if (!epochs) return false;
+    if(epochs.trials.length<2)return true;
     try {
       return maxTrialDifferenceUv(epochs, channel) < ITC_DEGENERATE_THRESHOLD_UV;
     } catch {
@@ -200,8 +201,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
       </p>
       {itcDegenerate && (
         <p className="panel-text" style={{ color: '#ffb340' }}>
-          注意：当前试次完全相同（无测量噪声、确定性模型），ITC 恒为 1.000 是退化值、不是锁相证据，
-          本页不展示 ITC 数值。想看有意义的 ITC，请在 EEG tab 加测量噪声（如白噪声 0.25 µV）后重新运行实验。
+          {text('有效试次不足两次或试次完全相同，ITC 不具备试次间相位一致性的解释条件，本页不展示其数值。增加人工噪声也不能代替真实的独立试次验证。','Fewer than two trials, or identical trials, cannot support an inter-trial phase-consistency interpretation; ITC values are hidden. Adding artificial noise does not substitute for independent-trial validation.')}
         </p>
       )}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -281,7 +281,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
             <span className="panel-text">
               区域内平均 ERSP <b>{regionStats.meanErspDb.toFixed(2)} dB</b>，平均 ITC{' '}
               {itcDegenerate ? (
-                <b>不适用（试次完全相同，ITC 恒为 1.000 是退化值）</b>
+                <b>{text('不可解释（有效试次不足或完全相同）','Uninterpretable: insufficient or identical trials')}</b>
               ) : (
                 <b>{regionStats.meanItc.toFixed(3)}</b>
               )}
