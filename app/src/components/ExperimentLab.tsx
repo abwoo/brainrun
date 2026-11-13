@@ -639,7 +639,7 @@ export default function ExperimentLab({
           <span style={label}>特征</span>
           <Dropdown aria-label={text('闭环测量信号','Feedback measurement')} value={clSignal} disabled={clLiveRunning||clWorkerActive} onChange={e=>{setClSignal(e.target.value as 'activity'|'eeg');setClLiveThreshold(e.target.value==='eeg'?'0.01':'0.05');}}>
             <option value="activity">{text('神经活动 E（无量纲）','Neural activity E (dimensionless)')}</option>
-            <option value="eeg">{text('主物理源电极 EEG（µV，假设耦合）','Primary-source sensor EEG (µV, assumed coupling)')}</option>
+            <option value="eeg">{text('球形模型主源 EEG（µV，假设耦合）','Sphere primary-source EEG (µV, assumed coupling)')}</option>
           </Dropdown>
           <Dropdown value={clLiveFeature} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
             <option value="instant">{text("瞬时幅度","Instantaneous magnitude")}</option>
@@ -669,7 +669,7 @@ export default function ExperimentLab({
           {(!liveSim || liveNode === null) && <span style={label}>先在主界面选一个脑区（直播未就绪或未选区时不可启动）。</span>}
         </div>
         {(clLiveRunning||clWorkerActive) && <p style={note}>{text('闭环运行中：每 250 ms 模型时间检测；RMS 需要完整 1000 ms 窗口，检测后至少 1 ms 施加输入。暂停冻结控制时钟。','Feedback active: evaluate every 250 model ms; RMS needs a full 1000 ms window, with at least 1 ms from detection to input. Pause freezes the control clock.')}</p>}
-        <p style={note}>{text('EEG 模式：选定脑区的 E/I 驱动首页主电流源，按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives the home primary source through explicit assumptions. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
+        <p style={note}>{text('EEG 模式：选定脑区的 E/I 驱动球形实验的主电流源（尚未接入模板 BEM），按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives the sphere workbench primary source through explicit assumptions; template BEM control measurement is not connected. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
         <button style={button} disabled={feedbackReading||clSignal!=='eeg'||!(clLiveRunning||clWorkerActive)} onClick={analyzeFeedback}>{text('停止并分析反馈 EEG','Stop and analyze feedback EEG')}</button>
         <p style={note}>{text('暂停仿真、停止后续反馈，并分析最近保留的单电极原生窗口（最多 1 秒）。原样保留触发所用的电位、参考和滤波信息；短窗不能证明低频节律，单电极不支持地形或逆解。','Pauses the simulation, stops future feedback and analyzes the retained single-sensor native window (up to 1 s). Keeps the measured voltage, reference and filter information. A short window cannot establish low-frequency rhythms; one sensor cannot support topography or inverse localization.')}</p>
         {clError&&<p style={note} role="alert">{clError}</p>}

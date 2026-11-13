@@ -281,7 +281,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
         colors.needsUpdate=true;
       }
       const chosen=dots.get(selected);
-      selectedRing.visible=!!chosen?.visible;if(chosen)selectedRing.position.copy(chosen.position);
+      selectedRing.visible=!!chosen&&voltage.has(selected);if(chosen)selectedRing.position.copy(chosen.position);
       dots.forEach((dot,label)=>{
         const v=voltage.get(label);
         dot.visible=v!==undefined;
