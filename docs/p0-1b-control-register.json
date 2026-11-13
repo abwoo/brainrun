@@ -3227,13 +3227,13 @@
       "controlId": "HeadSphereLab:button:2",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 355,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
+      "element": "button",
+      "visibleName": "Reverse current direction",
       "events": [
-        "onChange"
+        "onClick"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "modelBoundary": "Reverse the signed nA.m dipole moment; recompute sensor and scalp potentials",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -3254,12 +3254,12 @@
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "Dropdown",
-      "visibleName": "Physical source time course / conductor / electrode geometry",
+      "visibleName": "Physical source / conductor / electrode geometry",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "MNE source superposition, native source waveform and conductor/electrode-specific leadfield",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:4",
@@ -3268,12 +3268,12 @@
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "button",
-      "visibleName": "Physical source time course / conductor / electrode geometry",
+      "visibleName": "Physical source / conductor / electrode geometry",
       "events": [
         "onClick"
       ],
       "category": "VISUAL",
-      "modelBoundary": "MNE source superposition, native source waveform and conductor/electrode-specific leadfield",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:button:5",
@@ -3282,12 +3282,12 @@
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "Dropdown",
-      "visibleName": "Physical source time course / conductor / electrode geometry",
+      "visibleName": "Physical source / conductor / electrode geometry",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "MNE source superposition, native source waveform and conductor/electrode-specific leadfield",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:6",
@@ -3296,12 +3296,12 @@
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "input",
-      "visibleName": "Physical source time course / conductor / electrode geometry",
+      "visibleName": "Physical source / conductor / electrode geometry",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "MNE source superposition, native source waveform and conductor/electrode-specific leadfield",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:input:7",
@@ -3310,12 +3310,12 @@
     {
       "path": "app/src/components/HeadSphereLab.tsx",
       "element": "Dropdown",
-      "visibleName": "Physical source time course / conductor / electrode geometry",
+      "visibleName": "Physical source / conductor / electrode geometry",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "MNE source superposition, native source waveform and conductor/electrode-specific leadfield",
+      "modelBoundary": "MNE source superposition, defined source time course and conductor/electrode-specific leadfield",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:8",
@@ -3339,10 +3339,10 @@
       "controlId": "HeadSphereLab:Dropdown:10",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 400,
-      "element": "button",
+      "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
-        "onClick"
+        "onChange"
       ],
       "category": "INDEPENDENT",
       "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
@@ -3354,11 +3354,11 @@
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 409,
       "element": "button",
-      "visibleName": "关闭",
+      "visibleName": "Manual workbench control",
       "events": [
         "onClick"
       ],
-      "category": "NAV",
+      "category": "INDEPENDENT",
       "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
@@ -3368,7 +3368,7 @@
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 420,
       "element": "button",
-      "visibleName": "打开本地真实 MRI BEM",
+      "visibleName": "关闭",
       "events": [
         "onClick"
       ],
@@ -3381,6 +3381,20 @@
       "controlId": "HeadSphereLab:button:13",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 423,
+      "element": "button",
+      "visibleName": "打开本地真实 MRI BEM",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:input:14",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 429,
       "element": "input",
       "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
       "events": [
@@ -3392,25 +3406,11 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:input:14",
-      "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 429,
-      "element": "Dropdown",
-      "visibleName": "电极布局",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "HeadSphereLab:Dropdown:15",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 453,
       "element": "Dropdown",
-      "visibleName": "球形头电流源方向",
+      "visibleName": "电极布局",
       "events": [
         "onChange"
       ],
@@ -3423,8 +3423,8 @@
       "controlId": "HeadSphereLab:Dropdown:16",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 461,
-      "element": "input",
-      "visibleName": "球形头偶极矩",
+      "element": "Dropdown",
+      "visibleName": "球形头电流源方向",
       "events": [
         "onChange"
       ],
@@ -3437,8 +3437,8 @@
       "controlId": "HeadSphereLab:input:17",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 467,
-      "element": "Dropdown",
-      "visibleName": "球形头参考方式",
+      "element": "input",
+      "visibleName": "球形头偶极矩",
       "events": [
         "onChange"
       ],
@@ -3452,7 +3452,7 @@
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 470,
       "element": "Dropdown",
-      "visibleName": "选中电极",
+      "visibleName": "球形头参考方式",
       "events": [
         "onChange"
       ],
@@ -3465,10 +3465,10 @@
       "controlId": "HeadSphereLab:Dropdown:19",
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 477,
-      "element": "button",
-      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
+      "element": "Dropdown",
+      "visibleName": "选中电极",
       "events": [
-        "onClick"
+        "onChange"
       ],
       "category": "INDEPENDENT",
       "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
@@ -3480,12 +3480,12 @@
       "path": "app/src/components/HeadSphereLab.tsx",
       "line": 487,
       "element": "button",
-      "visibleName": "Reverse current direction",
+      "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
       "events": [
         "onClick"
       ],
       "category": "INDEPENDENT",
-      "modelBoundary": "Reverse the signed nA.m dipole moment; recompute sensor and scalp potentials",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     }
