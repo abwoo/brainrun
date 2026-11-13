@@ -1,3 +1,4 @@
+import {capturePhysicalProjection,physicalProjectionReady} from '../lib/physicalProjection';
 import {getTemplateSource,setTemplateSource} from '../lib/templateExperiment';
 /**
  * PR-07 EEG 分析实验壳（B1）。
@@ -210,6 +211,8 @@ export default function EegAnalysisLab({
             sourcePositionMm: [0, 0, 16], sourceNormalHead: [0, 0, 1],
             secondSourcePositionMm: [16, -16, 16], secondSourceNormalHead: [0, 0, 1],
           } } });
+        setReference({...rec.reference});setMontage(rec.montage);setSourceModel('wc');
+        setDurationMs(rec.timesMs.at(-1)??0);
         setEvents(evs.map(event => ({ ...event, runId })));
         setEpochs(null);
         if (!rec.channels.some((c) => c.label === selectedChannel)) {
@@ -258,10 +261,10 @@ export default function EegAnalysisLab({
   };
 
   // Native 1 ms solver history -> anti-alias FIR -> 250/500 Hz EEG.
-  // The TVB-to-sphere source mapping is still explicitly unregistered.
+  // Native E/I drives the selected physical primary source; anatomical assignment remains unregistered.
   const handleRunLive = () => {
     const ls = liveSource;
-    if (!fixture || !ls || !ls.sim || ls.node === null || !ls.positionMm || liveRunning) return;
+    if (!ls || !ls.sim || ls.node === null || liveRunning) return;
     setLiveRunning(true);
     setNativeResult(null);
     setRunError(null);
@@ -271,29 +274,26 @@ export default function EegAnalysisLab({
         const node = ls.node!;
         const samples = sim.getNativeHistory();
         if (samples.length < 1001) throw new Error(text('原生积分记录不足，请等待至少 1 秒。','Wait for at least 1 second of native integration history.'));
-        const first = samples[0];
+        if(!physicalProjectionReady(fixture))throw new Error(text('所选头部模型尚未准备好，请先返回物理模型页面等待加载。','The selected head model is not ready. Open the physical model and wait for it to load.'));
+        const first = samples[0],projection=capturePhysicalProjection(fixture);
         const { recording: rec, events: evs, t0Ms } = runNativeExperiment({
           sfreqHz:nativeRate,
-          fixture,
+          projection,
           samples,
           node,
           baselineE: first.e[node],
           baselineI: first.i[node],
           markers: sim.getMarkers(),
-          positionMm: ls.positionMm!,
-          montage,
-          reference,
           noise,
           seed,
         });
         const upstream = sim.getExperimentSession().provenance;
         const derived = new ExperimentSession({
           origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:rec.forwardModelId,
-          registration:'unregistered',seed,parentRunId:upstream.runId,clock:'solver-integration-ms',
+          registration:'unregistered',seed:upstream.seed,parentRunId:upstream.runId,clock:'solver-integration-ms',
         });
         const runId = derived.runId;
-        // This recording is a 250 Hz interpolation of ≈60 Hz visual
-        // snapshots; the actual source clock and rate remain visible.
+        // Native acquisition and geometry are frozen independently of display refresh.
         derived.recordModelTime(runId, rec.timesMs.at(-1) ?? 0);
         derived.recordArtifact({
           id: 'raw', runId, kind: 'eeg-raw', tMs: 0,
@@ -301,7 +301,8 @@ export default function EegAnalysisLab({
         });
         setRecording({
           ...rec, experiment: { session: derived.getSnapshot(), parameters: {
-            node, positionMm: ls.positionMm, montage, reference, noise, seed,sfreqHz:nativeRate,
+            node,physicalProjection:rec.physicalProjection,nativeSource:rec.nativeSource,
+            montage:rec.montage,reference:rec.reference,noise,seed,sourceSeed:upstream.seed,sfreqHz:nativeRate,
             acquisition:rec.acquisition,
             upstreamSession: sim.getExperimentBundle(),
           } }, provenance: {
@@ -309,6 +310,8 @@ export default function EegAnalysisLab({
 
           },
         });
+        setReference({...rec.reference});setMontage(rec.montage);setSourceModel('wc');
+        setDurationMs(rec.timesMs.at(-1)??0);
         setEvents(evs.map(event => ({ ...event, runId })));
         setEpochs(null);
         if (!rec.channels.some((c) => c.label === selectedChannel)) {
@@ -331,7 +334,7 @@ export default function EegAnalysisLab({
     <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'} data-analysis-run-id={recording?.provenance?.runId} data-source-model={recording?.sourceModelId}>
       <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
       {recording&&<div className="panel-text" data-testid="active-recording"
-        data-montage={recording.montage} data-reference={recording.reference.mode}
+        data-montage={recording.montage} data-reference={recording.reference.mode} data-sfreq-hz={recording.sfreqHz}
         data-revision={recording.dataRevision??0}>
         <strong>{text('当前显示的记录','Displayed recording')}</strong>
         {' · '}{recording.channels.length}{text(' 通道',' channels')}{' · '}{recording.montage}
@@ -339,7 +342,11 @@ export default function EegAnalysisLab({
         {' · '}{text('处理版本','Processing revision')} {recording.dataRevision??0}
         <details><summary>{text('记录来源与参数','Recording source and parameters')}</summary>
           <code>{recording.sourceModelId}</code>
-          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,channels:recording.channels.map(c=>c.label),reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0},null,2)}</pre>
+          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,channels:recording.channels.map(c=>c.label),reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0,
+            sourceSeed:recording.nativeSource?recording.provenance?.seed:undefined,nativeSource:recording.nativeSource,
+            physicalSource:recording.physicalProjection?{headModel:recording.physicalProjection.headModel,modelId:recording.physicalProjection.modelId,
+             positionMm:recording.physicalProjection.sourcePositionMm,direction:recording.physicalProjection.direction,
+             revision:recording.physicalProjection.sourceRevision,templateSource:recording.physicalProjection.templateSource}:undefined},null,2)}</pre>
         </details>
       </div>}
       <div className="panel-text" role="status" data-testid="configuration-status" data-pending={pending}>
@@ -350,7 +357,7 @@ export default function EegAnalysisLab({
         <RangeControl label={text('原始记录观察时刻','Raw recording observation time')}
           value={atTimeMs} min={recording.timesMs[0]} max={recording.timesMs.at(-1)??0}
           step={1000/recording.sfreqHz} unit="ms" onChange={setAtTimeMs}/>
-        {recording.sourceSnapshot&&<p>{text(
+        {recording.sourceSnapshot&&!recording.physicalProjection&&<p>{text(
           '当前数据来自首页的物理源与明确给定的时间变化。恒定源保持平直；脉冲按记录中的 q(t) 计算，不自动添加脑电振荡。源、电极和组织参数随记录导出。',
           'This record uses the home physical sources and their defined time course. Constant sources remain flat; pulses follow the recorded q(t), without added EEG oscillations. Sources, electrodes and conductor parameters are exported.'
         )}</p>}
@@ -377,8 +384,8 @@ export default function EegAnalysisLab({
         {liveSource && (
           <div>
             <p className="panel-text">{text(
-              '主网络信号来自每 1 ms 的求解器积分状态，经抗混叠滤波后记录；与画面刷新率无关。TVB 到头部源位置仍是未配准的演示映射。',
-              'Network signals use every 1 ms solver state, followed by anti-alias filtering, independently of display rate. TVB-to-head source positions remain an unregistered demonstration mapping.'
+              '选定脑区的原生 E/I 驱动首页所选头部模型的主物理源，经抗混叠滤波产生 250/500 Hz 全导记录，使用该源的方向、电极和参考。手动源强度、脉冲及第二源不参与此神经驱动记录；此映射未经生理校准，也未做脑区到人类解剖的配准。',
+              'Native E/I from the selected region drives the primary source in the head model selected on the physical home. Anti-alias filtering produces 250/500 Hz multichannel EEG using its direction, sensors and reference. Manual strength, pulse and second source are excluded. This coupling is uncalibrated and does not register the network to human anatomy.'
             )}</p>
             <label className="panel-text">{text('原生 EEG 采样率','Native EEG sample rate')}
              <Dropdown aria-label={text('原生 EEG 采样率','Native EEG sample rate')} value={nativeRate}
@@ -387,10 +394,16 @@ export default function EegAnalysisLab({
              </Dropdown>
             </label>
             <button type="button" className="chip chip-small"
-              disabled={!fixture || !liveSource.sim || liveSource.node === null || !liveSource.positionMm || liveRunning}
+              disabled={!liveSource.sim || liveSource.node === null || liveRunning}
               onClick={handleRunLive}>
-              {liveRunning?text('记录中…','Recording…'):text('记录当前脑区 EEG','Record selected region EEG')}
+              {liveRunning?text('记录中…','Recording…'):text('记录主物理源的神经驱动 EEG','Record neural EEG at the physical source')}
             </button>
+            {recording?.physicalProjection&&<p className="panel-text" data-testid="native-physical-source"
+              data-model-id={recording.forwardModelId} data-frame={recording.physicalProjection.coordinateFrame}>
+              {text('记录中冻结的物理源','Physical source frozen in this recording')} · {recording.forwardModelId}
+              {' · '}{recording.channels.length}{text(' 通道',' channels')}{' · '}{recording.physicalProjection.coordinateFrame}
+              {' · ['}{recording.physicalProjection.sourcePositionMm.map(v=>v.toFixed(1)).join(', ')}{'] mm'}
+            </p>}
             {nativeResult&&<p className="panel-text">{text(
               '原生记录完成：'+nativeResult.rate+' Hz，来自每 1 ms 的积分状态；边缘各舍弃 64 ms。Pz 峰值 ',
               'Native recording: '+nativeResult.rate+' Hz from 1 ms integration states; 64 ms discarded at each edge. Pz peak '

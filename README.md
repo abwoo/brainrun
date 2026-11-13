@@ -32,6 +32,8 @@ The Advanced labs menu keeps additional tools away from the default workbench:
 
 For optional EEG feedback, select a sphere or template BEM source on the home page, choose a network region under **Regions & activity**, then open **Compare and replay**. Select **Selected head-model EEG** as the feedback measurement. Starting freezes that conductor, source orientation, sensor and reference; the displayed source label identifies the active measurement. **Stop and analyze feedback EEG** opens the actual retained causal-filter window. This neural-to-dipole coupling is an explicit uncalibrated assumption, not anatomical registration of the demonstration network.
 
+For full multichannel native EEG, select the head model/source/electrodes on the physical home and a network region under **Regions & activity**. In **Signal analysis**, choose 250 or 500 Hz and **Record neural EEG at the physical source**. The current sphere/BEM geometry and reference are used, with native E/I supplying the primary-source moment. Its baseline is the first retained native sample; manual strength/pulse/second-source inputs are excluded. Raw, spatial views, inverse estimates and exports use the same frozen operator. A/B freezes that operator before forking, so both branch recordings use identical measurement geometry.
+
 ## Computation and interface
 
 | Interaction | Numerical path | Display |

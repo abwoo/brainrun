@@ -35,11 +35,13 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  physicalProjection?:import('./physicalProjection').PhysicalProjection;
+  nativeSource?:{node:number;baselineE:number;baselineI:number;morphology:import('./localCorticalColumn').DipoleMorphology;mapping:'uncalibrated-population-to-primary-dipole'};
   /** Analysis ceiling; never inferred from the upsampled grid alone. */
   effectiveBandwidthHz?:number;
   sourceSeries?: {
     coordinateFrame:'head-RAS-sphere-centered'|'HEAD_RAS_MM';
-    mapping:'manual-physical'|'manual-template'|'assumed-local-column'|'tvb-demo-unregistered';
+    mapping:'manual-physical'|'manual-template'|'assumed-local-column'|'tvb-demo-unregistered'|'assumed-physical-primary';
     sources:Array<{positionMm:Vec3Mm;direction:Vec3Mm;momentsNAm:number[]}>;
   };
   templateSnapshot?:import('./templateExperiment').TemplateSourceState;

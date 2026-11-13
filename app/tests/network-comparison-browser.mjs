@@ -47,6 +47,8 @@ try{
  const download=await ready,stream=await download.createReadStream();let text='';
  for await(const chunk of stream)text+=chunk.toString();
  const paired=JSON.parse(text);
+ assert.equal(paired.eegProjection.headModel,'sphere');
+ assert.equal(paired.eegProjection.sourceUsage,'native-primary-geometry-only');
  assert.equal(paired.a.samples.length,2001);assert.equal(paired.b.samples.length,2001);
  assert.equal(paired.a.run.provenance.parentRunId,paired.originRunId);assert.equal(paired.b.run.provenance.parentRunId,paired.originRunId);
  await page.getByRole('button',{name:'Analyze B EEG',exact:true}).click();
@@ -59,6 +61,8 @@ try{
  assert.equal(rec.provenance.parentRunId,paired.b.run.provenance.runId);
  assert.equal(rec.experiment.parameters.comparisonBranch,'b');assert.equal(rec.acquisition.integrationRateHz,1000);
  assert.equal(rec.sourceSeries.sources[0].momentsNAm.length,rec.timesMs.length);
+ assert.deepEqual(rec.physicalProjection,paired.eegProjection,'A/B EEG uses the operator captured with the comparison');
+ assert.equal(rec.sourceSeries.mapping,'assumed-physical-primary');
  assert.ok(rec.events.every(e=>e.runId===rec.provenance.runId));
  console.log('Matched full-network A/B: exact stochastic/control replay, G-only effect, shared origin lineage, manual-snapshot preservation and branch B -> native EEG/export PASS');
 }finally{await browser?.close();await server.httpServer.close();}

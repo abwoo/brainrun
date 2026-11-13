@@ -1,3 +1,4 @@
+import {capturePhysicalProjection,physicalProjectionReady} from '../lib/physicalProjection';
 import {recordingFromFeedback} from '../lib/feedbackRecording';
 import {physicalFeedbackMapping} from '../lib/physicalFeedback';
 import {useI18n} from '../lib/i18n';
@@ -176,8 +177,9 @@ export default function ExperimentLab({
    if(!live?.sim||live.node===null)return;
    setNetworkBusy(true);setNetworkError(null);
    try{
+    const eegProjection=capturePhysicalProjection(fixture);
     const result=await compareNetworkBranches(live.sim,live.node,Number(networkG));
-    setNetworkResult(result);
+    setNetworkResult({...result,eegProjection});
     const origin=await live.sim.restoreSnapshot(result.originSnapshotId);onRestore?.(origin);
    }catch(e){setNetworkError(String(e));}finally{setNetworkBusy(false);}
   };
@@ -187,19 +189,19 @@ export default function ExperimentLab({
    catch(e){setNetworkError(String(e));}
   };
   const analyzeBranch=(which:'a'|'b')=>{
-   if(!fixture||!networkResult||!live?.positionMm)return;
+   if(!networkResult?.eegProjection)return;
    try{
     const branch=networkResult[which],first=branch.samples[0],node=networkResult.node;
-    const result=runNativeExperiment({fixture,samples:branch.samples,node,
-     baselineE:first.e[node],baselineI:first.i[node],positionMm:live.positionMm,
+    const result=runNativeExperiment({projection:networkResult.eegProjection,samples:branch.samples,node,
+     baselineE:first.e[node],baselineI:first.i[node],
      markers:branch.markers,noise:null,seed:branch.run.provenance.seed??1,sfreqHz:250});
-    const session=new ExperimentSession({origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:fixture.model_id,
+    const session=new ExperimentSession({origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:result.recording.forwardModelId,
      registration:'unregistered',seed:branch.run.provenance.seed,parentRunId:branch.run.provenance.runId,clock:'solver-integration-ms'});
     session.recordModelTime(session.runId,result.recording.timesMs.at(-1)??0);
     const recording={...result.recording,provenance:{...session.provenance,upstreamStartMs:result.t0Ms},
      experiment:{session:session.getSnapshot(),parameters:{comparisonBranch:which,comparisonOriginRunId:networkResult.originRunId,
-      sourceNode:node,montage:result.recording.montage,reference:result.recording.reference,noise:null,seed:result.recording.seed,
-      sfreqHz:250,durationMs:result.recording.timesMs.at(-1)??0,registration:'TVB demo coordinates clamped to sphere; unregistered'}}};
+      sourceNode:node,physicalProjection:result.recording.physicalProjection,nativeSource:result.recording.nativeSource,montage:result.recording.montage,reference:result.recording.reference,noise:null,seed:result.recording.seed,
+      sfreqHz:250,durationMs:result.recording.timesMs.at(-1)??0,registration:'Native population drives frozen physical primary source; anatomical assignment unregistered'}}};
     setLiveRecordingStore({recording,events:result.events.map(e=>({...e,runId:session.runId})),epochs:null});
     onOpenAnalysis?.();
    }catch(e){setNetworkError(String(e));}
@@ -472,11 +474,12 @@ export default function ExperimentLab({
       </div>
 
       <div style={panel} data-testid="network-comparison">
+        {!physicalProjectionReady(fixture)&&<p style={note}>{text('请等待所选头部模型加载完成，再进行带配套 EEG 的对照。','Wait for the selected head model to load before comparing paired EEG.')}</p>}
        <h3 style={title}>{text('全脑网络 A/B · 同一完整状态分叉','Whole-network A/B · fork one complete state')}</h3>
        <p style={note}>{text('暂停主模型，从同一随机状态、延迟历史、输入和控制器状态分叉。A 保留当前 G，B 只改变 G；两条轨迹均记录每 1 ms 的 E/I。完成后主模型停回原点，手动选择查看或分析分支。','Pause the main model and fork identical RNG, delay history, inputs and controller state. A retains G; B changes only G. Both record E/I every 1 ms. The model returns paused to the origin; choose a branch to inspect or analyze.')}</p>
        <div style={row}>
         <label style={label}>{text("B 分支：网络耦合强度 G","B: network coupling G")} <input style={input} aria-label={text("B 分支耦合强度 G","B branch G")} type="number" min={0} max={.4} step={.01} value={networkG} disabled={networkBusy} onChange={e=>setNetworkG(e.target.value)}/></label>
-        <button style={button} disabled={!live?.sim||live.node===null||networkBusy} onClick={()=>void handleNetworkCompare()}>{networkBusy?text('计算中…','Computing…'):text('从当前状态比较 A/B','Compare A/B from this state')}</button>
+        <button style={button} disabled={!live?.sim||live.node===null||networkBusy||!physicalProjectionReady(fixture)} onClick={()=>void handleNetworkCompare()}>{networkBusy?text('计算中…','Computing…'):text('从当前状态比较 A/B','Compare A/B from this state')}</button>
        </div>
        {networkError&&<p role="alert" style={note}>{networkError}</p>}
        {networkResult&&<>
@@ -491,14 +494,15 @@ export default function ExperimentLab({
         <div style={row}>
          <button style={button} onClick={()=>void inspectBranch('a')}>{text('查看 A 末状态','Inspect A end state')}</button>
          <button style={button} onClick={()=>void inspectBranch('b')}>{text('查看 B 末状态','Inspect B end state')}</button>
-         <button style={button} disabled={!fixture||!live?.positionMm} onClick={()=>analyzeBranch('a')}>{text('分析 A 的 EEG','Analyze A EEG')}</button>
-         <button style={button} disabled={!fixture||!live?.positionMm} onClick={()=>analyzeBranch('b')}>{text('分析 B 的 EEG','Analyze B EEG')}</button>
+         <button style={button} disabled={!networkResult.eegProjection} onClick={()=>analyzeBranch('a')}>{text('分析 A 的 EEG','Analyze A EEG')}</button>
+         <button style={button} disabled={!networkResult.eegProjection} onClick={()=>analyzeBranch('b')}>{text('分析 B 的 EEG','Analyze B EEG')}</button>
          <button style={button} onClick={()=>{
           const url=URL.createObjectURL(new Blob([networkComparisonJson(networkResult)],{type:'application/json'}));
           const a=document.createElement('a');a.href=url;a.download='brainrun-network-comparison.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
          }}>{text('导出完整对照','Export complete comparison')}</button>
         </div>
-        <p style={note}>{text('EEG 使用同一球形模型和显式源映射；TVB 演示坐标未做人类解剖配准。','EEG uses the same sphere and explicit source mapping; TVB demo coordinates are not registered to human anatomy.')}</p>
+        {!networkResult.eegProjection&&<p style={note}>{text('比较开始时未加载物理模型，无法生成对应 EEG。请先返回首页加载模型，再重新比较。','No physical model was ready when comparison started. Load it on the home page and rerun the comparison for EEG.')}</p>}
+        <p style={note}>{text('A/B 的 EEG 使用比较开始时冻结的同一主物理源、电极和头部模型。神经活动到源的映射未经生理校准，也未完成解剖配准。','A/B EEG uses the same primary source, sensors and head model frozen when comparison starts. Neural-to-source coupling is uncalibrated and anatomically unregistered.')}</p>
        </>}
       </div>
 

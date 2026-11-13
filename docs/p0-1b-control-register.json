@@ -1148,42 +1148,42 @@
     {
       "controlId": "EegAnalysisLab:button:1",
       "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 307,
+      "line": 362,
       "element": "button",
       "visibleName": "{t.label} ))} {!inli",
       "events": [
         "onClick"
       ],
       "category": "NAV",
-      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
+      "modelBoundary": "Native 1 ms E/I drives the selected physical primary source through a frozen sphere/BEM operator; explicit uncalibrated coupling, shared signal/spatial views and processing lineage",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
       "controlId": "EegAnalysisLab:button:2",
       "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 319,
+      "line": 374,
       "element": "button",
       "visibleName": "关闭 )} {",
       "events": [
         "onClick"
       ],
       "category": "NAV",
-      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
+      "modelBoundary": "Native 1 ms E/I drives the selected physical primary source through a frozen sphere/BEM operator; explicit uncalibrated coupling, shared signal/spatial views and processing lineage",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
     {
       "controlId": "EegAnalysisLab:button:4",
       "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 333,
+      "line": 391,
       "element": "button",
-      "visibleName": "Record selected region EEG from native integration history",
+      "visibleName": "Record neural EEG at the physical source",
       "events": [
         "onClick"
       ],
       "category": "DERIVED",
-      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
+      "modelBoundary": "Native 1 ms E/I drives the selected physical primary source through a frozen sphere/BEM operator; explicit uncalibrated coupling, shared signal/spatial views and processing lineage",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -1470,7 +1470,7 @@
     {
       "controlId": "TopoTab:input:1",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 148,
+      "line": 149,
       "element": "input",
       "visibleName": "地形时刻",
       "events": [
@@ -1484,7 +1484,7 @@
     {
       "controlId": "TopoTab:button:2",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 161,
+      "line": 162,
       "element": "button",
       "visibleName": "跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {ma",
       "events": [
@@ -1498,7 +1498,7 @@
     {
       "controlId": "TopoTab:input:3",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 240,
+      "line": 241,
       "element": "input",
       "visibleName": "源 Y：",
       "events": [
@@ -1512,7 +1512,7 @@
     {
       "controlId": "TopoTab:input:4",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 244,
+      "line": 245,
       "element": "input",
       "visibleName": "源 Z：",
       "events": [
@@ -1526,7 +1526,7 @@
     {
       "controlId": "TopoTab:input:5",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 248,
+      "line": 249,
       "element": "input",
       "visibleName": "矩方向：",
       "events": [
@@ -1540,7 +1540,7 @@
     {
       "controlId": "TopoTab:Dropdown:6",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 252,
+      "line": 253,
       "element": "Dropdown",
       "visibleName": "X <o",
       "events": [
@@ -1554,7 +1554,7 @@
     {
       "controlId": "TopoTab:input:7",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 260,
+      "line": 261,
       "element": "input",
       "visibleName": "偶极矩",
       "events": [
@@ -1568,7 +1568,7 @@
     {
       "controlId": "TopoTab:Dropdown:8",
       "path": "app/src/components/TopoTab.tsx",
-      "line": 265,
+      "line": 266,
       "element": "Dropdown",
       "visibleName": "average（减 345 点均值）</opt",
       "events": [
@@ -1582,7 +1582,7 @@
     {
       "controlId": "InverseTab:input:1",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 123,
+      "line": 125,
       "element": "input",
       "visibleName": "真源 Y：",
       "events": [
@@ -1596,7 +1596,7 @@
     {
       "controlId": "InverseTab:input:2",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 127,
+      "line": 129,
       "element": "input",
       "visibleName": "真源 Z：",
       "events": [
@@ -1610,7 +1610,7 @@
     {
       "controlId": "InverseTab:input:3",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 131,
+      "line": 133,
       "element": "input",
       "visibleName": "真源矩方向：",
       "events": [
@@ -1624,7 +1624,7 @@
     {
       "controlId": "InverseTab:Dropdown:4",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 135,
+      "line": 137,
       "element": "Dropdown",
       "visibleName": "X <o",
       "events": [
@@ -1638,7 +1638,7 @@
     {
       "controlId": "InverseTab:input:5",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 143,
+      "line": 145,
       "element": "input",
       "visibleName": "真源矩",
       "events": [
@@ -1652,7 +1652,7 @@
     {
       "controlId": "InverseTab:Dropdown:6",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 148,
+      "line": 150,
       "element": "Dropdown",
       "visibleName": "10-20（19 导）",
       "events": [
@@ -1666,7 +1666,7 @@
     {
       "controlId": "InverseTab:input:7",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 156,
+      "line": 158,
       "element": "input",
       "visibleName": "附加噪声",
       "events": [
@@ -1680,7 +1680,7 @@
     {
       "controlId": "InverseTab:input:8",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 163,
+      "line": 165,
       "element": "input",
       "visibleName": "MNE 噪声 σ",
       "events": [
@@ -1694,7 +1694,7 @@
     {
       "controlId": "InverseTab:input:9",
       "path": "app/src/components/InverseTab.tsx",
-      "line": 167,
+      "line": 169,
       "element": "input",
       "visibleName": "{blind ? (",
       "events": [
@@ -2358,14 +2358,14 @@
     {
       "controlId": "EegAnalysisLab:Dropdown:3",
       "path": "app/src/components/EegAnalysisLab.tsx",
-      "line": 1,
+      "line": 386,
       "element": "Dropdown",
       "visibleName": "Native EEG sample rate",
       "events": [
         "onChange"
       ],
       "category": "CONFIG",
-      "modelBoundary": "Independent Raw or native integration EEG with explicit processing lineage; unregistered spatial mapping",
+      "modelBoundary": "Native 1 ms E/I drives the selected physical primary source through a frozen sphere/BEM operator; explicit uncalibrated coupling, shared signal/spatial views and processing lineage",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -3058,7 +3058,7 @@
     {
       "controlId": "ExperimentLab:input:1",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 433,
+      "line": 442,
       "element": "input",
       "visibleName": "驱动 B（1/s） <input",
       "events": [
@@ -3072,7 +3072,7 @@
     {
       "controlId": "ExperimentLab:input:2",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 435,
+      "line": 444,
       "element": "input",
       "visibleName": "时长（ms） <input st",
       "events": [
@@ -3086,7 +3086,7 @@
     {
       "controlId": "ExperimentLab:input:3",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 437,
+      "line": 446,
       "element": "input",
       "visibleName": "运行对照</bu",
       "events": [
@@ -3100,7 +3100,7 @@
     {
       "controlId": "ExperimentLab:button:4",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 438,
+      "line": 447,
       "element": "button",
       "visibleName": "运行对照 {abError && <p style={note}",
       "events": [
@@ -3114,7 +3114,7 @@
     {
       "controlId": "ExperimentLab:button:5",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 455,
+      "line": 464,
       "element": "button",
       "visibleName": "源定位对照（深源 vs 浅源） <butt",
       "events": [
@@ -3128,7 +3128,7 @@
     {
       "controlId": "ExperimentLab:button:6",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 458,
+      "line": 467,
       "element": "button",
       "visibleName": "深度偏置对照（plain / depth / dSPM / eLORETA） </",
       "events": [
@@ -3151,7 +3151,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:input:7",
-      "line": 471
+      "line": 481
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3161,11 +3161,11 @@
         "onClick"
       ],
       "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:8",
-      "line": 472
+      "line": 482
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3175,11 +3175,11 @@
         "onClick"
       ],
       "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:9",
-      "line": 485
+      "line": 495
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3189,11 +3189,11 @@
         "onClick"
       ],
       "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:10",
-      "line": 486
+      "line": 496
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3203,11 +3203,11 @@
         "onClick"
       ],
       "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:11",
-      "line": 487
+      "line": 497
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3217,11 +3217,11 @@
         "onClick"
       ],
       "category": "EXPORT",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:12",
-      "line": 488
+      "line": 498
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3231,16 +3231,16 @@
         "onClick"
       ],
       "category": "EXPORT",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "modelBoundary": "Same complete Rust/WASM origin and native branch clock; one physical sphere/BEM measurement operator frozen before forking and preserved for either branch EEG",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:13",
-      "line": 489
+      "line": 499
     },
     {
       "controlId": "ExperimentLab:button:14",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 505,
+      "line": 516,
       "element": "button",
       "visibleName": "载入最近 10 秒直播快照 {liveTmError && <p",
       "events": [
@@ -3254,7 +3254,7 @@
     {
       "controlId": "ExperimentLab:input:15",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 511,
+      "line": 522,
       "element": "input",
       "visibleName": "E = {fmt(liveTm[",
       "events": [
@@ -3268,7 +3268,7 @@
     {
       "controlId": "ExperimentLab:button:16",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 539,
+      "line": 550,
       "element": "button",
       "visibleName": "跑到 2000 ms（事件 1000 ms，驱动 120 1/s） <button sty",
       "events": [
@@ -3282,7 +3282,7 @@
     {
       "controlId": "ExperimentLab:button:17",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 540,
+      "line": 551,
       "element": "button",
       "visibleName": "单步 +0.5 ms <button style={button} disabled={!",
       "events": [
@@ -3296,7 +3296,7 @@
     {
       "controlId": "ExperimentLab:button:18",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 541,
+      "line": 552,
       "element": "button",
       "visibleName": "恢复到回放点 {tmError && <p style={not",
       "events": [
@@ -3310,7 +3310,7 @@
     {
       "controlId": "ExperimentLab:input:19",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 554,
+      "line": 565,
       "element": "input",
       "visibleName": "y0 = {fmt(replay",
       "events": [
@@ -3324,7 +3324,7 @@
     {
       "controlId": "ExperimentLab:input:20",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 569,
+      "line": 580,
       "element": "input",
       "visibleName": "分支后驱动（1/s） <inpu",
       "events": [
@@ -3338,7 +3338,7 @@
     {
       "controlId": "ExperimentLab:input:21",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 571,
+      "line": 582,
       "element": "input",
       "visibleName": "<button style={button} disabled={!tm} onClick={handle",
       "events": [
@@ -3352,7 +3352,7 @@
     {
       "controlId": "ExperimentLab:button:22",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 572,
+      "line": 583,
       "element": "button",
       "visibleName": "从该点改参数重跑（分支） {tmBranchResult &&",
       "events": [
@@ -3366,7 +3366,7 @@
     {
       "controlId": "ExperimentLab:Dropdown:23",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 589,
+      "line": 600,
       "element": "Dropdown",
       "visibleName": "关（无控制对照） <",
       "events": [
@@ -3380,7 +3380,7 @@
     {
       "controlId": "ExperimentLab:Dropdown:24",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 595,
+      "line": 606,
       "element": "Dropdown",
       "visibleName": "瞬时 Pz（µV）",
       "events": [
@@ -3394,7 +3394,7 @@
     {
       "controlId": "ExperimentLab:input:25",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 601,
+      "line": 612,
       "element": "input",
       "visibleName": "测量噪声 RMS（µV） <in",
       "events": [
@@ -3408,7 +3408,7 @@
     {
       "controlId": "ExperimentLab:input:26",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 603,
+      "line": 614,
       "element": "input",
       "visibleName": "{clMode === 'threshold' && ( <",
       "events": [
@@ -3422,7 +3422,7 @@
     {
       "controlId": "ExperimentLab:input:27",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 608,
+      "line": 619,
       "element": "input",
       "visibleName": "触发输出（1/s，负值 = 抑制）",
       "events": [
@@ -3436,7 +3436,7 @@
     {
       "controlId": "ExperimentLab:input:28",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 610,
+      "line": 621,
       "element": "input",
       "visibleName": ")} {clMode === 'pid' && (",
       "events": [
@@ -3450,7 +3450,7 @@
     {
       "controlId": "ExperimentLab:input:29",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 616,
+      "line": 627,
       "element": "input",
       "visibleName": "Ki <input st",
       "events": [
@@ -3464,7 +3464,7 @@
     {
       "controlId": "ExperimentLab:input:30",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 618,
+      "line": 629,
       "element": "input",
       "visibleName": "Kd <input st",
       "events": [
@@ -3478,7 +3478,7 @@
     {
       "controlId": "ExperimentLab:input:31",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 620,
+      "line": 631,
       "element": "input",
       "visibleName": "设定点（特征单位） <i",
       "events": [
@@ -3492,7 +3492,7 @@
     {
       "controlId": "ExperimentLab:input:32",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 622,
+      "line": 633,
       "element": "input",
       "visibleName": ")}",
       "events": [
@@ -3506,7 +3506,7 @@
     {
       "controlId": "ExperimentLab:button:33",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 626,
+      "line": 637,
       "element": "button",
       "visibleName": "运行闭环（3 s，事件 1000 ms，驱动 300 1/s）",
       "events": [
@@ -3529,12 +3529,12 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:Dropdown:34",
-      "line": 640
+      "line": 651
     },
     {
       "controlId": "ExperimentLab:Dropdown:35",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 644,
+      "line": 655,
       "element": "Dropdown",
       "visibleName": "瞬时 E（无量纲）",
       "events": [
@@ -3548,7 +3548,7 @@
     {
       "controlId": "ExperimentLab:input:36",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 649,
+      "line": 660,
       "element": "input",
       "visibleName": "反馈脉冲幅度（模型单位） <in",
       "events": [
@@ -3562,7 +3562,7 @@
     {
       "controlId": "ExperimentLab:input:37",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 651,
+      "line": 662,
       "element": "input",
       "visibleName": "触发上限（次） <input s",
       "events": [
@@ -3576,7 +3576,7 @@
     {
       "controlId": "ExperimentLab:input:38",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 653,
+      "line": 664,
       "element": "input",
       "visibleName": "{!clLiveRunning ? ( <button",
       "events": [
@@ -3590,7 +3590,7 @@
     {
       "controlId": "ExperimentLab:button:39",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 655,
+      "line": 666,
       "element": "button",
       "visibleName": "启动直播闭环 ) : (",
       "events": [
@@ -3604,7 +3604,7 @@
     {
       "controlId": "ExperimentLab:button:40",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 667,
+      "line": 678,
       "element": "button",
       "visibleName": "停止直播闭环 )} {(!liveSim || liveNode ==",
       "events": [
@@ -3627,12 +3627,12 @@
       "modelBoundary": "Reads the current Worker causal physical EEG window and opens the exact retained sensor samples in shared analysis, preserving frozen operator and model timestamps.",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:41",
-      "line": 673
+      "line": 684
     },
     {
       "controlId": "ExperimentLab:button:42",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 680,
+      "line": 700,
       "element": "button",
       "visibleName": "关闭 ); }",
       "events": [

@@ -42,6 +42,7 @@ try{
   await dialog.getByLabel('导入本地 BEM 模型').setInputFiles(modelPath);
   const menu=dialog.getByLabel('皮层源位置');
   await menu.waitFor();
+  await page.waitForFunction(count=>document.querySelector('select[aria-label="皮层源位置"]')?.options.length===count,expectedSources,{timeout:60000});
   assert.equal(await menu.locator('option').count(),expectedSources);
   await dialog.getByText('模板 fsaverage', {exact:false}).waitFor();
   assert.ok((await dialog.getByText('MNI305 (mm)',{exact:false}).textContent())?.includes(','),

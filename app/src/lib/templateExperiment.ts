@@ -1,3 +1,4 @@
+import {getForwardContext,setForwardContext} from './forwardContext.ts';
 import {getTemplateModel,templateSourcePotentials,FSAVERAGE_BEM_MODEL_ID} from './fsaverageBEM.ts';
 import {ExperimentSession} from './experimentSession.ts';
 import {getLiveRecordingStore,setLiveRecordingStore} from './eegRecording.ts';
@@ -14,6 +15,7 @@ export const getTemplateMeasurementSource=():TemplateMeasurementSource=>measurem
 export function setTemplateMeasurementSource(patch:Omit<TemplateMeasurementSource,'revision'>):void {
  const prior=getTemplateMeasurementSource();
  const changed=JSON.stringify([prior.sourceIndex,prior.direction,prior.reference,prior.electrode])!==JSON.stringify([patch.sourceIndex,patch.direction,patch.reference,patch.electrode]);
+ if(changed&&getLiveRecordingStore()?.recording.physicalProjection?.headModel==='bem')setLiveRecordingStore(null);
  measurement={...patch,direction:[...patch.direction],reference:{...patch.reference},revision:prior.revision+(changed?1:0)};
 }
 export function setTemplateSource(patch:Omit<TemplateSourceState,'revision'>):void {
@@ -43,10 +45,11 @@ export function prepareTemplateAnalysis():EegRecording {
   corticalVertex:source.vertex,hemisphere:source.hemisphere,atlas:source.atlas,region:source.region,
   templateRegistration:'MNE fsaverage MRI/HEAD transform; not subject-specific',
   reference:state.reference,montage:model.montage,durationMs:2000,sfreqHz:250,noise:null,seed:0}}};
+ setForwardContext(rec.sourceSeries,{bem:model});
  setLiveRecordingStore({recording:rec,events:[],epochs:null});return rec;
 }
 export function templateLeadField(recording:EegRecording):LeadField {
- const model=getTemplateModel();
+ const model=getForwardContext(recording.sourceSeries)?.bem??getTemplateModel();
  if(!model||recording.forwardModelId!==model.model_id)throw new Error('No compatible template matrix');
  const indices=recording.channels.map(c=>{
   const i=model.electrodes.findIndex(e=>e.label===c.label);
@@ -62,7 +65,7 @@ export function templateLeadField(recording:EegRecording):LeadField {
  sourcePositionsMm:model.source_positions.map(s=>s.head_mm),montage:recording.montage,reference:recording.reference};
 }
 export function templateRecordingForward(recording:EegRecording,atTimeMs:number) {
- const model=getTemplateModel();if(!model||recording.forwardModelId!==model.model_id||!recording.sourceSeries)throw new Error('Missing compatible template history');
+ const model=getForwardContext(recording.sourceSeries)?.bem??getTemplateModel();if(!model||recording.forwardModelId!==model.model_id||!recording.sourceSeries)throw new Error('Missing compatible template history');
  let j=0;recording.timesMs.forEach((t,k)=>{if(Math.abs(t-atTimeMs)<Math.abs(recording.timesMs[j]-atTimeMs))j=k;});
  let values=model.electrodes.map(()=>0);
  for(const source of recording.sourceSeries.sources){

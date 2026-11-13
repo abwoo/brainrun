@@ -1,3 +1,4 @@
+import {getForwardContext,setForwardContext} from './forwardContext.ts';
 import {configurationForRecording} from './eegConfiguration.ts';
 import type { Vec3Mm } from './volumeConduction.ts';
 import {sphereElectrodePotentials,SPHERE_MODEL_ID,type SphereFixture,type MontageKey} from './sphereForward.ts';
@@ -38,17 +39,18 @@ export function setPhysicalSource(patch:Partial<Omit<PhysicalSourceState,'revisi
   secondary:next.secondary?Object.freeze({...next.secondary,position:Object.freeze([...next.secondary.position]) as Vec3Mm,direction:Object.freeze([...next.secondary.direction]) as Vec3Mm}):undefined,
   reference:Object.freeze({...next.reference}),revision:state.revision+(physicalChange?1:0)});
  const current=getLiveRecordingStore();
- if(physicalChange&&current?.recording.sourceSnapshot)setLiveRecordingStore(null);
+ if(physicalChange&&(current?.recording.sourceSnapshot||current?.recording.physicalProjection?.headModel==='sphere'))setLiveRecordingStore(null);
  listeners.forEach(fn=>fn());return state;
 }
 let fixture:SphereFixture|null=null;
 export function physicalFixtureReady():boolean {return fixture!==null&&fixture.model_id===state.modelId;}
 export function getPhysicalFixture():SphereFixture|null{return fixture;}
 export function fixtureForPhysicalRecording(rec:EegRecording):SphereFixture {
- if(!fixture||fixture.model_id!==rec.forwardModelId||rec.channels.some(c=>{
-  const s=fixture!.sensors.find(x=>x.label===c.label);return !s||c.positionMm.some((x,k)=>Math.abs(x-s.position_mm[k])>1e-5);
+ const model=getForwardContext(rec.sourceSeries)?.sphere??fixture;
+ if(!model||model.model_id!==rec.forwardModelId||rec.channels.some(c=>{
+  const sensor=model.sensors.find(x=>x.label===c.label);return !sensor||c.positionMm.some((x,k)=>Math.abs(x-sensor.position_mm[k])>1e-5);
  }))throw new Error('Physical recording geometry or conductor mismatch');
- return fixture;
+ return model;
 }
 export function registerPhysicalFixture(data:SphereFixture):void {fixture=data;listeners.forEach(fn=>fn());}
 export function preparePhysicalAnalysis(rate:250|500=250):EegRecording {
@@ -84,6 +86,7 @@ export function preparePhysicalAnalysis(rate:250|500=250):EegRecording {
   provenance:session.provenance,experiment:{session:session.getSnapshot(),parameters:{
    sourceState:source,durationMs:2000,sfreqHz:rate,montage:source.montage,reference:ref,seed:0,noise:null,
   }}};
+ setForwardContext(rec.sourceSeries,{sphere:fixture});
  const events=source.waveform==='pulse'?[{id:0,runId:session.runId,type:'pulse' as const,tMs:500,condition:'unclassified' as const,drive:source.moment,driveUnit:'nA_m' as const}]:[];
  setLiveRecordingStore({recording:rec,events,epochs:null,workspace:{configuration:configurationForRecording(rec),selectedChannel:source.electrode,atTimeMs:source.timeMs}});return rec;
 }
