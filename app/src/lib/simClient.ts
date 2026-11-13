@@ -261,6 +261,7 @@ function parseSnapshotSummary(stored: StoredSnapshot): SnapshotSummary | null {
 export class SimClient {
   private worker: Worker | null = null;
   private listeners = new Set<SnapshotListener>();
+  private restoredListeners = new Set<(summary:SnapshotSummary)=>void>();
   private latest: Snapshot | null = null;
   private feedbackReadSequence=0;
   private feedbackMessage:Extract<WorkerOutMessage,{type:'native_feedback'}>|null=null;
@@ -433,7 +434,10 @@ export class SimClient {
         this.pinnedWindow = null;
         const waiters = this.restoreWaiters.get(msg.id) ?? [];
         this.restoreWaiters.delete(msg.id);
-        if (summary) waiters.forEach((cb) => cb(summary));
+        if (summary) {
+          this.restoredListeners.forEach(fn=>fn(summary));
+          waiters.forEach((cb) => cb(summary));
+        }
       } else if (msg.type === 'snapshot') {
         // A reset or rewind starts a new run. Ignore queued snapshots from
         // earlier runs even if they arrive after the UI initiates the reset.
@@ -539,6 +543,11 @@ export class SimClient {
     return () => {
       this.listeners.delete(cb);
     };
+  }
+
+  /** Emitted only after Worker-confirmed restoration and mirror/history updates. */
+  subscribeRestored(fn:(summary:SnapshotSummary)=>void):()=>void {
+    this.restoredListeners.add(fn);return()=>{this.restoredListeners.delete(fn);};
   }
 
   getLatest(): Snapshot | null {

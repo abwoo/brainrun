@@ -35,13 +35,6 @@ jobs:
         run: |
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.002 --output app/public/forward-assets/sphere-skull-0.002.json
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.008 --output app/public/forward-assets/sphere-skull-0.008.json
-      - name: Solve and validate conductivity-specific spherical FEM matrices
-        env:
-          OPENBLAS_NUM_THREADS: 1
-          OMP_NUM_THREADS: 1
-        run: |
-          python scientific/forward/spherical_fem.py --output-dir app/public/forward-assets --report fem-report.json
-          node --experimental-strip-types --test tests/pr5/spherical-fem.test.mjs
       - name: Validate direct scalp vertex forward values
         run: python -m unittest discover -s tests/pr5 -p 'test_scalp_field.py' -v
       - name: Fresh MNE conductivity-specific check
@@ -146,6 +139,16 @@ jobs:
       - name: Shared physical source and observation time
         working-directory: app
         run: node tests/physical-source-browser.mjs
+      - name: Solve and validate conductivity-specific spherical FEM matrices
+        env:
+          OPENBLAS_NUM_THREADS: 1
+          OMP_NUM_THREADS: 1
+        run: |
+          python scientific/forward/spherical_fem.py --output-dir app/public/forward-assets --report fem-report.json
+          node --experimental-strip-types --test tests/pr5/spherical-fem.test.mjs
+      - name: Rebuild with the validated FEM assets
+        working-directory: app
+        run: npm run build
       - name: Spherical FEM through the actual physical workspace and native EEG
         working-directory: app
         run: node tests/spherical-fem-browser.mjs

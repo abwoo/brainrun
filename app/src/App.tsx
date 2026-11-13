@@ -735,6 +735,14 @@ export default function App() {
     [data],
   );
 
+  // Branch restores and shared client commands must synchronize the same
+  // controls/weights/bias as this component's own restore button.
+  useEffect(()=>{
+    const sim=simRef.current;
+    if(!sim||!simReady)return;
+    return sim.subscribeRestored(syncFromSnapshot);
+  },[simReady,syncFromSnapshot]);
+
   const handleSaveSnapshot = useCallback(() => {
     const sim = simRef.current;
     if (!sim || !simReady) return;

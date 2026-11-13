@@ -97,6 +97,8 @@ let sim: WasmSimInstance | null = null;
 let feedback:NativeFeedback|null=null;
 let running = false;
 let paused = false;
+/** last_p is cleared by reset/restore; no new drive observation exists until a step. */
+let driveObserved = false;
 let snapshotHz = 60;
 /** Authoritative identity for every fixed-step neural trajectory. */
 let runId = '';
@@ -183,6 +185,7 @@ function snapshot(): Snapshot | null {
     i,
     p,
     mean_e,
+    p_valid:driveObserved,
     active_input_count:activeInputs.filter(p=>p.start_ms<=t_ms&&p.start_ms+p.duration_ms>t_ms).length,
     queued_input_count:pulses.length,
     pulse_checkpoint_ms:snapshots.get('pulse-baseline')?.t_ms,
@@ -227,11 +230,11 @@ function acquireAdvance(ms:number):void {
  pulses=[];
  let remaining=Math.max(0,Math.round(ms/sim.dt_ms()))*sim.dt_ms();
  while(remaining>0&&!sim.diverged()){
-  const block=Math.min(remaining,200);
+  const block=Math.min(remaining,200),before=sim.time_ms();
   post(advanceAcquiring(sim,block,runId,{
    beforeStep:t=>{for(const action of feedback?.beforeStep(t)??[]){applyInput(action.node,t,action.durationMs,action.amplitude);feedbackReport('applied',action);}},
    afterStep:(t,e,i)=>{const action=feedback?.afterStep(t,e,i);if(action)feedbackReport('detected',action);}
-  }));remaining-=block;
+  }));if(sim.time_ms()>before)driveObserved=true;remaining-=block;
   activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
  }
 }
@@ -291,7 +294,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (!sim) return;
         // Retain an explicit recovery point before a non-overlapping low-state pulse.
         // Rapid/overlapping pulses must not overwrite it with an already-driven state.
-        if(!lockedLatched&&sim.mean_e()<LOCK_MEAN_E&&!pulses.length&&!holds.size&&
+        if(!lockedLatched&&sim.mean_e()<LOCK_MEAN_E&&sim.snapshot_e()[msg.node]<LOCK_MEAN_E&&!pulses.length&&!holds.size&&
            !activeInputs.some(p=>p.start_ms+p.duration_ms>sim!.time_ms())){
           const json=fullSnapshot(),t_ms=sim.time_ms();
           snapshots.set('pulse-baseline',{t_ms,json});
@@ -397,7 +400,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'reset':
       case 'reset_paused': {
         if (!sim) return;
-        sim.reset();feedback=null;activeInputs=[];snapshots.delete('pulse-baseline');
+        sim.reset();driveObserved=false;feedback=null;activeInputs=[];snapshots.delete('pulse-baseline');
         pulses = [];
         holds.clear();
         meanHistory.length = 0;
@@ -479,7 +482,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         const restored=JSON.parse(json) as {brainrun_native_feedback?:NativeFeedbackSnapshot|null;brainrun_pending_pulses?:typeof pulses;brainrun_active_inputs?:typeof activeInputs;brainrun_holds?:Array<[number,number]>};
         const nextFeedback=restored.brainrun_native_feedback?NativeFeedback.restore(restored.brainrun_native_feedback,sim.n_nodes()):null;
         validateInputHistory(restored.brainrun_pending_pulses??[]);validateInputHistory(restored.brainrun_active_inputs??[]);
-        sim.restore_snapshot(json);feedback=nextFeedback;activeInputs=[];
+        sim.restore_snapshot(json);driveObserved=false;feedback=nextFeedback;activeInputs=[];
         for(const p of restored.brainrun_active_inputs??[])applyInput(p.node,p.start_ms,p.duration_ms,p.amplitude);
         snapshots.set(msg.id, { t_ms: sim.time_ms(), json });
         pulses=restored.brainrun_pending_pulses??[];

@@ -110,7 +110,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <p className="plain-explanation">{response?text('颜色表示活动变化，曲线显示当前选择位置的实际模型数值。尝试换一个位置或改变强度。','Colors show activity changes; the trace shows actual model values at your selection. Try another location or strength.'):
        text('输入前，模型保持背景活动。施加输入后，观察信号是否传播到其他位置。','The model shows background activity before input. After an input, watch whether activity spreads to other regions.')}</p>
       <NetworkStatePanel sim={sim} selectedId={selectedId} onRecover={onRecover}/>
-      {response&&<p className="plain-explanation">{text('下方是最近一次刺激后 2 秒窗口内的峰值响应统计，不是实时活动值；窗口结束后保持该次结果。','Below is the peak-response summary over the most recent 2 s stimulus window, not instantaneous activity. It retains that result after the window ends.')}</p>}
+      {response&&<p className="plain-explanation">{text('下方汇总最近一次刺激窗口（刺激前 0.5 秒至刺激后 2 秒）的峰值变化；窗口结束后保留该次结果。','Below is the peak-change summary from 0.5 s before to 2 s after the most recent input. It retains that result after the window ends.')}</p>}
       {response&&<output className="physics-readout">{text('超过响应阈值的位置','Regions above response threshold')}: <strong>{response.count}</strong></output>}
       <details className="physics-details"><summary>{text('背景与模型说明','Background and model details')}</summary>
        <ControlField label={text('背景活动','Background activity')}>
