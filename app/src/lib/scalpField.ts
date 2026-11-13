@@ -7,11 +7,11 @@ export function potentialColor(valueUv:number,scaleUv:number):[number,number,num
  const neutral=[.25,.32,.37],end=v>=0?[1,.38,.32]:[.22,.66,1];
  return neutral.map((x,j)=>x+(end[j]-x)*a) as [number,number,number];
 }
-export function scalpVertexPotentials(fixture:SphereFixture,position:Vec3Mm,moment:Vec3Mm,montage:MontageKey,reference:SphereReference):number[] {
+export function scalpVertexPotentials(fixture:SphereFixture,position:Vec3Mm,moment:Vec3Mm,montage:MontageKey,reference:SphereReference,selectedLabels?:readonly string[]):number[] {
  const grid=fixture.scalp_field_grid;
  if(!grid||grid.positions_mm.length!==grid.gain_uv_per_nAm.length)throw new Error('Scalp vertex forward model unavailable');
  const gains=interpolateSphereGain({...fixture,gain_uv_per_nAm:grid.gain_uv_per_nAm},position);
- const sensors=sphereElectrodePotentials(fixture,position,moment,montage,{mode:'infinity'});
+ const sensors=sphereElectrodePotentials(fixture,position,moment,montage,{mode:'infinity'},selectedLabels);
  let offset=0;
  if(reference.mode==='average')offset=sensors.voltageUv.reduce((a,b)=>a+b,0)/sensors.voltageUv.length;
  if(reference.mode==='electrode'){

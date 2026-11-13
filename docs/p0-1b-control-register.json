@@ -3,7 +3,7 @@
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
   "disclaimer": "251 source-classified controls; source inventory is not runtime proof.",
   "counts": {
-    "total": 251,
+    "total": 254,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -16,7 +16,7 @@
       "TopoTab": 8,
       "InverseTab": 9,
       "WavesTab": 1,
-      "HeadSphereLab": 20,
+      "HeadSphereLab": 23,
       "LocalBEMLab": 15,
       "DipoleLab": 7,
       "StimLab": 29,
@@ -34,7 +34,7 @@
       "MIXED": 16,
       "SELECTION": 4,
       "DIAGNOSTIC": 2,
-      "CONFIG": 55,
+      "CONFIG": 58,
       "INDEPENDENT": 75,
       "EXPORT": 5,
       "DERIVED": 14
@@ -2736,7 +2736,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:1",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 347,
+      "line": 354,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2750,7 +2750,7 @@
     {
       "controlId": "HeadSphereLab:button:2",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 355,
+      "line": 362,
       "element": "button",
       "visibleName": "Reverse current direction",
       "events": [
@@ -2764,7 +2764,7 @@
     {
       "controlId": "HeadSphereLab:Dropdown:3",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 359,
+      "line": 366,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2787,7 +2787,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:4",
-      "line": 365
+      "line": 372
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2801,7 +2801,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:button:5",
-      "line": 371
+      "line": 378
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2815,7 +2815,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:6",
-      "line": 375
+      "line": 382
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2829,7 +2829,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:input:7",
-      "line": 379
+      "line": 386
     },
     {
       "path": "app/src/components/HeadSphereLab.tsx",
@@ -2843,12 +2843,12 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "HeadSphereLab:Dropdown:8",
-      "line": 382
+      "line": 389
     },
     {
       "controlId": "HeadSphereLab:Dropdown:9",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 395,
+      "line": 402,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2860,23 +2860,65 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:10",
+      "element": "button",
+      "visibleName": "Use all electrodes",
+      "events": [
+        "onClick"
+      ],
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 400,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "category": "CONFIG",
       "evidence": "static-handler-bound (not runtime-proven)",
+      "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
+      "controlId": "HeadSphereLab:button:10",
+      "line": 408,
       "explicitFollowUp": false
     },
     {
+      "element": "button",
+      "visibleName": "Simple six sensors",
+      "events": [
+        "onClick"
+      ],
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "category": "CONFIG",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
       "controlId": "HeadSphereLab:button:11",
-      "path": "app/src/components/HeadSphereLab.tsx",
       "line": 409,
+      "explicitFollowUp": false
+    },
+    {
+      "element": "input",
+      "visibleName": "Include electrode",
+      "events": [
+        "onChange"
+      ],
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "category": "CONFIG",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "modelBoundary": "Changes the actual selected measurement channels, reference operator and matching forward/inverse matrix; invalidates prior physical Raw.",
+      "controlId": "HeadSphereLab:input:12",
+      "line": 411,
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:Dropdown:13",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 417,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Four-layer sphere source/voltage computation; free direction, fixed scale and direct MNE scalp vertices",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "HeadSphereLab:button:14",
+      "path": "app/src/components/HeadSphereLab.tsx",
+      "line": 426,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2888,9 +2930,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:12",
+      "controlId": "HeadSphereLab:button:15",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 420,
+      "line": 437,
       "element": "button",
       "visibleName": "关闭",
       "events": [
@@ -2902,9 +2944,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:13",
+      "controlId": "HeadSphereLab:button:16",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 423,
+      "line": 440,
       "element": "button",
       "visibleName": "打开本地真实 MRI BEM",
       "events": [
@@ -2916,9 +2958,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:input:14",
+      "controlId": "HeadSphereLab:input:17",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 429,
+      "line": 446,
       "element": "input",
       "visibleName": "{' '} 直播源：用选中脑区的直播偶极子（位置取脑区中心，q 由 live E/I 经 PR5 假设链算）",
       "events": [
@@ -2930,9 +2972,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:15",
+      "controlId": "HeadSphereLab:Dropdown:18",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 453,
+      "line": 470,
       "element": "Dropdown",
       "visibleName": "电极布局",
       "events": [
@@ -2944,9 +2986,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:16",
+      "controlId": "HeadSphereLab:Dropdown:19",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 461,
+      "line": 478,
       "element": "Dropdown",
       "visibleName": "球形头电流源方向",
       "events": [
@@ -2958,9 +3000,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:input:17",
+      "controlId": "HeadSphereLab:input:20",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 467,
+      "line": 484,
       "element": "input",
       "visibleName": "球形头偶极矩",
       "events": [
@@ -2972,9 +3014,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:18",
+      "controlId": "HeadSphereLab:Dropdown:21",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 470,
+      "line": 487,
       "element": "Dropdown",
       "visibleName": "球形头参考方式",
       "events": [
@@ -2986,9 +3028,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:Dropdown:19",
+      "controlId": "HeadSphereLab:Dropdown:22",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 477,
+      "line": 494,
       "element": "Dropdown",
       "visibleName": "选中电极",
       "events": [
@@ -3000,9 +3042,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "HeadSphereLab:button:20",
+      "controlId": "HeadSphereLab:button:23",
       "path": "app/src/components/HeadSphereLab.tsx",
-      "line": 487,
+      "line": 504,
       "element": "button",
       "visibleName": "重置球形实验（回到手动偶极子） <div className=\"conn-title\"",
       "events": [

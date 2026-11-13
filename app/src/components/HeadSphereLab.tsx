@@ -62,8 +62,15 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
   };
   const [moment,setMoment]=useState(embedded?manualHeadState.moment:10);
   const [montage,setMontage]=useState<MontageKey>(embedded?manualHeadState.montage:'10-20');
+  const [selectedLabels,setSelectedLabels]=useState<readonly string[]|undefined>(embedded?manualHeadState.selectedLabels:undefined);
   const [reference,setReference]=useState<'average'|'infinity'|'electrode'>(embedded?manualHeadState.reference.mode:'average');
   const [selectedElectrode,setSelectedElectrode]=useState(embedded?manualHeadState.electrode:'Cz');
+  const availableLabels=data?.montages[montage]??[];
+  const activeLabels=selectedLabels??availableLabels;
+  const chooseLabels=(labels:readonly string[]|undefined)=>{
+   setSelectedLabels(labels);
+   if(labels&&!labels.includes(selectedElectrode))setSelectedElectrode(labels[0]);
+  };
   const referenceSpec:EegReference=reference==='electrode'
     ?{mode:'electrode',label:manualHeadState.reference.mode==='electrode'?manualHeadState.reference.label:'Cz'}
     :{mode:reference};
@@ -84,8 +91,8 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
     setMoment((prev) => (prev === q ? prev : q));
   },[liveMode,liveSource,data]);
   useEffect(()=>{
-    if(embedded)setPhysicalSource({waveform,timeMs,modelId,electrodeVertices,secondary,position:[position[0],position[1],position[2]],axis,direction,moment,montage,reference:referenceSpec,electrode:selectedElectrode});
-  },[embedded,waveform,timeMs,modelId,electrodeVertices,secondary,position,axis,direction,moment,montage,reference,selectedElectrode]);
+    if(embedded)setPhysicalSource({waveform,timeMs,modelId,electrodeVertices,secondary,position:[position[0],position[1],position[2]],axis,direction,moment,montage,selectedLabels,reference:referenceSpec,electrode:selectedElectrode});
+  },[embedded,waveform,timeMs,modelId,electrodeVertices,secondary,position,axis,direction,moment,montage,selectedLabels,reference,selectedElectrode]);
   useEffect(()=>{if(embedded&&data)registerPhysicalFixture(data);},[embedded,data]);
   const mount=useRef<HTMLDivElement>(null);
   const sceneUpdate=useRef<((p:Vec3Mm,dir:Vec3Mm,voltages:Map<string,number>,q:number,scale:number,selected:string,fieldValues:number[]|null,sensorPositions:Map<string,Vec3Mm>,signalFactor:number)=>void)|null>(null);
@@ -106,20 +113,20 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
     if(!data)return null;
     const result=sphereElectrodePotentials(data,position,[
       direction[0]*moment,direction[1]*moment,direction[2]*moment,
-    ],montage,referenceSpec);
+    ],montage,referenceSpec,selectedLabels);
     if(secondary){
-      const v=sphereElectrodePotentials(data,secondary.position,secondary.direction.map(x=>x*secondary.moment) as unknown as Vec3Mm,montage,referenceSpec);
+      const v=sphereElectrodePotentials(data,secondary.position,secondary.direction.map(x=>x*secondary.moment) as unknown as Vec3Mm,montage,referenceSpec,selectedLabels);
       result.voltageUv=result.voltageUv.map((x,i)=>x+v.voltageUv[i]);
     }
     return result;
-  },[data,position,direction,moment,montage,reference,secondary]);
+  },[data,position,direction,moment,montage,selectedLabels,reference,secondary]);
   const readings=useMemo(()=>baseReadings?{...baseReadings,voltageUv:baseReadings.voltageUv.map(v=>v*factor)}:null,[baseReadings,factor]);
   const scalpBase=useMemo(()=>{
     if(!embedded||!data?.scalp_field_grid)return null;
-    const result=scalpVertexPotentials(data,position,[direction[0]*moment,direction[1]*moment,direction[2]*moment],montage,referenceSpec);
-    if(secondary){const v=scalpVertexPotentials(data,secondary.position,secondary.direction.map(x=>x*secondary.moment) as unknown as Vec3Mm,montage,referenceSpec);return result.map((x,i)=>x+v[i]);}
+    const result=scalpVertexPotentials(data,position,[direction[0]*moment,direction[1]*moment,direction[2]*moment],montage,referenceSpec,selectedLabels);
+    if(secondary){const v=scalpVertexPotentials(data,secondary.position,secondary.direction.map(x=>x*secondary.moment) as unknown as Vec3Mm,montage,referenceSpec,selectedLabels);return result.map((x,i)=>x+v[i]);}
     return result;
-  },[embedded,data,position,direction,moment,montage,reference,secondary]);
+  },[embedded,data,position,direction,moment,montage,selectedLabels,reference,secondary]);
   const scalpValues=useMemo(()=>scalpBase?.map(v=>v*factor)??null,[scalpBase,factor]);
   const voltageMap=useMemo(()=>new Map(readings?.sensors.map((s,i)=>[s.label,readings.voltageUv[i]])??[]),[readings]);
   const peaks=useMemo(()=>[...(readings?.sensors??[])].map(s=>({
@@ -392,10 +399,20 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
        <RangeControl label={text('电位色标范围','Potential color range')} value={colorScale} min={.1} max={10} step={.1} unit="µV" onChange={setColorScale}/>
        <p>{text('颜色使用固定微伏色标。增强源时颜色幅度会变化；超过色标范围的颜色会饱和，数字仍显示完整值。','Colors use a fixed µV scale. Source strength changes color amplitude. Colors saturate beyond the scale; numerical readings remain complete.')}</p>
        <ControlField label={text('电极布局','Electrode layout')}>
-        <Dropdown aria-label={text('电极布局','Electrode layout')} value={montage} onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedElectrode('Cz');}}>
+        <Dropdown aria-label={text('电极布局','Electrode layout')} value={montage} onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedLabels(undefined);setReference('average');setSelectedElectrode('Cz');}}>
           <option value="10-20">10–20 · 19</option><option value="10-10">10–10 · 94</option><option value="10-05">10–05 · 343</option>
         </Dropdown>
        </ControlField>
+       <details className="physics-details"><summary>{text('自由组合测量电极','Choose your electrodes')} · {activeLabels.length}/{availableLabels.length}</summary>
+        <p>{text('取消勾选不需要的电极。至少保留 4 个；平均参考只计算所选电极。通道越少，空间信息和逆解约束越弱。','Uncheck sensors you do not need. Keep at least 4. Average reference uses only selected sensors. Fewer channels provide less spatial information and weaker inverse constraints.')}</p>
+        <button type="button" className="ui-button" disabled={!data} onClick={()=>chooseLabels(undefined)}>{text('使用全部电极','Use all electrodes')}</button>
+        <button type="button" className="ui-button" disabled={!data||reference==='electrode'} onClick={()=>chooseLabels(['F3','F4','C3','C4','P3','P4'])}>{text('简洁六电极','Simple six sensors')}</button>
+        <div role="group" aria-label={text('选择记录电极','Recording electrodes')} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(80px,1fr))',gap:6,maxHeight:200,overflowY:'auto'}}>
+         {availableLabels.map(label=><label key={label}><input type="checkbox" aria-label={text('记录电极 ','Include electrode ')+label}
+          checked={activeLabels.includes(label)} disabled={activeLabels.includes(label)&&(activeLabels.length<=4||(referenceSpec.mode==='electrode'&&referenceSpec.label===label))}
+          onChange={e=>chooseLabels(e.target.checked?availableLabels.filter(x=>x===label||activeLabels.includes(x)):activeLabels.filter(x=>x!==label))}/>{label}</label>)}
+        </div>
+       </details>
        <ControlField label={text('参考方式','Voltage reference')}>
         <Dropdown aria-label={text('参考方式','Voltage reference')} value={reference} onChange={e=>setReference(e.target.value as 'average'|'infinity')}>
          {reference==='electrode'&&<option value="electrode">{text('电极参考','Electrode reference')} · {referenceSpec.mode==='electrode'?referenceSpec.label:''}</option>}
@@ -406,7 +423,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
        <p>{text('这是半径 95 mm 的球形教学模型，源限制在 ±48 mm 的已计算网格内；它不是个体 MRI，也没有与另一页的脑区网络做解剖配准。','This is a spherical teaching model with radius 95 mm and a precomputed source grid within ±48 mm. It is not individual MRI and is not anatomically registered to the separate region network.')}</p>
        <code>{data?.model_id??modelId}</code>
       </details>
-      <button type="button" className="ui-button" onClick={()=>{setPosition([16,0,16]);setMoment(10);setAxis('X');setOrientation([1,0,0]);setColorScale(2);setWaveform('constant');setTimeMs(0);setPulsePlaying(false);setSecondary(undefined);setElectrodeVertices({});setEditElectrodes(false);setModelId(SPHERE_MODEL_ID);setMontage('10-20');setReference('average');setSelectedElectrode('Cz');setLiveMode(false);}}>{text('恢复默认','Restore defaults')}</button>
+      <button type="button" className="ui-button" onClick={()=>{setPosition([16,0,16]);setMoment(10);setAxis('X');setOrientation([1,0,0]);setColorScale(2);setWaveform('constant');setTimeMs(0);setPulsePlaying(false);setSecondary(undefined);setElectrodeVertices({});setEditElectrodes(false);setModelId(SPHERE_MODEL_ID);setMontage('10-20');setSelectedLabels(undefined);setReference('average');setSelectedElectrode('Cz');setLiveMode(false);}}>{text('恢复默认','Restore defaults')}</button>
       {!data&&!error&&<p role="status">{text('正在加载物理模型…','Loading the physical model…')}</p>}
       {error&&<div className="physics-error" role="alert"><p>{text('物理模型没有加载成功，请刷新重试。','The physical model could not load. Reload to retry.')}</p><details><summary>{text('技术信息','Technical details')}</summary>{error}</details></div>}
     </aside>
@@ -451,7 +468,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
             <div className="conn-title">可直接操作的物理参数</div>
             <label className="panel-text">电极布局
               <Dropdown aria-label="电极布局" value={montage}
-                onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedElectrode('Cz');}}>
+                onChange={e=>{setMontage(e.target.value as MontageKey);setSelectedLabels(undefined);setReference('average');setSelectedElectrode('Cz');}}>
                 <option value="10-20">10–20 基础 19 导</option>
                 <option value="10-10">扩展 10–10 · 94 导</option>
                 <option value="10-05">10–05 · 343 导</option>
@@ -485,7 +502,7 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
               <p className="panel-text">最大电极：{peaks[0].label} {peaks[0].v.toFixed(4)} µV（{peaks.length} 导中幅值最大，尖峰时跟最大值走）</p>
             )}
             <button type="button" className="chip chip-small" onClick={()=>{
-              setPosition([0,0,16]);setMoment(10);setAxis('X');setMontage('10-20');setReference('average');setSelectedElectrode('Cz');
+              setPosition([0,0,16]);setMoment(10);setAxis('X');setMontage('10-20');setSelectedLabels(undefined);setReference('average');setSelectedElectrode('Cz');
               setLiveMode(false);
             }}>重置球形实验（回到手动偶极子）</button>
             <div className="conn-title">电极信号（幅值前 19 位）</div>

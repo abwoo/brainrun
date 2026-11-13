@@ -7,6 +7,10 @@ try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage();
  await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.getByText('更多设置与模型说明',{exact:true}).click();
+ await page.getByText('自由组合测量电极',{exact:false}).click();
+ await page.getByRole('button',{name:'简洁六电极',exact:true}).click();
+ assert.equal(await page.getByRole('combobox',{name:'查看电极',exact:true}).locator('option').count(),6);
  await page.getByRole('spinbutton',{name:'源强度 nA·m'}).fill('20');
  await page.getByRole('spinbutton',{name:'源强度 nA·m'}).press('Enter');
  await page.getByRole('spinbutton',{name:'左右位置 mm'}).fill('30');
@@ -23,7 +27,9 @@ try{
  await page.getByRole('button',{name:'Export JSON',exact:true}).click();
  const download=await ready,stream=await download.createReadStream();let text='';
  for await(const chunk of stream)text+=chunk.toString();
- const rec=JSON.parse(text),i=rec.channels.findIndex(c=>c.label==='Cz');
+ const rec=JSON.parse(text),i=rec.channels.findIndex(c=>c.label==='F3');
+ assert.deepEqual(rec.channels.map(c=>c.label),['F3','F4','C3','C4','P3','P4']);
+ assert.deepEqual(rec.sourceSnapshot.selectedLabels,rec.channels.map(c=>c.label));
  assert.ok(Math.abs(rec.dataUv[i][0]-homeValue)<1e-12);
  assert.deepEqual(rec.sourceSnapshot.position,[30,0,16]);assert.equal(rec.sourceSnapshot.moment,20);
  assert.ok(rec.dataUv[i].every(v=>v===rec.dataUv[i][0]));
@@ -33,5 +39,6 @@ try{
  assert.equal(await page.getByTestId('topography-observation').getAttribute('data-time-ms'),'1000');
  await page.getByRole('tab',{name:'Source localization',exact:true}).click();
  assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-time-ms'),'1000');
- console.log('Home physical source -> same recorded sensor voltages, exported source history, shared topography/inverse time PASS');
+ assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-channels'),'6');
+ console.log('Free six-channel home physical source -> same recorded sensor voltages, exported source history, shared topography/inverse time PASS');
 }finally{await browser?.close();await server.httpServer.close();}

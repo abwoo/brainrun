@@ -40,7 +40,7 @@
 import type { DipoleFitResult, MneInverseResult } from './eegData.ts';
 import type { Vec3Mm } from './volumeConduction.ts';
 import {
-  sphereElectrodePotentials,
+  sphereElectrodePotentials,sphereChannelLabels,
   validateSphereFixture,
   type MontageKey,
   type SphereFixture,
@@ -151,10 +151,10 @@ export function buildLeadField(
   fixture: SphereFixture,
   montage: MontageKey,
   reference: SphereReference = { mode: 'average' },
+  selectedLabels?:readonly string[],
 ): LeadField {
   validateSphereFixture(fixture);
-  const labels = fixture.montages[montage];
-  if (!labels) throw new Error(`Unknown montage: ${montage}`);
+  const labels = sphereChannelLabels(fixture,montage,selectedLabels);
   const index = new Map(fixture.sensors.map((s, i) => [s.label, i]));
   const rows: number[][] = [];
   for (const label of labels) {
@@ -171,7 +171,8 @@ export function buildLeadField(
       for (let i = 0; i < rows.length; i++) rows[i][j] -= mean;
     }
   } else if (reference.mode === 'electrode') {
-    const refRow = rows[labels.indexOf(reference.label)];
+    const refIndex=labels.indexOf(reference.label);
+    const refRow = refIndex<0?undefined:[...rows[refIndex]];
     if (!refRow) throw new RangeError(`Reference electrode ${reference.label} not in montage ${montage}`);
     for (let i = 0; i < rows.length; i++) {
       for (let j = 0; j < nCol; j++) rows[i][j] -= refRow[j];
