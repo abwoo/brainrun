@@ -24,8 +24,10 @@ try{
  assert.ok(Math.abs(await value()-original)>1e-4);
  const position=await page.getByTestId('physical-field').getAttribute('data-electrode-position');
  await page.getByRole('checkbox',{name:'Drag electrodes along the scalp',exact:true}).check();
+ await page.getByTestId('physical-field').scrollIntoViewIfNeeded();
  const point=await page.evaluate(()=>window.__headPhysics.sensor('Cz'));
  await page.mouse.move(point.x,point.y);await page.mouse.down();await page.mouse.move(point.x+45,point.y+30,{steps:8});await page.mouse.up();
+ await page.waitForFunction(old=>document.querySelector('[data-testid="physical-field"]')?.dataset.electrodePosition!==old,position);
  assert.notEqual(await page.getByTestId('physical-field').getAttribute('data-electrode-position'),position);
  await page.getByRole('combobox',{name:'Source time course',exact:true}).selectOption('pulse');
  await page.waitForFunction(()=>document.querySelector('[data-testid="physical-field"]')?.dataset.timeMs==='600');
