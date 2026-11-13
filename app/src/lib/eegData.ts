@@ -35,6 +35,12 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  /** Processing revision within one acquisition run; zero is the original Raw. */
+  dataRevision?: number;
+  processingHistory?: Array<{
+    revision:number; parentRevision:number; inputData:'raw-infinity';
+    method:'re-reference'; inputReference:EegReference; outputReference:EegReference;
+  }>;
   experiment?: { session: ExperimentSessionSnapshot; parameters: Record<string, unknown> };
   /** Optional P0-2 provenance; absent in legacy scientific fixtures. */
   provenance?: ExperimentProvenance & {
@@ -86,6 +92,8 @@ export interface EegEvent {
 }
 
 export interface EpochSet {
+  /** Raw processing revision used to derive these epochs. */
+  dataRevision?: number;
   /** Parent run of the original Raw, or a separate independent late-ERP run. */
   provenance?: ExperimentProvenance;
   tminMs: number;

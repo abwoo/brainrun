@@ -88,3 +88,7 @@ jobs:
           else
             echo "SKIP: app/tests/pr6-browser-smoke.mjs does not exist yet (created by wave-2); skipping browser smoke test."
           fi
+
+      - name: EEG configuration and export consistency
+        working-directory: app
+        run: node tests/eeg-configuration-browser.mjs

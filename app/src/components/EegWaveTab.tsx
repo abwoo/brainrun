@@ -173,6 +173,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
             value={durationMs}
             onChange={(e) => onDurationMsChange(Number(e.target.value))}
           >
+            {![2000,5000,10000].includes(durationMs)&&<option value={durationMs}>{durationMs/1000} s</option>}
             <option value={2000}>2 秒</option>
             <option value={5000}>5 秒</option>
             <option value={10000}>10 秒</option>
@@ -243,7 +244,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
               <option key={m} value={m}>{m}</option>
             ))}
           </Dropdown>
-          <p className="eeg-hint">切换导联重建传感器配置（10-20 为 19 导）。</p>
+          <p className="eeg-hint">导联选择在下次运行时生效，当前波形和导出保持不变。</p>
         </div>
 
         <div className="eeg-control-group">
@@ -341,7 +342,7 @@ export default function EegWaveTab(props: EegWaveTabProps) {
               ? 'WC'
               : recording.sourceModelId === 'local-jansen-rit-assumed-dipole-v1'
                 ? 'JR'
-                : recording.sourceModelId.includes('late') ? 'JR + late' : 'WC + JR'} · 种子 {recording.seed}
+                : recording.sourceModelId.includes('late') ? 'JR + late' : recording.sourceModelId} · 种子 {recording.seed}
             {selectedStats && (
               <>
                 {' '}· {selectedChannel}：最大 |V| {selectedStats.maxAbs.toFixed(2)} µV，
