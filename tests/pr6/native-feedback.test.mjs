@@ -1,3 +1,4 @@
+import {DEFAULT_MORPHOLOGY} from '../../app/src/lib/localCorticalColumn.ts';
 import {erspItc} from '../../app/src/lib/signalProcessing.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,4 +34,20 @@ test('interpolated 250 Hz grid cannot authorize 40 Hz analysis',()=>{
 test('TFR backend refuses a frequency above source bandwidth despite a 250 Hz grid',()=>{
  const epochs={sfreqHz:250,effectiveBandwidthHz:30,channels:['Cz'],trials:[[[0,1,0,-1]]],timesMs:[-4,0,4,8]};
  assert.throws(()=>erspItc(epochs,'Cz',[40],'morlet',[-4,0]),/source bandwidth/);
+});
+
+test('physical EEG uses signed forward gain and causal filter; filter state restores exactly',()=>{
+ const eeg={gainUvPerNAm:2,baselineE:.1,baselineI:.1,lowpassHz:40,morphology:{...DEFAULT_MORPHOLOGY},
+  modelId:'test-sphere',electrode:'Cz',sourcePositionMm:[16,0,16],direction:[1,0,0],reference:{mode:'average'},electrodes:[],mapping:'assumed-primary-source'};
+ const c=new NativeFeedback({...config,periodMs:1,threshold:0,eeg},1,0);
+ const first=c.afterStep(1,new Float64Array([.11]),new Float64Array([.1]));
+ const expected=.16*(1-Math.exp(-2*Math.PI*40/1000));
+ assert.ok(Math.abs(first.featureValue-expected)<1e-12);assert.equal(first.featureUnit,'uV');
+ const copy=NativeFeedback.restore(c.snapshot(),1);
+ for(let t=2;t<=100;t++){
+  assert.deepEqual(c.beforeStep(t),copy.beforeStep(t));
+  assert.deepEqual(c.afterStep(t,new Float64Array([.12]),new Float64Array([.1])),copy.afterStep(t,new Float64Array([.12]),new Float64Array([.1])));
+ }
+ assert.deepEqual(c.snapshot(),copy.snapshot());
+ assert.throws(()=>new NativeFeedback({...config,eeg:{...eeg,lowpassHz:0}},1,0),/mapping/);
 });

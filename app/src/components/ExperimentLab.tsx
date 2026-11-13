@@ -1,3 +1,4 @@
+import {physicalFeedbackMapping} from '../lib/physicalFeedback';
 import {useI18n} from '../lib/i18n';
 import {compareNetworkBranches,networkComparisonJson,type NetworkComparison} from '../lib/networkComparison';
 import type {SnapshotSummary} from '../lib/simClient';
@@ -354,6 +355,7 @@ export default function ExperimentLab({
   };
 
   /* ── PR8-LINK：直播闭环 ── */
+  const [clSignal,setClSignal]=useState<'activity'|'eeg'>('activity');
   const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>('instant');
   const [clLiveThreshold, setClLiveThreshold] = useState('0.05');
   const [clLiveAmp, setClLiveAmp] = useState('2');
@@ -375,24 +377,24 @@ export default function ExperimentLab({
       return;
     }
     try{
-      liveSim.configureNativeFeedback({node:liveNode,feature:clLiveFeature,threshold:Number(clLiveThreshold),
+      liveSim.configureNativeFeedback({...(clSignal==='eeg'?{eeg:physicalFeedbackMapping(fixture)}:{}),node:liveNode,feature:clLiveFeature,threshold:Number(clLiveThreshold),
        amplitude:Number(clLiveAmp),maxTriggers:Number(clLiveMax),durationMs:100,
        periodMs:250,windowMs:1000,cooldownMs:2000,delayMs:0});
       clLiveRequestedRef.current=true;
     }catch(e){setClError(String(e));setClLiveRunning(false);}
-  }, [clLiveRunning, clLiveFeature, clLiveThreshold, clLiveAmp, clLiveMax, liveSim, liveNode]);
+  }, [clLiveRunning,clSignal,fixture, clLiveFeature, clLiveThreshold, clLiveAmp, clLiveMax, liveSim, liveNode]);
   useEffect(()=>()=>{liveSim?.configureNativeFeedback(null);clLiveRequestedRef.current=false;},[liveSim]);
   useEffect(()=>{
     if(!liveSim)return;
     return liveSim.subscribeNativeFeedback(message=>{
       setClWorkerActive(message.active);
       if(message.phase==='restored'&&message.state){
-        const c=message.state.config;setClLiveFeature(c.feature);setClLiveThreshold(String(c.threshold));setClLiveAmp(String(c.amplitude));setClLiveMax(String(c.maxTriggers));
+        const c=message.state.config;setClSignal(c.eeg?'eeg':'activity');setClLiveFeature(c.feature);setClLiveThreshold(String(c.threshold));setClLiveAmp(String(c.amplitude));setClLiveMax(String(c.maxTriggers));
       }
       if(message.phase==='applied'&&message.action){
         const a=message.action;
         setClLiveLog(prev=>[...prev,
-          't='+message.t_ms+' ms · E='+a.featureValue.toFixed(4)+' · detected='+a.detectedMs+' ms → applied='+message.t_ms+' ms · #'+a.id]);
+          't='+message.t_ms+' ms · '+(a.featureUnit??'E_fraction')+'='+a.featureValue.toFixed(4)+' · detected='+a.detectedMs+' ms → applied='+message.t_ms+' ms · #'+a.id]);
       }
       if(message.phase==='applied'&&!message.active){clLiveRequestedRef.current=false;setClLiveRunning(false);}
       if(message.phase==='stopped')setClLiveRunning(false);
@@ -616,19 +618,19 @@ export default function ExperimentLab({
       <div style={panel}>
         <h3 style={title}>闭环控制 · 直播闭环</h3>
         <p style={note}>
-          特征取自原生积分：选中脑区 #{liveNode ?? '—'} {live?.label ?? ''} 的 live E
-          （瞬时值，或最近 1 秒的 RMS）。特征超过阈值时，经 Worker 脉冲
-          （原生积分时钟，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 +
-          2 秒冷却 + 手动停止：脉冲可能把双稳态网络翻进高活动态，触发到上限
-          自动停；停后若网络锁住，用主界面横幅的恢复/RESET 回来。
+          {text('测量来自原生 1 ms 积分。可选无量纲活动 E，或由主物理源计算的电极电位；反馈使用同一 Worker 时钟、100 ms 输入、2000 ms 冷却及触发上限。停止仅取消后续反馈，已施加的输入按其持续时间结束。','Measurements use native 1 ms integration: dimensionless activity E or primary-source sensor voltage. Feedback uses the same Worker clock, 100 ms inputs, 2000 ms cooldown and trigger limit. Stop cancels future feedback; applied inputs finish their scheduled duration.')}
         </p>
         <div style={row}>
           <span style={label}>特征</span>
-          <Dropdown value={clLiveFeature} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
-            <option value="instant">瞬时 E（无量纲）</option>
-            <option value="rms">1 秒 RMS E（无量纲）</option>
+          <Dropdown aria-label={text('闭环测量信号','Feedback measurement')} value={clSignal} disabled={clLiveRunning||clWorkerActive} onChange={e=>{setClSignal(e.target.value as 'activity'|'eeg');setClLiveThreshold(e.target.value==='eeg'?'0.01':'0.05');}}>
+            <option value="activity">{text('神经活动 E（无量纲）','Neural activity E (dimensionless)')}</option>
+            <option value="eeg">{text('主物理源电极 EEG（µV，假设耦合）','Primary-source sensor EEG (µV, assumed coupling)')}</option>
           </Dropdown>
-          <span style={label}>阈值</span>
+          <Dropdown value={clLiveFeature} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
+            <option value="instant">{text("瞬时幅度","Instantaneous magnitude")}</option>
+            <option value="rms">{text("1 秒 RMS","1 s RMS")}</option>
+          </Dropdown>
+          <span style={label}>{text("阈值","Threshold")} · {clSignal==='eeg'?'µV':'E'}</span>
           <input style={input} aria-label="直播闭环阈值" value={clLiveThreshold} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveThreshold(e.target.value)} />
           <span style={label}>反馈脉冲幅度（模型单位）</span>
           <input style={input} aria-label="直播闭环反馈幅度" value={clLiveAmp} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveAmp(e.target.value)} />
@@ -651,7 +653,8 @@ export default function ExperimentLab({
           )}
           {(!liveSim || liveNode === null) && <span style={label}>先在主界面选一个脑区（直播未就绪或未选区时不可启动）。</span>}
         </div>
-        {(clLiveRunning||clWorkerActive) && <p style={note}>直播闭环运行中：Worker 每 250 ms 模型时间检查原生 E；RMS 需要完整 1000 ms 窗口。检测后至少 1 ms 施加输入，冷却 2000 ms；暂停会冻结控制时钟。</p>}
+        {(clLiveRunning||clWorkerActive) && <p style={note}>{text('闭环运行中：每 250 ms 模型时间检测；RMS 需要完整 1000 ms 窗口，检测后至少 1 ms 施加输入。暂停冻结控制时钟。','Feedback active: evaluate every 250 model ms; RMS needs a full 1000 ms window, with at least 1 ms from detection to input. Pause freezes the control clock.')}</p>}
+        <p style={note}>{text('EEG 模式：选定脑区的 E/I 驱动首页主电流源，按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives the home primary source through explicit assumptions. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
         {clLiveLog.map((line, i) => <p key={i} style={note}>{line}</p>)}
       </div>
 
