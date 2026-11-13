@@ -3559,4 +3559,6 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
     "zh": "JR p0=220 极限环跑 12 s（去前 2 s），Welch PSD 读 alpha 峰与占比。",
     "en": "Run the JR p0=220 limit cycle for 12 s, discard the first 2 s, and use Welch PSD for the alpha peak and power share."
   }
+,
+{"zh":"导联选择在下次运行时生效，当前波形和导出保持不变。","en":"Montage changes apply on the next run. Current plots and exports remain unchanged."}
 ];

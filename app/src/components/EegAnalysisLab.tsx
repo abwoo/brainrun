@@ -11,6 +11,8 @@
  * recording，不许各写一套不相关的模拟波形。
  */
 import { useEffect, useState } from 'react';
+import { useI18n } from '../lib/i18n';
+import { configurationForRecording, configurationsEqual, type EegRunConfiguration } from '../lib/eegConfiguration';
 import {
   SPHERE_MODEL_ID,
   validateSphereFixture,
@@ -70,6 +72,8 @@ export default function EegAnalysisLab({
     positionMm: Vec3Mm | null;
   };
 }) {
+  const {locale}=useI18n();
+  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   const [fixture, setFixture] = useState<SphereFixture | null>(null);
   const [fixtureError, setFixtureError] = useState<string | null>(null);
   // PR8-LINK：记录持久化——挂载时从模块级 store 恢复（关弹窗、切模式都不丢）；
@@ -78,22 +82,28 @@ export default function EegAnalysisLab({
   const [recording, setRecording] = useState<EegRecording | null>(storedLive?.recording ?? null);
   const [events, setEvents] = useState<EegEvent[]>(storedLive?.events ?? []);
   const [epochs, setEpochs] = useState<EpochSet | null>(storedLive?.epochs ?? null);
-  const [selectedChannel, setSelectedChannel] = useState('Pz');
-  const [reference, setReference] = useState<EegReference>({ mode: 'average' });
-  const [montage, setMontage] = useState<MontageKey>('10-20');
-  const [noise, setNoise] = useState<NoiseParams | null>(null);
-  const [sourceModel, setSourceModel] = useState<SourceModel>('wc');
-  const [seed, setSeed] = useState(1);
-  const [durationMs, setDurationMs] = useState(10000);
+  const initialConfiguration=storedLive?.workspace?.configuration??configurationForRecording(storedLive?.recording??null);
+  const [selectedChannel, setSelectedChannel] = useState(storedLive?.workspace?.selectedChannel??
+    (storedLive?.recording.channels.some(c=>c.label==='Pz')?'Pz':storedLive?.recording.channels[0]?.label??'Pz'));
+  const [reference, setReference] = useState<EegReference>(initialConfiguration.reference);
+  const [montage, setMontage] = useState<MontageKey>(initialConfiguration.montage);
+  const [noise, setNoise] = useState<NoiseParams | null>(initialConfiguration.noise);
+  const [sourceModel, setSourceModel] = useState<SourceModel>(initialConfiguration.sourceModel);
+  const [seed, setSeed] = useState(initialConfiguration.seed);
+  const [durationMs, setDurationMs] = useState(initialConfiguration.durationMs);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EegLabTab>(initialTab ?? 'eeg');
-  const [atTimeMs, setAtTimeMs] = useState(400);
+  const [atTimeMs, setAtTimeMs] = useState(storedLive?.workspace?.atTimeMs??400);
 
+  const configuration:EegRunConfiguration={sourceModel,durationMs,montage,reference,noise,seed};
+  const pending=!!recording&&(!configurationsEqual(configuration,configurationForRecording(recording))
+    ||recording.provenance?.origin==='live-derived'||recording.sourceModelId.includes('late'));
   // PR8-LINK：记录一变就写回 store（两路都进同一份 store；挂载时已从 store 恢复）。
   useEffect(() => {
-    if (recording) setLiveRecordingStore({ recording, events, epochs });
-  }, [recording, events, epochs]);
+    if (recording) setLiveRecordingStore({ recording, events, epochs,
+      workspace:{configuration:{sourceModel,durationMs,montage,reference,noise,seed},selectedChannel,atTimeMs} });
+  }, [recording, events, epochs,sourceModel,durationMs,montage,reference,noise,seed,selectedChannel,atTimeMs]);
 
   // PR8-LINK 直播推导的状态（与独立柱模型的 running 分开）。
   const [liveRunning, setLiveRunning] = useState(false);
@@ -200,7 +210,7 @@ export default function EegAnalysisLab({
     input?: { recording: EegRecording; events: EegEvent[]; parameters: Record<string, unknown> },
   ) => {
     if (origin === 'raw' && recording?.provenance) {
-      setEpochs({ ...ep, provenance: recording.provenance,
+      setEpochs({ ...ep, dataRevision:recording.dataRevision??0, provenance: recording.provenance,
         events: ep.events.map(event => ({ ...event, runId: recording.provenance!.runId })) });
       return;
     }
@@ -220,10 +230,12 @@ export default function EegAnalysisLab({
     // React batches this transaction: every analysis tab receives the same run.
     setRecording(rec);
     setEvents(input.events.map(event => ({ ...event, runId: session.runId })));
-    setEpochs({ ...ep, provenance: session.provenance,
+    setEpochs({ ...ep, dataRevision:input.recording.dataRevision??0, provenance: session.provenance,
       events: ep.events.map(event => ({ ...event, runId: session.runId })) });
     setSelectedChannel(input.recording.channels[0].label);
-    setReference(input.recording.reference);
+    const loaded=configurationForRecording(rec);
+    setReference(loaded.reference);setMontage(loaded.montage);setNoise(loaded.noise);setSeed(loaded.seed);
+    setDurationMs(loaded.durationMs);setSourceModel(loaded.sourceModel);
     setLiveStatus(null);
   };
 
@@ -302,6 +314,22 @@ export default function EegAnalysisLab({
   const labBody = (
     <div className={inline ? 'screen eeg-lab-inline' : 'modal screen eeg-lab-modal'} data-analysis-run-id={recording?.provenance?.runId}>
       <div className="screen-title">EEG 分析实验 — 多导 EEG · 频谱 · ERP · 时频 · 地形 · 源定位</div>
+      {recording&&<div className="panel-text" data-testid="active-recording"
+        data-montage={recording.montage} data-reference={recording.reference.mode}
+        data-revision={recording.dataRevision??0}>
+        <strong>{text('当前显示的记录','Displayed recording')}</strong>
+        {' · '}{recording.channels.length}{text(' 通道',' channels')}{' · '}{recording.montage}
+        {' · '}{recording.sfreqHz} Hz{' · '}{JSON.stringify(recording.reference)}
+        {' · '}{text('处理版本','Processing revision')} {recording.dataRevision??0}
+        <details><summary>{text('记录来源与参数','Recording source and parameters')}</summary>
+          <code>{recording.sourceModelId}</code>
+          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0},null,2)}</pre>
+        </details>
+      </div>}
+      <div className="panel-text" role="status" data-testid="configuration-status" data-pending={pending}>
+        {text('下方配置用于下一次运行；参考方式可直接作用于当前记录。','Configuration below is for the next run; reference changes can apply to the displayed recording.')}
+        {pending&&<strong>{text(' 有待运行的配置，当前波形和导出仍使用上方记录。',' Pending configuration: plots and exports still use the displayed recording above.')}</strong>}
+      </div>
       <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">
         {TABS.map((t) => (
           <button

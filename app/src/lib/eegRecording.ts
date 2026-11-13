@@ -387,8 +387,23 @@ export function reReferenceRecording(rec: EegRecording, reference: EegReference)
     );
   }
   const labels = rec.channels.map((c) => c.label);
+  const revision=(rec.dataRevision??0)+1;
+  const outputReference:EegReference={...reference};
   return {
     ...rec,
+    dataRevision:revision,
+    processingHistory:[...(rec.processingHistory??[]),{
+      revision,parentRevision:rec.dataRevision??0,inputData:'raw-infinity',
+      method:'re-reference',inputReference:{mode:'infinity'},outputReference,
+    }],
+    ...(rec.experiment?{experiment:{
+      ...rec.experiment,parameters:{...rec.experiment.parameters,reference:outputReference,dataRevision:revision},
+      session:{...rec.experiment.session,artifacts:[...rec.experiment.session.artifacts,{
+        id:'raw-reference-r'+revision,runId:rec.experiment.session.provenance.runId,
+        kind:'eeg-raw' as const,tMs:0,sourceId:rec.experiment.session.provenance.runId+':raw-infinity',
+        methodId:'re-reference-r'+revision,
+      }]},
+    }}:{}),
     dataUv: applyReference(rec.rawDataUvInfinity, reference, labels),
     reference: reference.mode === 'electrode'
       ? { mode: 'electrode', label: reference.label }
@@ -930,6 +945,10 @@ export function runLiveExperiment(opts: RunLiveExperimentOptions): {
  * 弹窗关掉、模式切换都不丢记录。只存引用，不做深拷贝（调用方不改动它）。
  */
 export interface LiveRecordingStoreValue {
+  workspace?: {
+    configuration: import('./eegConfiguration').EegRunConfiguration;
+    selectedChannel:string; atTimeMs:number;
+  };
   recording: EegRecording;
   events: EegEvent[];
   epochs: EpochSet | null;
@@ -944,6 +963,9 @@ export function setLiveRecordingStore(v: LiveRecordingStoreValue | null): void {
       (v.epochs && (v.epochs.provenance?.runId !== runId ||
         v.epochs.events.some(event => event.runId !== runId))))) {
     throw new Error('Mixed experiment runs: Raw, events and epochs must share runId');
+  }
+  if(v?.epochs && (v.epochs.dataRevision??0)!==(v.recording.dataRevision??0)){
+    throw new Error('Stale epochs: processing revision must match Raw');
   }
   liveRecordingStore = v;
 }
@@ -994,6 +1016,8 @@ export function recordingToCsv(rec: EegRecording): string {
     `# reference=${JSON.stringify(rec.reference)}`,
     `# montage=${rec.montage}`,
     `# sfreq_hz=${rec.sfreqHz}`,
+    `# data_revision=${rec.dataRevision??0}`,
+    `# processing_history=${JSON.stringify(rec.processingHistory??[])}`,
     `# seed=${rec.seed}`,
     `# noise=${rec.noise ? JSON.stringify(rec.noise) : 'null'}`,
     ['time_ms', ...labels].join(','),
