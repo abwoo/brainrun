@@ -143,7 +143,7 @@ try {
   // current dipole parameter causality and source reset WITHOUT shipping
   // any FreeSurfer-derived asset. This test uses a tiny synthetic fixture;
   // real BEM correctness is independently checked by the MNE live job.
-  await head.getByRole('button', {name:'打开本地真实 MRI BEM'}).click();
+  await head.getByRole('button', {name:'打开真实模板 MRI BEM'}).click();
   const real = page.getByRole('dialog', {name:'真实模板 MRI BEM 实验'});
   const tetra = {
     vertices_head_mm:[[0,0,0],[1,0,0],[0,1,0],[0,0,1]],
