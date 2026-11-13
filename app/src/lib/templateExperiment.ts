@@ -15,7 +15,7 @@ export function setTemplateSource(patch:Omit<TemplateSourceState,'revision'>):vo
 export function prepareTemplateAnalysis():EegRecording {
  const model=getTemplateModel();if(!model)throw new Error('Template is not ready');
  const source=model.source_positions[state.sourceIndex];if(!source)throw new Error('Invalid template source');
- const q=state.direction.map(x=>x*state.moment) as Vec3Mm;
+ const q:Vec3Mm=[state.direction[0]*state.moment,state.direction[1]*state.moment,state.direction[2]*state.moment];
  const raw=templateSourcePotentials(model,state.sourceIndex,q,{mode:'infinity'});
  const values=templateSourcePotentials(model,state.sourceIndex,q,state.reference);
  const timesMs=Array.from({length:501},(_,i)=>4*i);
@@ -58,7 +58,7 @@ export function templateRecordingForward(recording:EegRecording,atTimeMs:number)
  for(const source of recording.sourceSeries.sources){
   const i=model.source_positions.findIndex(p=>p.head_mm.every((x,k)=>Math.abs(x-source.positionMm[k])<1e-5));
   if(i<0||source.momentsNAm.length!==recording.timesMs.length)throw new Error('Invalid template source history');
-  const q=source.direction.map(x=>x*source.momentsNAm[j]) as Vec3Mm;
+  const q:Vec3Mm=[source.direction[0]*source.momentsNAm[j],source.direction[1]*source.momentsNAm[j],source.direction[2]*source.momentsNAm[j]];
   const v=templateSourcePotentials(model,i,q,{mode:'infinity'});values=values.map((x,k)=>x+v[k]);
  }
  const channels=recording.channels.map(c=>model.electrodes.findIndex(e=>e.label===c.label));
@@ -68,6 +68,6 @@ export function templateRecordingForward(recording:EegRecording,atTimeMs:number)
  ref.mode==='electrode'?values[model.electrodes.findIndex(e=>e.label===ref.label)]:0;
  return {labels:model.electrodes.map(e=>e.label),positionsMm:model.electrodes.map(e=>e.head_mm),
   valueUv:values.map(x=>x-offset),sourceMm:recording.sourceSeries.sources[0].positionMm,
-  momentNAm:recording.sourceSeries.sources[0].direction.map(x=>x*recording.sourceSeries!.sources[0].momentsNAm[j]) as Vec3Mm,
+  momentNAm:[0,1,2].map(k=>recording.sourceSeries!.sources[0].direction[k]*recording.sourceSeries!.sources[0].momentsNAm[j]) as unknown as Vec3Mm,
   reference:recording.reference,atTimeMs:recording.timesMs[j],sourceCount:recording.sourceSeries.sources.length};
 }
