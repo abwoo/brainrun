@@ -1,0 +1,47 @@
+name: Launch video capture
+on:
+  push:
+    branches: [video/launch-capture-20261113]
+    paths: [.github/workflows/launch-video-capture.yml, launch-capture/**]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright
+      - run: playwright install --with-deps chromium
+      - name: Inspect and verify export
+        run: |
+          mkdir -p capture-output
+          cat > /tmp/probe.py <<'PY'
+          import asyncio,json
+          from playwright.async_api import async_playwright
+          async def main():
+            async with async_playwright() as p:
+              b=await p.chromium.launch(headless=True,args=['--use-angle=swiftshader','--enable-unsafe-swiftshader'])
+              c=await b.new_context(viewport={'width':1920,'height':1080},record_video_dir='capture-output',record_video_size={'width':1920,'height':1080})
+              page=await c.new_page()
+              page.on('pageerror',lambda e:print('PAGEERROR',e))
+              await page.goto('https://abwoo.github.io/brainrun/',wait_until='networkidle',timeout=120000)
+              await page.screenshot(path='capture-output/probe.png')
+              open('capture-output/dom.txt','w').write(await page.locator('body').inner_text())
+              print(await page.locator('body').inner_text())
+              print(await page.locator('input,select,button').evaluate_all('(els)=>els.map(e=>({tag:e.tagName,type:e.type,text:e.textContent,aria:e.getAttribute("aria-label"),id:e.id,value:e.value}))'))
+              await page.wait_for_timeout(3000)
+              await c.close()
+              await b.close()
+          asyncio.run(main())
+          PY
+          python /tmp/probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brainrun-capture
+          path: capture-output
+          retention-days: 7
