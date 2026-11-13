@@ -32,6 +32,7 @@ try{
 
  await page.getByRole('button',{name:'Back to physical models',exact:true}).click();
  await page.getByTestId('template-physics').waitFor();
+ await page.getByText('Head model · fsaverage BEM',{exact:true}).click();
  assert.equal(await page.getByRole('combobox',{name:'Head model',exact:true}).inputValue(),'bem','conductor selection survives advanced navigation');
  assert.equal(await page.getByTestId('template-physics').getAttribute('data-source-index'),'2');
  await page.getByRole('tab',{name:'Regions & activity',exact:true}).click();
@@ -68,6 +69,23 @@ try{
  const replayed=await page.evaluate(()=>window.__brainSim.requestNativeFeedback());
  assert.deepEqual(replayed.state.samples,measured.state.samples,'actual BEM sensor/filter samples replay exactly');
  assert.deepEqual(replayed.state.config.eeg,measured.state.config.eeg);
+
+ // Restore an active controller while its panel is unmounted: reopening must mirror Worker state, not defaults.
+ await page.getByRole('button',{name:'关闭',exact:true}).last().click();
+ await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='stopped');
+ await page.getByRole('button',{name:'返回物理模型',exact:true}).click();
+ await page.getByTestId('template-physics').waitFor();
+ await page.evaluate(()=>window.__brainSim.restoreSnapshot('template-feedback'));
+ await page.evaluate(()=>window.__brainSim.advanceMs(300));
+ await page.waitForFunction(()=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===600;});
+ const restoredOutside=await page.evaluate(()=>window.__brainSim.requestNativeFeedback());
+ await page.getByRole('button',{name:'高级实验',exact:true}).click();
+ await page.getByRole('button',{name:/^对照与回放/}).click();
+ assert.equal(await page.getByRole('combobox',{name:'闭环测量信号',exact:true}).inputValue(),'eeg');
+ assert.equal(await page.getByRole('textbox',{name:'直播闭环阈值',exact:true}).inputValue(),'0');
+ assert.equal(await page.getByRole('button',{name:'停止直播闭环',exact:true}).count(),1);
+ assert.deepEqual(await page.evaluate(()=>window.__brainSim.getNativeFeedback().state.config.eeg),restoredOutside.state.config.eeg);
+ const finalMeasurement=await page.evaluate(()=>window.__brainSim.requestNativeFeedback());
  console.log('SCREENSHOT_BEM-FEEDBACK='+(await page.getByTestId('feedback-measurement').locator('..').screenshot({type:'jpeg',quality:65})).toString('base64'));
  await page.getByRole('button',{name:'English',exact:true}).click();
  await page.getByRole('button',{name:'Stop and analyze feedback EEG',exact:true}).click();
@@ -80,9 +98,9 @@ try{
  assert.equal(feedback.forwardModelId,rec.forwardModelId);assert.equal(feedback.sfreqHz,1000);
  assert.equal(feedback.experiment.parameters.measurementOperator.headModel,'bem');
  assert.equal(feedback.experiment.parameters.measurementOperator.templateSource.index,2);
- assert.deepEqual(feedback.dataUv[0],replayed.state.samples.map(s=>s.value));
- assert.deepEqual(feedback.timesMs,replayed.state.samples.map(s=>s.tMs-replayed.state.samples[0].tMs));
- assert.equal(feedback.provenance.parentRunId,replayed.run_id);
+ assert.deepEqual(feedback.dataUv[0],finalMeasurement.state.samples.map(s=>s.value));
+ assert.deepEqual(feedback.timesMs,finalMeasurement.state.samples.map(s=>s.tMs-finalMeasurement.state.samples[0].tMs));
+ assert.equal(feedback.provenance.parentRunId,finalMeasurement.run_id);
  assert.deepEqual(feedback.channels[0].positionMm,rec.channels[i].positionMm);
  console.log('Real template BEM -> selected source/sensor -> native causal feedback -> exact snapshot replay -> actual shared Raw/JSON PASS');
  console.log('Template auto-load without file import, matching Raw/export, topography and BEM inverse PASS');

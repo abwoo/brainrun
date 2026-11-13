@@ -356,15 +356,17 @@ export default function ExperimentLab({
   };
 
   /* ── PR8-LINK：直播闭环 ── */
+  const savedFeedback=live?.sim?.getNativeFeedback();
+  const savedFeedbackConfig=savedFeedback?.state?.config;
   const [feedbackFailure,setFeedbackFailure]=useState<{kind:'configuration'|'measurement';detail:string}|null>(null);
-  const [clSignal,setClSignal]=useState<'activity'|'eeg'>('activity');
-  const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>('instant');
-  const [clLiveThreshold, setClLiveThreshold] = useState('0.05');
-  const [clLiveAmp, setClLiveAmp] = useState('2');
-  const [clLiveMax, setClLiveMax] = useState('5');
+  const [clSignal,setClSignal]=useState<'activity'|'eeg'>(savedFeedbackConfig?.eeg?'eeg':'activity);
+  const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>(savedFeedbackConfig?.feature??'instant');
+  const [clLiveThreshold, setClLiveThreshold] = useState(String(savedFeedbackConfig?.threshold??0.05));
+  const [clLiveAmp, setClLiveAmp] = useState(String(savedFeedbackConfig?.amplitude??2));
+  const [clLiveMax, setClLiveMax] = useState(String(savedFeedbackConfig?.maxTriggers??5));
   const [clLiveRunning, setClLiveRunning] = useState(false);
   const [clLiveLog, setClLiveLog] = useState<string[]>([]);
-  const [clWorkerActive,setClWorkerActive]=useState(false);
+  const [clWorkerActive,setClWorkerActive]=useState(savedFeedback?.active??false);
   const clLiveRequestedRef=useRef(false);
   const liveSim = live?.sim ?? null;
   const liveNode = live?.node ?? null;
@@ -379,6 +381,8 @@ export default function ExperimentLab({
       setClLiveRunning(false);
       return;
     }
+    // Once sent, the measurement operator/baseline stays frozen even if a fallback fixture finishes loading.
+    if(clLiveRequestedRef.current)return;
     setFeedbackFailure(null);
     try{
       liveSim.configureNativeFeedback({...(clSignal==='eeg'?{eeg:physicalFeedbackMapping(fixture)}:{}),node:liveNode,feature:clLiveFeature,threshold:Number(clLiveThreshold),
