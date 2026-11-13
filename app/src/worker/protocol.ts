@@ -84,6 +84,10 @@ export interface ModeParams {
 }
 
 export interface Snapshot {
+  /** Authoritative Worker input state; absent in legacy test snapshots. */
+  active_input_count?:number;
+  queued_input_count?:number;
+  pulse_checkpoint_ms?:number;
   type: 'snapshot';
   /** P0-2: source run identity, assigned by the Worker (never by a chart). */
   run_id?: string;

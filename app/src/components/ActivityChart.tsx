@@ -12,7 +12,7 @@ import type { SimClient } from '../lib/simClient';
 import type { Snapshot } from '../worker/protocol';
 
 const WINDOW_MS = 10_000;
-const Y_MAX = 0.6;
+const Y_MAX = 1;
 
 interface Props {
   simple?: boolean;
@@ -48,6 +48,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
   const bufferRef = useRef<Array<{ t_ms: number; e: number; i: number }>>([]);
   const selectedRef = useRef<number | null>(selectedId);
   const pausedRef = useRef(false);
+  const runRef=useRef<string|undefined>(undefined);
   // PR2：回放状态走 ref（绘图循环每帧读，不随每次回放时钟 tick 重建循环）。
   const replayRef = useRef(replay);
   replayRef.current = replay;
@@ -65,9 +66,13 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
     if (!sim) return;
     const unsub = sim.subscribe((snap: Snapshot) => {
       pausedRef.current = snap.paused;
+      const previous=bufferRef.current.at(-1);
+      if(runRef.current!==snap.run_id||(previous&&snap.t_ms<previous.t_ms))bufferRef.current=[];
+      runRef.current=snap.run_id;
       const id = selectedRef.current;
       if (id === null || snap.paused) return;
       const buf = bufferRef.current;
+      if(buf.at(-1)?.t_ms===snap.t_ms)return;
       buf.push({ t_ms: snap.t_ms, e: snap.e[id], i: snap.i[id] });
       while (buf.length > 0 && snap.t_ms - buf[0].t_ms > 12_000) buf.shift();
     });
@@ -109,7 +114,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(19, 57, 84, 0.35)';
       ctx.beginPath();
-      for (const gy of [0.1, 0.3, 0.5]) {
+      for (const gy of [0.1, 0.3, 0.5,0.7,0.9]) {
         const y = h - 8 - (gy / Y_MAX) * (h - 16);
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
@@ -117,7 +122,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
       ctx.stroke();
       ctx.strokeStyle = 'rgba(19, 57, 84, 0.8)';
       ctx.beginPath();
-      for (const gy of [0.2, 0.4, 0.6]) {
+      for (const gy of [0.2, 0.4, 0.6,0.8,1]) {
         const y = h - 8 - (gy / Y_MAX) * (h - 16);
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
@@ -131,7 +136,9 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
       ctx.fillStyle = '#7fa8c4';
       ctx.font = '10px ui-monospace, Menlo, monospace';
       // 0.6 线贴着画布顶边（y≈8），标签画到线下方才不会被切掉。
-      ctx.fillText('0.6', 4, h - 8 - (0.6 / Y_MAX) * (h - 16) + 10);
+      ctx.fillText('1.0',4,18);
+      ctx.fillText('0.8',4,h-8-(0.8/Y_MAX)*(h-16)-3);
+      ctx.fillText('0.6', 4, h - 8 - (0.6 / Y_MAX) * (h - 16) - 3);
       ctx.fillText('0.4', 4, h - 8 - (0.4 / Y_MAX) * (h - 16) - 3);
       ctx.fillText('0.2', 4, h - 8 - (0.2 / Y_MAX) * (h - 16) - 3);
       ctx.fillText('0', 4, h - 10);
@@ -292,7 +299,7 @@ export default function ActivityChart({ sim, selectedId, resetSignal, replay, si
   }, [sim, selectedId]);
 
   return (
-    <div className="chart-wrap" ref={wrapRef} data-selected-region-id={selectedId ?? 'none'}>
+    <div className="chart-wrap" ref={wrapRef} data-selected-region-id={selectedId ?? 'none'} data-y-max={Y_MAX}>
       <canvas ref={canvasRef} className="chart-canvas" />
       <div className="chart-controls">
         <span className="chart-label">

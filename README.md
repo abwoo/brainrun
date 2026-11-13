@@ -16,6 +16,8 @@ The home page opens directly to **Currents & sensors**. There is no automatic ex
 6. For a numerical comparison, expand **More settings and model details → Skull conductivity** and choose **Four-layer spherical FEM**. Conductivity changes the assembled tetrahedral equations. Source motion is limited to the solved ±16 mm cube; the model is spherical, not MRI-derived anatomical FEM.
 7. Open **Signal analysis** to inspect the same physical source history. Raw, scalp samples, source estimates and exports retain its model, geometry, reference and observation time.
 
+In **Regions & activity**, the status panel reports actual Worker model time, selected E/I and active/queued inputs. A steady response is distinguished from paused or non-advancing model time. Repeated strong inputs can switch this bistable model into a high-activity state. **Restore before input** explicitly restores a complete pre-input checkpoint; overlapping pulses do not replace it with an already-driven state. **Use gentle input settings** sets a 0.5-amplitude, 20 ms pulse without firing it. The trace shows the full 0–1 activity range and clears old-run samples when rewinding. The response-region count is a retained 2 s peak summary, not an instantaneous activity meter.
+
 The **Regions & activity** tab shows the 76-region network. Select a region, adjust input strength and duration, and apply an input explicitly. Selecting a region or rotating the view does not stimulate it. The activity trace reads the same Worker snapshots as the 3D view.
 
 Use **Restore defaults** to return to a known configuration. The language switch changes presentation without resetting model parameters or recordings.
