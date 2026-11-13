@@ -9,6 +9,7 @@
  * 供 Playwright 因果测试使用；它不产生任何额外活动。
  */
 import type { ModeParams, SimParams, Snapshot, WorkerInMessage, WorkerOutMessage } from '../worker/protocol';
+import {appendNativeChunk,type NativeSample} from './nativeAcquisition';
 import { ExperimentSession } from './experimentSession';
 import type { ExperimentSessionSnapshot } from './experimentSession';
 
@@ -278,6 +279,7 @@ export class SimClient {
    *  主线程每帧只看到最新快照，拿不到“+200 ms 时 E 是多少”这种
    *  时间点值；历史在消息到达时逐条记下（60 Hz），上限 600 条
    *  （10 s），旧的丢弃。仅供调试桥读取。 */
+  private nativeHistory: NativeSample[] = [];
   private snapHistory: Array<{ t_ms: number; e: Float64Array; i: Float64Array }> = [];
   private static readonly SNAP_HISTORY_MAX = 600;
   /** PR2：最近一次刺激的基线（刺激发送前最近快照的 E）与刺激时间。
@@ -353,6 +355,10 @@ export class SimClient {
           marker.t_ms = msg.t_ms;
           this.pendingStimulusMarkers.delete(msg.command_id);
         }
+      } else if (msg.type === 'native_samples') {
+        if(msg.run_id!==this.experiment.runId)return;
+        appendNativeChunk(this.nativeHistory,msg);
+        this.experiment.recordModelTime(msg.run_id,msg.start_ms+(msg.n_samples-1)*msg.dt_ms);
       } else if (msg.type === 'ready') {
         this.ready = true;
         const cbs = this.readyListeners;
@@ -569,6 +575,10 @@ export class SimClient {
     this.snapHistory = [];
   }
 
+  /** Every 1 ms integration state; never reconstructed from display snapshots. */
+  getNativeHistory(): NativeSample[] {
+    return this.nativeHistory.map(s=>({t_ms:s.t_ms,e:Float64Array.from(s.e),i:Float64Array.from(s.i)}));
+  }
   /** 最近快照历史（Worker 时间戳 + 全脑 E/I 的副本）。 */
   getSnapshotHistory(): Array<{ t_ms: number; e: Float64Array; i: Float64Array }> {
     return this.snapHistory.map((s) => ({
@@ -795,6 +805,7 @@ export class SimClient {
 
   reset(): void {
     this.experiment.newRun({ seed: this.seed });
+    this.nativeHistory=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     this.markers = [];
@@ -823,6 +834,7 @@ export class SimClient {
    *  reset() exactly. */
   resetPaused(): void {
     this.experiment.newRun({ seed: this.seed });
+    this.nativeHistory=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     this.markers = [];
@@ -1027,6 +1039,7 @@ export class SimClient {
       return Promise.reject(new Error('Invalid or unsupported experiment snapshot'));
     }
     this.experiment.newRun({ seed: summary.seed });
+    this.nativeHistory=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     return new Promise((resolve) => {
@@ -1082,6 +1095,7 @@ export class SimClient {
       getPeakE: () => this.getPeakE(),
       resetPeakTracking: () => this.resetPeakTracking(),
       getSnapshotHistory: () => this.getSnapshotHistory(),
+      getNativeHistory: () => this.getNativeHistory(),
       resetSnapshotHistory: () => this.resetSnapshotHistory(),
       getParams: () => this.getParams(),
       getMarkers: () => this.getMarkers(),

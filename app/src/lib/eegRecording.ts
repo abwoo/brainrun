@@ -947,7 +947,7 @@ export function runLiveExperiment(opts: RunLiveExperimentOptions): {
 export interface LiveRecordingStoreValue {
   workspace?: {
     configuration: import('./eegConfiguration').EegRunConfiguration;
-    selectedChannel:string; atTimeMs:number;
+    selectedChannel:string; atTimeMs:number;nativeRate?:250|500;
   };
   recording: EegRecording;
   events: EegEvent[];
@@ -1019,6 +1019,7 @@ export function recordingToCsv(rec: EegRecording): string {
     `# seed=${rec.seed}`,
     `# noise=${rec.noise ? JSON.stringify(rec.noise) : 'null'}`,
     ...(rec.dataRevision?[`# data_revision=${rec.dataRevision}`,`# processing_history=${JSON.stringify(rec.processingHistory??[])}`]:[]),
+    ...(rec.acquisition?[`# acquisition=${JSON.stringify(rec.acquisition)}`]:[]),
     ['time_ms', ...labels].join(','),
   ];
   for (let j = 0; j < rec.timesMs.length; j++) {

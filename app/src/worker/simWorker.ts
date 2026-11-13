@@ -10,6 +10,7 @@
  *   duration 的事件，松开即删除。参数修改通过明确事件提交，只影响后续步。
  * - 快照只读：Worker 不做任何视觉加工；锁定判断只读全网平均 E。
  */
+import { advanceAcquiring } from '../lib/nativeAcquisition';
 import type { Snapshot, WorkerInMessage, WorkerOutMessage } from './protocol';
 
 /**
@@ -191,6 +192,17 @@ function snapshot(): Snapshot | null {
   };
 }
 
+function acquireAdvance(ms:number):void {
+ if(!sim)return;
+ for(const pulse of pulses)sim.add_stimulus(pulse.node,pulse.start_ms,pulse.duration_ms,pulse.amplitude);
+ pulses=[];
+ let remaining=Math.max(0,Math.round(ms/sim.dt_ms()))*sim.dt_ms();
+ while(remaining>0&&!sim.diverged()){
+  const block=Math.min(remaining,200);
+  post(advanceAcquiring(sim,block,runId));remaining-=block;
+ }
+}
+
 function tick(): void {
   if (!running || !sim) return;
   const now = Date.now();
@@ -213,7 +225,7 @@ function tick(): void {
       sim.add_stimulus(pulse.node, pulse.start_ms, pulse.duration_ms, pulse.amplitude);
     }
     pulses = [];
-    if (steps > 0) sim.advance(steps);
+    if (steps > 0) acquireAdvance(steps);
   }
   const snap = snapshot();
   if (snap) post(snap);
@@ -400,7 +412,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         // 只在暂停时推进：确定性步进（测试用）。运行中收到就忽略，
         // 否则 tick 循环会与这次推进重叠、步数不再确定。
         if (!sim || !paused) return;
-        sim.advance(msg.ms);
+        acquireAdvance(msg.ms);
         acknowledge(msg);
         const snap = snapshot();
         if (snap) post(snap);

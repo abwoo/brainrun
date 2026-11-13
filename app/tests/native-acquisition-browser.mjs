@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {preview} from 'vite';
+const server=await preview({preview:{port:0,host:'127.0.0.1'},logLevel:'error'});
+let browser;
+try{
+ browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
+ const page=await browser.newPage();
+ await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.getByRole('tab',{name:'脑区与传播',exact:true}).click();
+ await page.waitForFunction(()=>window.__brainSim?.isReady()&&window.__brainSim.getSnapshot());
+ await page.getByRole('combobox',{name:'选择脑区',exact:true}).selectOption('40');
+ await page.evaluate(()=>{window.__brainSim.resetPaused();});
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===0);
+ const run=async(hz)=>{
+  await page.evaluate(hz=>{window.__brainSim.setSnapshotHz(hz);window.__brainSim.setBackgroundMode('quiet');window.__brainSim.setSeed(7);window.__brainSim.resetPaused();},hz);
+  await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===0);
+  await page.evaluate(()=>window.__brainSim.advanceMs(500));
+  await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===500);
+  await page.evaluate(()=>{window.__brainSim.pulseAt(40,1,100);window.__brainSim.advanceMs(1500);});
+  await page.waitForFunction(()=>window.__brainSim.getNativeHistory().at(-1)?.t_ms===2000&&window.__brainSim.getSnapshot()?.t_ms===2000);
+  return page.evaluate(()=>{
+   const h=window.__brainSim.getNativeHistory(),s=window.__brainSim.getSnapshot();
+   return {times:h.map(x=>x.t_ms),selected:h.map(x=>x.e[40]),last:Array.from(h.at(-1).e),snapshot:Array.from(s.e)};
+  });
+ };
+ const a=await run(10),b=await run(120);
+ assert.equal(a.times.length,2001);assert.deepEqual(a,b,'native scientific data must not depend on display refresh rate');
+ assert.deepEqual(a.last,a.snapshot,'native samples and display snapshots read the same WASM state');
+ await page.getByRole('button',{name:'English',exact:true}).click();
+ await page.getByRole('button',{name:'Advanced labs',exact:true}).click();
+ await page.getByRole('button',{name:/^Signal analysis/}).click();
+ await page.getByRole('combobox',{name:'Native EEG sample rate',exact:true}).selectOption('500');
+ await page.getByRole('button',{name:'Record selected region EEG',exact:true}).click();
+ await page.getByTestId('eeg-summary').waitFor({timeout:30000});
+ const downloadReady=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export JSON',exact:true}).click();
+ const download=await downloadReady,stream=await download.createReadStream();let text='';
+ for await(const chunk of stream)text+=chunk.toString();
+ const rec=JSON.parse(text);
+ assert.equal(rec.events.length,1);assert.equal(rec.events[0].tMs,436);
+ assert.equal(rec.sfreqHz,500);assert.equal(rec.acquisition.integrationRateHz,1000);
+ assert.equal(rec.provenance.clock,'solver-integration-ms');
+ assert.equal(rec.acquisition.validStartMs,64);assert.equal(rec.timesMs[1]-rec.timesMs[0],2);
+ assert.equal(rec.sourceModelId,'live-wc-integration-fir-v1');
+ assert.equal(rec.provenance.effectiveSourceSnapshotHz,undefined);
+ assert.equal(rec.acquisition.filter.discardedEdgeMs,64);
+ await page.evaluate(()=>window.__brainSim.resetPaused());
+ await page.waitForFunction(()=>window.__brainSim.getNativeHistory().length===0);
+ console.log('Native Worker acquisition: 1 ms states, display-rate invariance, matching WASM snapshot, 500 Hz GUI/export and run reset PASS');
+}finally{await browser?.close();await server.httpServer.close();}

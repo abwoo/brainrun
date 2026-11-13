@@ -10,7 +10,7 @@
  * 250 Hz source sampler, or claim of TVB→MNE human-space registration.
  */
 export type ExperimentOrigin = 'live-wasm' | 'independent' | 'live-derived';
-export type ExperimentClock = 'worker-ms' | 'independent-model-ms' | 'derived-from-worker-snapshots';
+export type ExperimentClock = 'worker-ms' | 'independent-model-ms' | 'derived-from-worker-snapshots' | 'solver-integration-ms';
 export type ScientificRegistration = 'unregistered' | 'validated';
 export interface ExperimentProvenance {
   runId: string;
