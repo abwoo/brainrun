@@ -1464,3 +1464,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
  .app .topbar-controls { padding-right:0; }
  .app .global-language-switch { right:12px; top:12px; }
 }
+
+.physics-colorbar {display:flex;align-items:center;gap:12px;padding:10px 18px;color:#aac4d6;font-size:12px}
+.physics-color-gradient {height:10px;flex:1;max-width:200px;border-radius:3px;background:linear-gradient(to right,#38a8ff,#40525e,#ff6152)}
+.physics-voltage-trace {padding:6px 18px 12px;color:#aac4d6;font-size:12px;border-top:1px solid #203545}
+.physics-voltage-trace svg {display:block;width:100%;height:80px}

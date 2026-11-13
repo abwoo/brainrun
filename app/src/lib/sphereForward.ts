@@ -21,6 +21,9 @@ export interface SphereSensor {
   original_head_mm: Vec3Mm;
 }
 export interface SphereFixture {
+  scalp_field_grid?: {
+    positions_mm:Vec3Mm[];triangles:number[];gain_uv_per_nAm:number[][];method:string;
+  };
   model_id: string;
   coordinate_frame: string;
   mne_version: string;
@@ -85,6 +88,15 @@ export function validateSphereFixture(data: SphereFixture): void {
       throw new Error('Missing or inconsistent montage ' + key);
     }
   }
+  const scalp=data.scalp_field_grid;
+  if(scalp){
+    if(!Array.isArray(scalp.positions_mm)||scalp.positions_mm.length!==scalp.gain_uv_per_nAm.length||
+       scalp.positions_mm.some(p=>p.length!==3||!p.every(Number.isFinite)||Math.abs(Math.hypot(...p)-data.radius_mm)>.01)||
+       scalp.triangles.length%3!==0||scalp.triangles.some(j=>!Number.isInteger(j)||j<0||j>=scalp.positions_mm.length)||
+       scalp.gain_uv_per_nAm.some(row=>row.length!==gridCols||!row.every(Number.isFinite)))
+      throw new Error('Invalid scalp vertex lead field or geometry');
+  }
+
 }
 
 const indexAndWeight = (axis: number[], x: number): [number, number] => {
