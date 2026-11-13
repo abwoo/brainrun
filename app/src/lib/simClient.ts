@@ -1,3 +1,4 @@
+import {compareNetworkBranches} from './networkComparison';
 import {validateFeedbackConfig,type NativeFeedbackConfig} from './nativeFeedback';
 /**
  * 主线程仿真客户端（Phase 3）。
@@ -124,6 +125,7 @@ export const SNAPSHOT_SCHEMA_VERSION = 1;
 
 /** One stored snapshot: Worker time + full state JSON + wall-clock save time. */
 export interface StoredSnapshot {
+  sourceRunId?:string;
   id: string;
   t_ms: number;
   json: string;
@@ -390,6 +392,7 @@ export class SimClient {
           id: msg.id,
           t_ms: msg.t_ms,
           json: msg.json,
+          sourceRunId:msg.run_id,
           savedAtWall: Date.now(),
           version: SNAPSHOT_SCHEMA_VERSION,
         };
@@ -1035,12 +1038,12 @@ export class SimClient {
   /** Save a manual snapshot (returns a promise resolved when the
    *  Worker confirms).  Manual snapshots persist in localStorage
    *  (key `MANUAL_SNAPSHOT_KEY`) and survive reloads and RESETs. */
-  saveSnapshot(): Promise<{ id: string; t_ms: number }> {
+  saveSnapshot(id='manual'): Promise<{ id: string; t_ms: number }> {
     return new Promise((resolve) => {
-      const list = this.snapshotWaiters.get('manual') ?? [];
+      const list = this.snapshotWaiters.get(id) ?? [];
       list.push(resolve);
-      this.snapshotWaiters.set('manual', list);
-      this.send({ type: 'save_snapshot', id: 'manual' });
+      this.snapshotWaiters.set(id, list);
+      this.send({ type: 'save_snapshot', id });
     });
   }
 
@@ -1057,7 +1060,7 @@ export class SimClient {
     if (!summary || summary.version !== SNAPSHOT_SCHEMA_VERSION) {
       return Promise.reject(new Error('Invalid or unsupported experiment snapshot'));
     }
-    this.experiment.newRun({ seed: summary.seed });
+    this.experiment.newRun({ seed: summary.seed },stored.sourceRunId??true);
     this.nativeHistory=[];this.feedbackMessage=null;this.feedbackEvents=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
@@ -1069,6 +1072,7 @@ export class SimClient {
     });
   }
 
+  getSavedSnapshot(id:string){const saved=this.snapshots.get(id);return saved?{...saved}:null;}
   /** Which snapshots exist (Worker time + wall-clock save time). */
   getSnapshotInfo(): {
     manual: { t_ms: number; savedAtWall: number } | null;
@@ -1115,6 +1119,7 @@ export class SimClient {
       resetPeakTracking: () => this.resetPeakTracking(),
       getSnapshotHistory: () => this.getSnapshotHistory(),
       getNativeHistory: () => this.getNativeHistory(),
+      compareNetworkBranches:(node:number,g:number,ms?:number)=>compareNetworkBranches(this,node,g,ms),
       configureNativeFeedback:(config:NativeFeedbackConfig|null)=>this.configureNativeFeedback(config),
       getNativeFeedback:()=>this.getNativeFeedback(),
       resetSnapshotHistory: () => this.resetSnapshotHistory(),
@@ -1209,7 +1214,7 @@ export class SimClient {
       getSeed: () => this.getSeed(),
       advanceMs: (ms: number) => this.advanceMs(ms),
       setSnapshotHz: (hz: number) => this.setSnapshotHz(hz),
-      saveSnapshot: () => this.saveSnapshot(),
+      saveSnapshot: (id?:string) => this.saveSnapshot(id),
       restoreSnapshot: (id: string) => this.restoreSnapshot(id),
       getSnapshotInfo: () => this.getSnapshotInfo(),
     };
