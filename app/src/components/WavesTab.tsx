@@ -160,7 +160,7 @@ export default function WavesTab({
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={`${channel} 通道 Welch PSD（0.5–${hi.toFixed(1)} Hz，log 坐标）`}
+          aria-label={text(`${channel} 通道 Welch PSD（0.5–${hi.toFixed(1)} Hz，log 坐标）`,`${channel} Welch PSD (0.5–${hi.toFixed(1)} Hz, log scale)`)}
           style={{ width: '100%', height: 'auto', background: '#08131d', display: 'block' }}
         >
           <polyline fill="none" stroke="#22d3ee" strokeWidth="1.5" points={pts.join(' ')} />
