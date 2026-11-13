@@ -359,7 +359,7 @@ export default function ExperimentLab({
   const savedFeedback=live?.sim?.getNativeFeedback();
   const savedFeedbackConfig=savedFeedback?.state?.config;
   const [feedbackFailure,setFeedbackFailure]=useState<{kind:'configuration'|'measurement';detail:string}|null>(null);
-  const [clSignal,setClSignal]=useState<'activity'|'eeg'>(savedFeedbackConfig?.eeg?'eeg':'activity);
+  const [clSignal,setClSignal]=useState<'activity'|'eeg'>(savedFeedbackConfig?.eeg?'eeg':'activity');
   const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>(savedFeedbackConfig?.feature??'instant');
   const [clLiveThreshold, setClLiveThreshold] = useState(String(savedFeedbackConfig?.threshold??0.05));
   const [clLiveAmp, setClLiveAmp] = useState(String(savedFeedbackConfig?.amplitude??2));
