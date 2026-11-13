@@ -1,3 +1,4 @@
+import {validateFeedbackConfig,type NativeFeedbackConfig} from './nativeFeedback';
 /**
  * 主线程仿真客户端（Phase 3）。
  *
@@ -259,6 +260,9 @@ export class SimClient {
   private worker: Worker | null = null;
   private listeners = new Set<SnapshotListener>();
   private latest: Snapshot | null = null;
+  private feedbackMessage:Extract<WorkerOutMessage,{type:'native_feedback'}>|null=null;
+  private feedbackEvents:Array<Extract<WorkerOutMessage,{type:'native_feedback'}>>=[];
+  private feedbackListeners=new Set<(message:Extract<WorkerOutMessage,{type:'native_feedback'}>)=>void>();
   private markers: StimulusMarker[] = [];
   /** P0-2: LIVE session provenance. Only confirmed Worker model times count. */
   private readonly experiment = new ExperimentSession({
@@ -355,6 +359,15 @@ export class SimClient {
           marker.t_ms = msg.t_ms;
           this.pendingStimulusMarkers.delete(msg.command_id);
         }
+      } else if(msg.type==='native_feedback'){
+        if(msg.run_id!==this.experiment.runId)return;
+        this.feedbackMessage=msg;this.feedbackEvents.push(msg);if(this.feedbackEvents.length>1000)this.feedbackEvents.shift();
+        this.experiment.recordModelTime(msg.run_id,msg.t_ms);
+        if(msg.phase==='applied'&&msg.action){
+          this.markers.push({t_ms:msg.t_ms,node:msg.action.node,kind:'pulse',amplitude:msg.action.amplitude});
+          if(this.markers.length>50)this.markers.shift();
+        }
+        this.feedbackListeners.forEach(fn=>fn(msg));
       } else if (msg.type === 'native_samples') {
         if(msg.run_id!==this.experiment.runId)return;
         appendNativeChunk(this.nativeHistory,msg);
@@ -532,6 +545,11 @@ export class SimClient {
     return { ...this.params };
   }
 
+  configureNativeFeedback(config:NativeFeedbackConfig|null):void {if(config)validateFeedbackConfig(config,this.currentWeights?.length??0);this.send({type:'set_native_feedback',config});}
+  getNativeFeedback(){return this.feedbackMessage;}
+  subscribeNativeFeedback(fn:(message:Extract<WorkerOutMessage,{type:'native_feedback'}>)=>void):()=>void {
+    this.feedbackListeners.add(fn);return()=>{this.feedbackListeners.delete(fn);};
+  }
   getMarkers(): StimulusMarker[] {
     return this.markers;
   }
@@ -551,6 +569,7 @@ export class SimClient {
       requestedParameters: this.getParams(), seed: this.getSeed(),
       pendingCommandCount: this.pendingCommandInputs.size,
       retentionLimits: { commands: 1000, artifactDescriptors: 500, snapshotTimes: 600 },
+      nativeFeedback:{status:this.feedbackMessage,events:this.feedbackEvents},
       background: this.getModeParams(), weights: this.getWeights(),
       snapshots: [...this.snapshots.entries()].map(([id, value]) => ({ ...value, id })),
     };
@@ -703,9 +722,9 @@ export class SimClient {
           k === 'json' || k === 'weights' || k === 'lengths') continue;
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
         inputs[k] = v;
-      } else if (k === 'params' && v && typeof v === 'object') {
+      } else if ((k === 'params'||k === 'config') && v && typeof v === 'object') {
         for (const [pk, pv] of Object.entries(v)) {
-          if (typeof pv === 'number') inputs[pk] = pv;
+          if (typeof pv === 'number'||typeof pv === 'string'||typeof pv === 'boolean') inputs[pk] = pv;
         }
       }
     }
@@ -805,7 +824,7 @@ export class SimClient {
 
   reset(): void {
     this.experiment.newRun({ seed: this.seed });
-    this.nativeHistory=[];
+    this.nativeHistory=[];this.feedbackMessage=null;this.feedbackEvents=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     this.markers = [];
@@ -834,7 +853,7 @@ export class SimClient {
    *  reset() exactly. */
   resetPaused(): void {
     this.experiment.newRun({ seed: this.seed });
-    this.nativeHistory=[];
+    this.nativeHistory=[];this.feedbackMessage=null;this.feedbackEvents=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     this.markers = [];
@@ -1039,7 +1058,7 @@ export class SimClient {
       return Promise.reject(new Error('Invalid or unsupported experiment snapshot'));
     }
     this.experiment.newRun({ seed: summary.seed });
-    this.nativeHistory=[];
+    this.nativeHistory=[];this.feedbackMessage=null;this.feedbackEvents=[];
     this.pendingStimulusMarkers.clear();
     this.pendingCommandInputs.clear();
     return new Promise((resolve) => {
@@ -1096,6 +1115,8 @@ export class SimClient {
       resetPeakTracking: () => this.resetPeakTracking(),
       getSnapshotHistory: () => this.getSnapshotHistory(),
       getNativeHistory: () => this.getNativeHistory(),
+      configureNativeFeedback:(config:NativeFeedbackConfig|null)=>this.configureNativeFeedback(config),
+      getNativeFeedback:()=>this.getNativeFeedback(),
       resetSnapshotHistory: () => this.resetSnapshotHistory(),
       getParams: () => this.getParams(),
       getMarkers: () => this.getMarkers(),

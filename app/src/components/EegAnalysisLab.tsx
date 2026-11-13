@@ -351,8 +351,8 @@ export default function EegAnalysisLab({
           value={atTimeMs} min={recording.timesMs[0]} max={recording.timesMs.at(-1)??0}
           step={1000/recording.sfreqHz} unit="ms" onChange={setAtTimeMs}/>
         {recording.sourceSnapshot&&<p>{text(
-          '当前数据来自首页的同一个物理源。静态源产生恒定电位；这里没有自动添加脑电振荡。源位置、方向和强度随记录一起导出。',
-          'This record uses the physical source from the home page. A static source produces constant potentials; no EEG oscillations are added. Source position, direction and moment are exported with the record.'
+          '当前数据来自首页的物理源与明确给定的时间变化。恒定源保持平直；脉冲按记录中的 q(t) 计算，不自动添加脑电振荡。源、电极和组织参数随记录导出。',
+          'This record uses the home physical sources and their defined time course. Constant sources remain flat; pulses follow the recorded q(t), without added EEG oscillations. Sources, electrodes and conductor parameters are exported.'
         )}</p>}
       </div>}
       <div className="eeg-tabs" role="tablist" aria-label="EEG 分析">

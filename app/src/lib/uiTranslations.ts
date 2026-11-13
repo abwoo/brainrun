@@ -1,5 +1,13 @@
 /** Display phrases; scientific IDs, input values and exports are never translated. */
 export const englishPhrases: Record<string, string> = {
+  "直播闭环阈值":"Live feedback threshold",
+  "直播闭环反馈幅度":"Live feedback amplitude",
+  "直播闭环触发上限":"Live feedback trigger limit",
+  "特征取自原生积分":"Features use native integration",
+  "原生积分时钟":"Native integration clock",
+  "标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。":"Live comparisons and replay use the main model; live feedback reads every 1 ms integration state.",
+  "直播闭环运行中：Worker 每 250 ms 模型时间检查原生 E；RMS 需要完整 1000 ms 窗口。检测后至少 1 ms 施加输入，冷却 2000 ms；暂停会冻结控制时钟。":"Live feedback: Worker evaluates native E every 250 model ms; RMS needs a complete 1000 ms window. Input starts at least 1 ms after detection, with a 2000 ms cooldown. Pause freezes the control clock.",
+
   "减小": "Decrease",
   "拖动改值": "Drag to change",
   "双击恢复原始值": "Double-click to restore",

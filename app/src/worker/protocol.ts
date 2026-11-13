@@ -37,6 +37,7 @@ export type WorkerInMessage = (
   // Deterministic stepping (advance_ms) must use this, never reset+pause.
   | { type: 'reset_paused' }
   | { type: 'set_snapshot_hz'; hz: number }
+  | { type: 'set_native_feedback'; config:import('../lib/nativeFeedback').NativeFeedbackConfig|null }
   // PR3 — direct manipulation.  Weights are structural edits: they take
   // effect from the next step and SURVIVE reset (only the reset_weight /
   // reset_all_weights messages change them back).  Bias is an applied
@@ -125,6 +126,7 @@ export type WorkerOutMessage =
       phase: 'accepted' | 'applied' }
   | import('../lib/nativeAcquisition').NativeChunk
   | Snapshot
+  | {type:'native_feedback';run_id:string;phase:'configured'|'detected'|'applied'|'stopped'|'restored';t_ms:number;active:boolean;state:import('../lib/nativeFeedback').NativeFeedbackSnapshot|null;action?:import('../lib/nativeFeedback').FeedbackAction}
   | { type: 'mode_applied'; params: ModeParams }
   | { type: 'snapshot_saved'; id: string; t_ms: number; json: string; run_id?: string }
   | { type: 'snapshot_restored'; id: string; t_ms: number; run_id?: string }

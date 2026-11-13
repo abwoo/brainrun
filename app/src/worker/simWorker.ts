@@ -1,3 +1,4 @@
+import {NativeFeedback,type NativeFeedbackSnapshot,type FeedbackAction} from '../lib/nativeFeedback';
 /**
  * 仿真 Worker（Phase 3，module worker）。
  *
@@ -93,6 +94,7 @@ const MAX_CATCHUP_STEPS = 200;
 
 let sim: WasmSimInstance | null = null;
 
+let feedback:NativeFeedback|null=null;
 let running = false;
 let paused = false;
 let snapshotHz = 60;
@@ -104,6 +106,7 @@ let wallAccumMs = 0;
 
 /** 待发送的脉冲事件（绝对仿真时间）。 */
 let pulses: Array<{ node: number; start_ms: number; duration_ms: number; amplitude: number }> = [];
+let activeInputs:Array<{node:number;start_ms:number;duration_ms:number;amplitude:number}>=[];
 /** 进行中的按住（节点 → 按住开始的仿真时间 ms）。按住事件在收到消息时
  * 立即提交进引擎，收到松开消息时立即删除——不经过 tick 中转，否则一次
  * 快点击若被主线程卡顿拖成“按住”，开始与结束消息可能落在同一个 tick
@@ -192,14 +195,36 @@ function snapshot(): Snapshot | null {
   };
 }
 
+function feedbackReport(phase:'configured'|'detected'|'applied'|'stopped'|'restored',action?:FeedbackAction):void {
+ if(sim)post({type:'native_feedback',run_id:runId,phase,t_ms:sim.time_ms(),active:feedback?.active??false,state:feedback?.snapshot()??null,...(action?{action}:{})});
+}
+function applyInput(node:number,start_ms:number,duration_ms:number,amplitude:number):void {
+ if(!sim)return;sim.add_stimulus(node,start_ms,duration_ms,amplitude);
+ activeInputs.push({node,start_ms,duration_ms,amplitude});
+}
+function validateInputHistory(inputs:typeof pulses):void {
+ if(!sim||!Array.isArray(inputs)||inputs.some(p=>!Number.isInteger(p.node)||p.node<0||p.node>=sim!.n_nodes()||
+  !Number.isFinite(p.start_ms)||p.start_ms<0||!Number.isFinite(p.duration_ms)||p.duration_ms<=0||!Number.isFinite(p.amplitude)))
+  throw new Error('Invalid snapshot input history');
+}
+function fullSnapshot():string {
+ if(!sim)throw new Error('Engine not ready');
+ activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
+ return JSON.stringify({...JSON.parse(sim.take_snapshot()),brainrun_native_feedback:feedback?.snapshot()??null,
+  brainrun_pending_pulses:pulses,brainrun_active_inputs:activeInputs,brainrun_holds:[...holds.entries()]});
+}
 function acquireAdvance(ms:number):void {
  if(!sim)return;
- for(const pulse of pulses)sim.add_stimulus(pulse.node,pulse.start_ms,pulse.duration_ms,pulse.amplitude);
+ for(const pulse of pulses)applyInput(pulse.node,pulse.start_ms,pulse.duration_ms,pulse.amplitude);
  pulses=[];
  let remaining=Math.max(0,Math.round(ms/sim.dt_ms()))*sim.dt_ms();
  while(remaining>0&&!sim.diverged()){
   const block=Math.min(remaining,200);
-  post(advanceAcquiring(sim,block,runId));remaining-=block;
+  post(advanceAcquiring(sim,block,runId,{
+   beforeStep:t=>{for(const action of feedback?.beforeStep(t)??[]){applyInput(action.node,t,action.durationMs,action.amplitude);feedbackReport('applied',action);}},
+   afterStep:(t,e)=>{const action=feedback?.afterStep(t,e);if(action)feedbackReport('detected',action);}
+  }));remaining-=block;
+  activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
  }
 }
 
@@ -222,7 +247,7 @@ function tick(): void {
     // 脉冲的 start 已是过去时间也没关系：引擎按 [start, start+dur)
     // 判断，剩余时长照常生效；tick 间隔约 16 ms，远小于脉冲时长。
     for (const pulse of pulses) {
-      sim.add_stimulus(pulse.node, pulse.start_ms, pulse.duration_ms, pulse.amplitude);
+      applyInput(pulse.node, pulse.start_ms, pulse.duration_ms, pulse.amplitude);
     }
     pulses = [];
     if (steps > 0) acquireAdvance(steps);
@@ -271,12 +296,12 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           // PR4：按住开始前先存自动快照（按住前那一刻的完整状态），
           // 再加按住事件——恢复它就是“回到按住前”。自动快照只活在
           // Worker 内存里，绝不覆盖用户手动保存的快照。
-          const json = sim.take_snapshot();
+          const json = fullSnapshot();
           const t_ms = sim.time_ms();
           snapshots.set('auto', { t_ms, json });
           post({ type: 'snapshot_saved', id: 'auto', t_ms, json, run_id: runId });
           holds.set(msg.node, t_ms);
-          sim.add_stimulus(msg.node, t_ms, 1e9, msg.amplitude);
+          applyInput(msg.node, t_ms, 1e9, msg.amplitude);
         }
         acknowledge(msg);
         return;
@@ -285,7 +310,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (!sim) return;
         if (holds.has(msg.node)) {
           holds.delete(msg.node);
-          sim.clear_stimuli_on_node(msg.node);
+          sim.clear_stimuli_on_node(msg.node);activeInputs=activeInputs.filter(p=>p.node!==msg.node);
         }
         acknowledge(msg);
         return;
@@ -356,7 +381,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'reset':
       case 'reset_paused': {
         if (!sim) return;
-        sim.reset();
+        sim.reset();feedback=null;activeInputs=[];
         pulses = [];
         holds.clear();
         meanHistory.length = 0;
@@ -380,7 +405,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         // 插进来，复位后状态才是确定的。
         paused = msg.type === 'reset_paused';
         if (msg.run_id) runId = msg.run_id;
-        acknowledge(msg);
+        acknowledge(msg);feedbackReport('stopped');
         return;
       }
       // PR4 — background mode / seed / deterministic stepping / snapshots.
@@ -420,7 +445,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       }
       case 'save_snapshot': {
         if (!sim) return;
-        const json = sim.take_snapshot();
+        const json = fullSnapshot();
         const t_ms = sim.time_ms();
         snapshots.set(msg.id, { t_ms, json });
         post({ type: 'snapshot_saved', id: msg.id, t_ms, json, run_id: runId });
@@ -435,20 +460,30 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
           post({ type: 'error', message: `没有可恢复的快照：${msg.id}` });
           return;
         }
-        sim.restore_snapshot(json);
+        const restored=JSON.parse(json) as {brainrun_native_feedback?:NativeFeedbackSnapshot|null;brainrun_pending_pulses?:typeof pulses;brainrun_active_inputs?:typeof activeInputs;brainrun_holds?:Array<[number,number]>};
+        const nextFeedback=restored.brainrun_native_feedback?NativeFeedback.restore(restored.brainrun_native_feedback,sim.n_nodes()):null;
+        validateInputHistory(restored.brainrun_pending_pulses??[]);validateInputHistory(restored.brainrun_active_inputs??[]);
+        sim.restore_snapshot(json);feedback=nextFeedback;activeInputs=[];
+        for(const p of restored.brainrun_active_inputs??[])applyInput(p.node,p.start_ms,p.duration_ms,p.amplitude);
         snapshots.set(msg.id, { t_ms: sim.time_ms(), json });
-        pulses = [];
-        holds.clear();
+        pulses=restored.brainrun_pending_pulses??[];
+        holds.clear();for(const [node,time] of restored.brainrun_holds??[])holds.set(node,time);
         meanHistory.length = 0;
         lockedLatched = false;
         wallAccumMs = 0;
         lastTickWall = Date.now();
         if (msg.run_id) runId = msg.run_id;
         post({ type: 'snapshot_restored', id: msg.id, t_ms: sim.time_ms(), run_id: runId });
+        feedbackReport('restored');
         acknowledge(msg);
         const snap = snapshot();
         if (snap) post(snap);
         return;
+      }
+      case 'set_native_feedback': {
+        if(!sim)return;
+        const next=msg.config?new NativeFeedback(msg.config,sim.n_nodes(),sim.time_ms()):null;
+        feedback=next;acknowledge(msg);feedbackReport(msg.config?'configured':'stopped');return;
       }
       case 'set_snapshot_hz': {
         snapshotHz = Math.min(120, Math.max(1, msg.hz));
