@@ -139,6 +139,7 @@ jobs:
       - name: Native integration acquisition and EEG export
         working-directory: app
         run: |
+          node tests/network-recovery-browser.mjs
           node tests/native-acquisition-browser.mjs
           node tests/native-feedback-browser.mjs
           node tests/network-comparison-browser.mjs

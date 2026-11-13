@@ -183,6 +183,9 @@ function snapshot(): Snapshot | null {
     i,
     p,
     mean_e,
+    active_input_count:activeInputs.filter(p=>p.start_ms<=t_ms&&p.start_ms+p.duration_ms>t_ms).length,
+    queued_input_count:pulses.length,
+    pulse_checkpoint_ms:snapshots.get('pulse-baseline')?.t_ms,
     locked,
     hold_active,
     hold_node,
@@ -286,6 +289,14 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       }
       case 'stimulus': {
         if (!sim) return;
+        // Retain an explicit recovery point before a non-overlapping low-state pulse.
+        // Rapid/overlapping pulses must not overwrite it with an already-driven state.
+        if(!lockedLatched&&sim.mean_e()<LOCK_MEAN_E&&!pulses.length&&!holds.size&&
+           !activeInputs.some(p=>p.start_ms+p.duration_ms>sim!.time_ms())){
+          const json=fullSnapshot(),t_ms=sim.time_ms();
+          snapshots.set('pulse-baseline',{t_ms,json});
+          post({type:'snapshot_saved',id:'pulse-baseline',t_ms,json,run_id:runId});
+        }
         pulses.push({
           node: msg.node,
           start_ms: sim.time_ms(),
@@ -386,7 +397,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       case 'reset':
       case 'reset_paused': {
         if (!sim) return;
-        sim.reset();feedback=null;activeInputs=[];
+        sim.reset();feedback=null;activeInputs=[];snapshots.delete('pulse-baseline');
         pulses = [];
         holds.clear();
         meanHistory.length = 0;

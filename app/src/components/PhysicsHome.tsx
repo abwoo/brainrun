@@ -1,3 +1,4 @@
+import NetworkStatePanel from './NetworkStatePanel';
 import {getHeadModelSelection,subscribeHeadModelSelection,setHeadModelSelection} from '../lib/headModelSelection';
 import LocalBEMLab from './LocalBEMLab';
 import {prepareTemplateAnalysis} from '../lib/templateExperiment';
@@ -16,11 +17,12 @@ import { ControlField, RangeControl } from './ui/ControlField';
 export type AdvancedDestination = 'signals' | 'cellular' | 'stimulation' | 'comparison' | 'atlas' | 'presets' | 'model';
 export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,ready,error,
  strength,durationMs,onStrength,onDuration,onPulse,onReset,onPause,paused,background,onBackground,
- response,onAdvanced}:{
+ response,onAdvanced,onRecover}:{
  networkView:ReactNode; data:BrainData|null; selectedId:number|null; onSelect:(id:number)=>void;
  sim:SimClient|null; ready:boolean; error:string|null; strength:number; durationMs:number;
  onStrength:(v:number)=>void;onDuration:(v:number)=>void;onPulse:()=>void;onReset:()=>void;
  onPause:()=>void;paused:boolean;background:BackgroundMode;onBackground:(mode:BackgroundMode)=>void;
+ onRecover:()=>void;
  response:ResponseSummary|null;onAdvanced:(target:AdvancedDestination)=>void;
 }) {
  const physicalReady=useSyncExternalStore(subscribePhysicalSource,physicalFixtureReady);
@@ -101,11 +103,14 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <div className="control-step"><span>2</span><h2>{text('调整输入','Adjust the input')}</h2></div>
       <RangeControl label={text('刺激强度','Input strength')} hint={text('从较轻的输入开始，再比较变化。','Start gently, then compare.')} value={strength} min={0.5} max={2} step={0.05} onChange={onStrength}/>
       <RangeControl label={text('持续时间','Duration')} value={durationMs} min={20} max={500} step={10} unit="ms" onChange={onDuration}/>
+      <button type="button" className="ui-button" onClick={()=>{onStrength(.5);onDuration(20);}}>{text('使用轻输入设置','Use gentle input settings')}</button>
       <button type="button" className="ui-button ui-button-primary" disabled={!ready||selectedId===null||paused}
        onClick={onPulse}>{!ready?text('模型加载中…','Loading model…'):paused?text('先继续仿真','Resume the model first'):selectedId===null?text('先选择一个位置','Choose a location first'):text('施加一次刺激','Apply one input')}</button>
       <div className="control-step"><span>3</span><h2>{text('观察变化','Inspect the response')}</h2></div>
       <p className="plain-explanation">{response?text('颜色表示活动变化，曲线显示当前选择位置的实际模型数值。尝试换一个位置或改变强度。','Colors show activity changes; the trace shows actual model values at your selection. Try another location or strength.'):
        text('输入前，模型保持背景活动。施加输入后，观察信号是否传播到其他位置。','The model shows background activity before input. After an input, watch whether activity spreads to other regions.')}</p>
+      <NetworkStatePanel sim={sim} selectedId={selectedId} onRecover={onRecover}/>
+      {response&&<p className="plain-explanation">{text('下方是最近一次刺激后 2 秒窗口内的峰值响应统计，不是实时活动值；窗口结束后保持该次结果。','Below is the peak-response summary over the most recent 2 s stimulus window, not instantaneous activity. It retains that result after the window ends.')}</p>}
       {response&&<output className="physics-readout">{text('超过响应阈值的位置','Regions above response threshold')}: <strong>{response.count}</strong></output>}
       <details className="physics-details"><summary>{text('背景与模型说明','Background and model details')}</summary>
        <ControlField label={text('背景活动','Background activity')}>

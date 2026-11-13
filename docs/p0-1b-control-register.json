@@ -3,7 +3,7 @@
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
   "disclaimer": "251 source-classified controls; source inventory is not runtime proof.",
   "counts": {
-    "total": 255,
+    "total": 257,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -23,18 +23,19 @@
       "ExperimentLab": 42,
       "ActivityChart": 1,
       "ParamControl": 4,
-      "PhysicsHome": 11,
+      "PhysicsHome": 12,
       "ControlField": 2,
-      "LanguageSwitch": 2
+      "LanguageSwitch": 2,
+      "NetworkStatePanel": 1
     },
     "byScope": {
       "VISUAL": 24,
-      "LIVE": 25,
+      "LIVE": 26,
       "NAV": 31,
       "MIXED": 16,
       "SELECTION": 4,
       "DIAGNOSTIC": 2,
-      "CONFIG": 58,
+      "CONFIG": 59,
       "INDEPENDENT": 75,
       "EXPORT": 5,
       "DERIVED": 15
@@ -64,681 +65,6 @@
     "evidence": "tests/p0-1/control-flow.test.mjs plus historic UI tests"
   },
   "entries": [
-    {
-      "controlId": "App:button:1",
-      "path": "app/src/App.tsx",
-      "line": 122,
-      "element": "button",
-      "visibleName": "减小",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:input:2",
-      "path": "app/src/App.tsx",
-      "line": 132,
-      "element": "input",
-      "visibleName": "拖动改值 · 双击恢复原始值",
-      "events": [
-        "onChange",
-        "onDoubleClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:3",
-      "path": "app/src/App.tsx",
-      "line": 149,
-      "element": "button",
-      "visibleName": "增大",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:input:4",
-      "path": "app/src/App.tsx",
-      "line": 159,
-      "element": "input",
-      "visibleName": "{value.toFixed(decima",
-      "events": [
-        "onChange",
-        "onBlur",
-        "onKeyDown"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:5",
-      "path": "app/src/App.tsx",
-      "line": 1013,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:6",
-      "path": "app/src/App.tsx",
-      "line": 1029,
-      "element": "button",
-      "visibleName": "{t(('mode.' + m) as MessageKey)}",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:7",
-      "path": "app/src/App.tsx",
-      "line": 1042,
-      "element": "button",
-      "visibleName": "渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:8",
-      "path": "app/src/App.tsx",
-      "line": 1051,
-      "element": "button",
-      "visibleName": "一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:9",
-      "path": "app/src/App.tsx",
-      "line": 1059,
-      "element": "button",
-      "visibleName": "PLAY — {simReady ? t(paused ? 'shell.paused' : 'she",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:10",
-      "path": "app/src/App.tsx",
-      "line": 1068,
-      "element": "button",
-      "visibleName": "显示 / 隐藏选中脑区的主要连接弧线",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:11",
-      "path": "app/src/App.tsx",
-      "line": 1076,
-      "element": "button",
-      "visibleName": "恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:12",
-      "path": "app/src/App.tsx",
-      "line": 1079,
-      "element": "button",
-      "visibleName": "MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:13",
-      "path": "app/src/App.tsx",
-      "line": 1083,
-      "element": "button",
-      "visibleName": "EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:14",
-      "path": "app/src/App.tsx",
-      "line": 1087,
-      "element": "button",
-      "visibleName": "独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:15",
-      "path": "app/src/App.tsx",
-      "line": 1091,
-      "element": "button",
-      "visibleName": "细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:16",
-      "path": "app/src/App.tsx",
-      "line": 1095,
-      "element": "button",
-      "visibleName": "脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:17",
-      "path": "app/src/App.tsx",
-      "line": 1099,
-      "element": "button",
-      "visibleName": "对照实验：双脑 A/B、时间机器、闭环控制（PR-15）",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:18",
-      "path": "app/src/App.tsx",
-      "line": 1103,
-      "element": "button",
-      "visibleName": "模型、数据来源与许可说明",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "path": "app/src/App.tsx",
-      "line": 1112,
-      "element": "button",
-      "visibleName": "{t(focus3D ? 'workspace.exitFocus' : 'workspace.foc",
-      "events": [
-        "onClick"
-      ],
-      "controlId": "App:button:19",
-      "category": "VISUAL",
-      "modelBoundary": "Locale/layout preference only; does not change neural solver",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "path": "app/src/App.tsx",
-      "line": 1121,
-      "element": "input",
-      "visibleName": "stage-share",
-      "events": [
-        "onChange"
-      ],
-      "controlId": "App:input:20",
-      "category": "VISUAL",
-      "modelBoundary": "Locale/layout preference only; does not change neural solver",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "path": "app/src/App.tsx",
-      "line": 1125,
-      "element": "button",
-      "visibleName": "{t('workspace.resetLayout')} </bu",
-      "events": [
-        "onClick"
-      ],
-      "controlId": "App:button:21",
-      "category": "VISUAL",
-      "modelBoundary": "Locale/layout preference only; does not change neural solver",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:22",
-      "path": "app/src/App.tsx",
-      "line": 1165,
-      "element": "button",
-      "visibleName": "按兴奋活动 E 着色（固定色标：底色 E≈0.011 → 琥珀 E≈0.5）",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:23",
-      "path": "app/src/App.tsx",
-      "line": 1173,
-      "element": "button",
-      "visibleName": "按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:24",
-      "path": "app/src/App.tsx",
-      "line": 1181,
-      "element": "button",
-      "visibleName": "相机自动缓慢旋转（只是相机运动，不是神经活动）",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:25",
-      "path": "app/src/App.tsx",
-      "line": 1198,
-      "element": "button",
-      "visibleName": "恢复到这次按住开始前的完整状态",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:26",
-      "path": "app/src/App.tsx",
-      "line": 1208,
-      "element": "button",
-      "visibleName": "恢复仿真状态",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:27",
-      "path": "app/src/App.tsx",
-      "line": 1289,
-      "element": "button",
-      "visibleName": "运行一键场景 4：JR p0=220 极限环跑 12 s，生成 Pz 记录供下方的 WavesTab 分析",
-      "events": [
-        "onClick"
-      ],
-      "category": "MIXED",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:28",
-      "path": "app/src/App.tsx",
-      "line": 1325,
-      "element": "button",
-      "visibleName": "{t('scene.absolute')} </butto",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:29",
-      "path": "app/src/App.tsx",
-      "line": 1332,
-      "element": "button",
-      "visibleName": "{t('scene.delta')}",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:30",
-      "path": "app/src/App.tsx",
-      "line": 1365,
-      "element": "button",
-      "visibleName": "从窗口起点回放录下来的快照（不重算）",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:31",
-      "path": "app/src/App.tsx",
-      "line": 1375,
-      "element": "button",
-      "visibleName": "{replay.playing ? '暂停' : '继续播放'}",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:32",
-      "path": "app/src/App.tsx",
-      "line": 1387,
-      "element": "button",
-      "visibleName": "{s}× </button",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:33",
-      "path": "app/src/App.tsx",
-      "line": 1399,
-      "element": "button",
-      "visibleName": "回到直播",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:input:34",
-      "path": "app/src/App.tsx",
-      "line": 1404,
-      "element": "input",
-      "visibleName": "回放进度",
-      "events": [
-        "onChange"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:35",
-      "path": "app/src/App.tsx",
-      "line": 1453,
-      "element": "button",
-      "visibleName": "dynamic",
-      "events": [
-        "onClick"
-      ],
-      "category": "SELECTION",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:36",
-      "path": "app/src/App.tsx",
-      "line": 1479,
-      "element": "button",
-      "visibleName": "dynamic",
-      "events": [
-        "onClick"
-      ],
-      "category": "SELECTION",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:37",
-      "path": "app/src/App.tsx",
-      "line": 1515,
-      "element": "button",
-      "visibleName": "{label}",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:input:38",
-      "path": "app/src/App.tsx",
-      "line": 1563,
-      "element": "input",
-      "visibleName": "bg-seed",
-      "events": [
-        "onChange"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:39",
-      "path": "app/src/App.tsx",
-      "line": 1587,
-      "element": "button",
-      "visibleName": "手动保存当前状态到浏览器 localStorage（关掉页面还在，RESET 不清）",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:40",
-      "path": "app/src/App.tsx",
-      "line": 1596,
-      "element": "button",
-      "visibleName": "恢复手动保存的快照",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:41",
-      "path": "app/src/App.tsx",
-      "line": 1605,
-      "element": "button",
-      "visibleName": "恢复这次按住开始前的状态",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:42",
-      "path": "app/src/App.tsx",
-      "line": 1812,
-      "element": "button",
-      "visibleName": "恢复原始值",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:43",
-      "path": "app/src/App.tsx",
-      "line": 1829,
-      "element": "button",
-      "visibleName": "恢复全部原始值（{modifiedWeightCount} 条已改）",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:44",
-      "path": "app/src/App.tsx",
-      "line": 1853,
-      "element": "button",
-      "visibleName": "偏置 {selectedBias !== 0 ? '开' : '关'}",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:45",
-      "path": "app/src/App.tsx",
-      "line": 1901,
-      "element": "button",
-      "visibleName": "展开更多：参数、背景活动、脑区与连接",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:46",
-      "path": "app/src/App.tsx",
-      "line": 1955,
-      "element": "button",
-      "visibleName": "关闭 <div className=\"modal",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:47",
-      "path": "app/src/App.tsx",
-      "line": 1987,
-      "element": "button",
-      "visibleName": "关闭 <div className=\"modal",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "App:button:48",
-      "path": "app/src/App.tsx",
-      "line": 2136,
-      "element": "button",
-      "visibleName": "知道了",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
     {
       "controlId": "ExplorePanel:input:1",
       "path": "app/src/components/ExplorePanel.tsx",
@@ -2224,20 +1550,6 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "ActivityChart:button:1",
-      "path": "app/src/components/ActivityChart.tsx",
-      "line": 304,
-      "element": "button",
-      "visibleName": "{t} ))} </span",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Read-only LIVE E/I chart",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "ParamControl:button:1",
       "path": "app/src/components/ParamControl.tsx",
       "line": 125,
@@ -2576,160 +1888,6 @@
       ],
       "category": "INDEPENDENT",
       "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:1",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 47,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:2",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 48,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:3",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 57,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:4",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 70,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:5",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 71,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 76,
-      "element": "Dropdown",
-      "visibleName": "Head model",
-      "events": [
-        "onChange"
-      ],
-      "category": "CONFIG",
-      "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false,
-      "controlId": "PhysicsHome:Dropdown:6"
-    },
-    {
-      "controlId": "PhysicsHome:Dropdown:7",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 93,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "SELECTION",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:8",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 102,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:Dropdown:9",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 110,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:10",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 117,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:11",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 118,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     },
@@ -3640,6 +2798,877 @@
       ],
       "category": "NAV",
       "modelBoundary": "Independent JR A/B/branch/PID vs LIVE E-based feedback",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:1",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 51,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:2",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 52,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:3",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 61,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:4",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 74,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:5",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 75,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 80,
+      "element": "Dropdown",
+      "visibleName": "Head model",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "PhysicsHome:Dropdown:6"
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:7",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 97,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "SELECTION",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/PhysicsHome.tsx",
+      "element": "button",
+      "visibleName": "Use gentle input settings",
+      "events": [
+        "onClick"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Changes actual amplitude to 0.5 and duration to 20 ms; does not stimulate or claim universal stability",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "PhysicsHome:button:8",
+      "line": 106
+    },
+    {
+      "controlId": "PhysicsHome:button:9",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 107,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:10",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 117,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:11",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 124,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:12",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 125,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/NetworkStatePanel.tsx",
+      "element": "button",
+      "visibleName": "Restore before input",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Restores the complete Worker pre-input checkpoint with new run lineage; never overwrites manual snapshots",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "NetworkStatePanel:button:1",
+      "line": 50
+    },
+    {
+      "controlId": "ActivityChart:button:1",
+      "path": "app/src/components/ActivityChart.tsx",
+      "line": 312,
+      "element": "button",
+      "visibleName": "{t} ))} </span",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Read-only LIVE E/I chart",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:1",
+      "path": "app/src/App.tsx",
+      "line": 122,
+      "element": "button",
+      "visibleName": "减小",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:input:2",
+      "path": "app/src/App.tsx",
+      "line": 132,
+      "element": "input",
+      "visibleName": "拖动改值 · 双击恢复原始值",
+      "events": [
+        "onChange",
+        "onDoubleClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:3",
+      "path": "app/src/App.tsx",
+      "line": 149,
+      "element": "button",
+      "visibleName": "增大",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:input:4",
+      "path": "app/src/App.tsx",
+      "line": 159,
+      "element": "input",
+      "visibleName": "{value.toFixed(decima",
+      "events": [
+        "onChange",
+        "onBlur",
+        "onKeyDown"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:5",
+      "path": "app/src/App.tsx",
+      "line": 1014,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:6",
+      "path": "app/src/App.tsx",
+      "line": 1030,
+      "element": "button",
+      "visibleName": "{t(('mode.' + m) as MessageKey)}",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:7",
+      "path": "app/src/App.tsx",
+      "line": 1043,
+      "element": "button",
+      "visibleName": "渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:8",
+      "path": "app/src/App.tsx",
+      "line": 1052,
+      "element": "button",
+      "visibleName": "一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:9",
+      "path": "app/src/App.tsx",
+      "line": 1060,
+      "element": "button",
+      "visibleName": "PLAY — {simReady ? t(paused ? 'shell.paused' : 'she",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:10",
+      "path": "app/src/App.tsx",
+      "line": 1069,
+      "element": "button",
+      "visibleName": "显示 / 隐藏选中脑区的主要连接弧线",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:11",
+      "path": "app/src/App.tsx",
+      "line": 1077,
+      "element": "button",
+      "visibleName": "恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:12",
+      "path": "app/src/App.tsx",
+      "line": 1080,
+      "element": "button",
+      "visibleName": "MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:13",
+      "path": "app/src/App.tsx",
+      "line": 1084,
+      "element": "button",
+      "visibleName": "EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:14",
+      "path": "app/src/App.tsx",
+      "line": 1088,
+      "element": "button",
+      "visibleName": "独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:15",
+      "path": "app/src/App.tsx",
+      "line": 1092,
+      "element": "button",
+      "visibleName": "细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:16",
+      "path": "app/src/App.tsx",
+      "line": 1096,
+      "element": "button",
+      "visibleName": "脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:17",
+      "path": "app/src/App.tsx",
+      "line": 1100,
+      "element": "button",
+      "visibleName": "对照实验：双脑 A/B、时间机器、闭环控制（PR-15）",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:18",
+      "path": "app/src/App.tsx",
+      "line": 1104,
+      "element": "button",
+      "visibleName": "模型、数据来源与许可说明",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/App.tsx",
+      "line": 1113,
+      "element": "button",
+      "visibleName": "{t(focus3D ? 'workspace.exitFocus' : 'workspace.foc",
+      "events": [
+        "onClick"
+      ],
+      "controlId": "App:button:19",
+      "category": "VISUAL",
+      "modelBoundary": "Locale/layout preference only; does not change neural solver",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/App.tsx",
+      "line": 1122,
+      "element": "input",
+      "visibleName": "stage-share",
+      "events": [
+        "onChange"
+      ],
+      "controlId": "App:input:20",
+      "category": "VISUAL",
+      "modelBoundary": "Locale/layout preference only; does not change neural solver",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/App.tsx",
+      "line": 1126,
+      "element": "button",
+      "visibleName": "{t('workspace.resetLayout')} </bu",
+      "events": [
+        "onClick"
+      ],
+      "controlId": "App:button:21",
+      "category": "VISUAL",
+      "modelBoundary": "Locale/layout preference only; does not change neural solver",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:22",
+      "path": "app/src/App.tsx",
+      "line": 1167,
+      "element": "button",
+      "visibleName": "按兴奋活动 E 着色（固定色标：底色 E≈0.011 → 琥珀 E≈0.5）",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:23",
+      "path": "app/src/App.tsx",
+      "line": 1175,
+      "element": "button",
+      "visibleName": "按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:24",
+      "path": "app/src/App.tsx",
+      "line": 1183,
+      "element": "button",
+      "visibleName": "相机自动缓慢旋转（只是相机运动，不是神经活动）",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:25",
+      "path": "app/src/App.tsx",
+      "line": 1200,
+      "element": "button",
+      "visibleName": "恢复到这次按住开始前的完整状态",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:26",
+      "path": "app/src/App.tsx",
+      "line": 1210,
+      "element": "button",
+      "visibleName": "恢复仿真状态",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:27",
+      "path": "app/src/App.tsx",
+      "line": 1291,
+      "element": "button",
+      "visibleName": "运行一键场景 4：JR p0=220 极限环跑 12 s，生成 Pz 记录供下方的 WavesTab 分析",
+      "events": [
+        "onClick"
+      ],
+      "category": "MIXED",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:28",
+      "path": "app/src/App.tsx",
+      "line": 1327,
+      "element": "button",
+      "visibleName": "{t('scene.absolute')} </butto",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:29",
+      "path": "app/src/App.tsx",
+      "line": 1334,
+      "element": "button",
+      "visibleName": "{t('scene.delta')}",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:30",
+      "path": "app/src/App.tsx",
+      "line": 1367,
+      "element": "button",
+      "visibleName": "从窗口起点回放录下来的快照（不重算）",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:31",
+      "path": "app/src/App.tsx",
+      "line": 1377,
+      "element": "button",
+      "visibleName": "{replay.playing ? '暂停' : '继续播放'}",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:32",
+      "path": "app/src/App.tsx",
+      "line": 1389,
+      "element": "button",
+      "visibleName": "{s}× </button",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:33",
+      "path": "app/src/App.tsx",
+      "line": 1401,
+      "element": "button",
+      "visibleName": "回到直播",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:input:34",
+      "path": "app/src/App.tsx",
+      "line": 1406,
+      "element": "input",
+      "visibleName": "回放进度",
+      "events": [
+        "onChange"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:35",
+      "path": "app/src/App.tsx",
+      "line": 1455,
+      "element": "button",
+      "visibleName": "dynamic",
+      "events": [
+        "onClick"
+      ],
+      "category": "SELECTION",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:36",
+      "path": "app/src/App.tsx",
+      "line": 1481,
+      "element": "button",
+      "visibleName": "dynamic",
+      "events": [
+        "onClick"
+      ],
+      "category": "SELECTION",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:37",
+      "path": "app/src/App.tsx",
+      "line": 1517,
+      "element": "button",
+      "visibleName": "{label}",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:input:38",
+      "path": "app/src/App.tsx",
+      "line": 1565,
+      "element": "input",
+      "visibleName": "bg-seed",
+      "events": [
+        "onChange"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:39",
+      "path": "app/src/App.tsx",
+      "line": 1589,
+      "element": "button",
+      "visibleName": "手动保存当前状态到浏览器 localStorage（关掉页面还在，RESET 不清）",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:40",
+      "path": "app/src/App.tsx",
+      "line": 1598,
+      "element": "button",
+      "visibleName": "恢复手动保存的快照",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:41",
+      "path": "app/src/App.tsx",
+      "line": 1607,
+      "element": "button",
+      "visibleName": "恢复这次按住开始前的状态",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:42",
+      "path": "app/src/App.tsx",
+      "line": 1814,
+      "element": "button",
+      "visibleName": "恢复原始值",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:43",
+      "path": "app/src/App.tsx",
+      "line": 1831,
+      "element": "button",
+      "visibleName": "恢复全部原始值（{modifiedWeightCount} 条已改）",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:44",
+      "path": "app/src/App.tsx",
+      "line": 1855,
+      "element": "button",
+      "visibleName": "偏置 {selectedBias !== 0 ? '开' : '关'}",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:45",
+      "path": "app/src/App.tsx",
+      "line": 1903,
+      "element": "button",
+      "visibleName": "展开更多：参数、背景活动、脑区与连接",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:46",
+      "path": "app/src/App.tsx",
+      "line": 1957,
+      "element": "button",
+      "visibleName": "关闭 <div className=\"modal",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:47",
+      "path": "app/src/App.tsx",
+      "line": 1989,
+      "element": "button",
+      "visibleName": "关闭 <div className=\"modal",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "App:button:48",
+      "path": "app/src/App.tsx",
+      "line": 2140,
+      "element": "button",
+      "visibleName": "知道了",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "LIVE Rust/WASM network and separate mode/navigation/visual controls",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     }

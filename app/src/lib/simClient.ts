@@ -859,7 +859,7 @@ export class SimClient {
     this.biasMap.clear();
     // PR4：RESET 清掉自动快照（它对应“按住前”，按住已随 RESET 消失）；
     // 手动快照是用户存的东西，RESET 不动它（Worker 侧同样处理）。
-    this.snapshots.delete('auto');
+    this.snapshots.delete('auto');this.snapshots.delete('pulse-baseline');
     this.send({ type: 'reset' });
   }
 
@@ -882,7 +882,7 @@ export class SimClient {
     this.baselineNode = null;
     this.pinnedWindow = null;
     this.biasMap.clear();
-    this.snapshots.delete('auto');
+    this.snapshots.delete('auto');this.snapshots.delete('pulse-baseline');
     this.send({ type: 'reset_paused' });
   }
 

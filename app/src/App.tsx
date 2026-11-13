@@ -748,7 +748,7 @@ export default function App() {
   }, [simReady]);
 
   const handleRestoreSnapshot = useCallback(
-    (id: 'manual' | 'auto') => {
+    (id: 'manual' | 'auto' | 'pulse-baseline') => {
       const sim = simRef.current;
       if (!sim || !simReady) return;
       setSnapMsg('正在恢复快照…');
@@ -996,9 +996,9 @@ export default function App() {
     onStrength={value=>{setKStim(KNOB_MAP.stimulusK(value));simRef.current?.setParams({stim_amplitude:value});}}
     onDuration={value=>{setKDur(KNOB_MAP.durationK(value));simRef.current?.setParams({stim_duration_ms:value});}}
     onPulse={()=>{if(selectedId!==null)handlePulse(selectedId);}}
-    onReset={()=>{handleWeightResetAll();handleBackgroundMode(DEFAULT_BACKGROUND_MODE);handleReset();}}
+    onReset={()=>{const id=selectedId;handleWeightResetAll();handleBackgroundMode(DEFAULT_BACKGROUND_MODE);handleReset();setSelectedId(id);}}
     onPause={handlePlayPause} paused={paused} background={bgMode} onBackground={handleBackgroundMode}
-    response={resp.summary} onAdvanced={openAdvanced}
+    response={resp.summary} onAdvanced={openAdvanced} onRecover={()=>handleRestoreSnapshot('pulse-baseline')}
     networkView={data?<BrainScene pointerStimulates={false} data={data} autoRotate={false}
       showConnections={true} selectedId={selectedId} resetSignal={resetSignal} onSelect={setSelectedId}
       sim={simRef.current} onPulse={handlePulse} onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd}
