@@ -18,7 +18,7 @@ on:
       - .github/workflows/pr5-fsaverage-bem.yml
   pull_request:
     branches: [main]
-    paths: ['scientific/forward/**', 'app/src/lib/fsaverageBEM.ts', 'app/src/lib/templateExperiment.ts', 'app/src/components/LocalBEMLab.tsx', 'app/tests/template-home-browser.mjs', 'licenses/**', '.github/workflows/pr5-fsaverage-bem.yml']
+    paths: ['scientific/forward/**', 'app/src/lib/fsaverageBEM.ts', 'app/src/lib/templateExperiment.ts', 'app/src/components/LocalBEMLab.tsx', 'app/tests/template-home-browser.mjs', 'app/src/lib/headModelSelection.ts', 'app/src/lib/physicalFeedback.ts', 'app/src/lib/nativeFeedback.ts', 'app/src/lib/feedbackRecording.ts', 'app/src/components/PhysicsHome.tsx', 'app/src/components/ExperimentLab.tsx', 'licenses/**', '.github/workflows/pr5-fsaverage-bem.yml']
   workflow_dispatch:
 
 permissions:
@@ -95,10 +95,20 @@ jobs:
           python scientific/forward/generate_fsaverage_bem.py --sources-per-hemisphere 8 --montage 10-20 --package-public --output app/public/forward-assets/fsaverage-bem.json
           node --experimental-strip-types --test tests/pr5/template-recording.test.mjs
           python scientific/forward/generate_sphere_model.py
-      - name: Build the main application (template entry uses no network Worker)
+      - name: Setup Rust for the actual native feedback Worker
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Build Worker and prepare existing network inputs
+        run: |
+          cargo install wasm-pack
+          bash scripts/build-wasm.sh
+          python scripts/prepare-brain-data/fetch.py
+          python scripts/prepare-brain-data/prepare.py
+      - name: Build the main application with the native network Worker
         working-directory: app
         run: npm run build
-      - name: Verify template home, shared Raw and matching inverse matrix
+      - name: Verify template home, shared Raw, inverse and actual BEM feedback/replay/export
         working-directory: app
         run: node tests/template-home-browser.mjs
       - name: Generate a denser 128-source / 343-electrode MRI/BEM validation model

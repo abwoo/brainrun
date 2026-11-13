@@ -356,6 +356,7 @@ export default function ExperimentLab({
   };
 
   /* ── PR8-LINK：直播闭环 ── */
+  const [feedbackFailure,setFeedbackFailure]=useState<{kind:'configuration'|'measurement';detail:string}|null>(null);
   const [clSignal,setClSignal]=useState<'activity'|'eeg'>('activity');
   const [clLiveFeature, setClLiveFeature] = useState<'instant' | 'rms'>('instant');
   const [clLiveThreshold, setClLiveThreshold] = useState('0.05');
@@ -367,6 +368,7 @@ export default function ExperimentLab({
   const clLiveRequestedRef=useRef(false);
   const liveSim = live?.sim ?? null;
   const liveNode = live?.node ?? null;
+  const feedbackMeasurement=liveSim?.getNativeFeedback()?.state?.config.eeg;
 
   useEffect(() => {
     if (!clLiveRunning) {
@@ -377,12 +379,13 @@ export default function ExperimentLab({
       setClLiveRunning(false);
       return;
     }
+    setFeedbackFailure(null);
     try{
       liveSim.configureNativeFeedback({...(clSignal==='eeg'?{eeg:physicalFeedbackMapping(fixture)}:{}),node:liveNode,feature:clLiveFeature,threshold:Number(clLiveThreshold),
        amplitude:Number(clLiveAmp),maxTriggers:Number(clLiveMax),durationMs:100,
        periodMs:250,windowMs:1000,cooldownMs:2000,delayMs:0});
       clLiveRequestedRef.current=true;
-    }catch(e){setClError(String(e));setClLiveRunning(false);}
+    }catch(e){setFeedbackFailure({kind:'configuration',detail:String(e)});setClLiveRunning(false);}
   }, [clLiveRunning,clSignal,fixture, clLiveFeature, clLiveThreshold, clLiveAmp, clLiveMax, liveSim, liveNode]);
   useEffect(()=>()=>{liveSim?.configureNativeFeedback(null);clLiveRequestedRef.current=false;},[liveSim]);
   useEffect(()=>{
@@ -405,7 +408,7 @@ export default function ExperimentLab({
   const [feedbackReading,setFeedbackReading]=useState(false);
   const analyzeFeedback=async()=>{
    if(!liveSim)return;
-   setFeedbackReading(true);setClError(null);
+   setFeedbackReading(true);setFeedbackFailure(null);
    try{
     liveSim.pause();
     const measurement=await liveSim.requestNativeFeedback();
@@ -413,7 +416,7 @@ export default function ExperimentLab({
     liveSim.configureNativeFeedback(null);setClLiveRunning(false);clLiveRequestedRef.current=false;
     setLiveRecordingStore({...result,epochs:null});
     onOpenAnalysis?.();
-   }catch(e){setClError(String(e));}finally{setFeedbackReading(false);}
+   }catch(e){setFeedbackFailure({kind:'measurement',detail:String(e)});}finally{setFeedbackReading(false);}
   };
 
   return (
@@ -639,7 +642,7 @@ export default function ExperimentLab({
           <span style={label}>特征</span>
           <Dropdown aria-label={text('闭环测量信号','Feedback measurement')} value={clSignal} disabled={clLiveRunning||clWorkerActive} onChange={e=>{setClSignal(e.target.value as 'activity'|'eeg');setClLiveThreshold(e.target.value==='eeg'?'0.01':'0.05');}}>
             <option value="activity">{text('神经活动 E（无量纲）','Neural activity E (dimensionless)')}</option>
-            <option value="eeg">{text('球形模型主源 EEG（µV，假设耦合）','Sphere primary-source EEG (µV, assumed coupling)')}</option>
+            <option value="eeg">{text('所选头部模型 EEG（µV，假设耦合）','Selected head-model EEG (µV, assumed coupling)')}</option>
           </Dropdown>
           <Dropdown value={clLiveFeature} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
             <option value="instant">{text("瞬时幅度","Instantaneous magnitude")}</option>
@@ -669,10 +672,19 @@ export default function ExperimentLab({
           {(!liveSim || liveNode === null) && <span style={label}>先在主界面选一个脑区（直播未就绪或未选区时不可启动）。</span>}
         </div>
         {(clLiveRunning||clWorkerActive) && <p style={note}>{text('闭环运行中：每 250 ms 模型时间检测；RMS 需要完整 1000 ms 窗口，检测后至少 1 ms 施加输入。暂停冻结控制时钟。','Feedback active: evaluate every 250 model ms; RMS needs a full 1000 ms window, with at least 1 ms from detection to input. Pause freezes the control clock.')}</p>}
-        <p style={note}>{text('EEG 模式：选定脑区的 E/I 驱动球形实验的主电流源（尚未接入模板 BEM），按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives the sphere workbench primary source through explicit assumptions; template BEM control measurement is not connected. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
+        <p style={note}>{text('EEG 模式：选定脑区的 E/I 按显式假设驱动所选球形或模板 BEM 位置的等效电流源，按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives an equivalent source at the selected sphere or template BEM position through explicit assumptions. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
         <button style={button} disabled={feedbackReading||clSignal!=='eeg'||!(clLiveRunning||clWorkerActive)} onClick={analyzeFeedback}>{text('停止并分析反馈 EEG','Stop and analyze feedback EEG')}</button>
         <p style={note}>{text('暂停仿真、停止后续反馈，并分析最近保留的单电极原生窗口（最多 1 秒）。原样保留触发所用的电位、参考和滤波信息；短窗不能证明低频节律，单电极不支持地形或逆解。','Pauses the simulation, stops future feedback and analyzes the retained single-sensor native window (up to 1 s). Keeps the measured voltage, reference and filter information. A short window cannot establish low-frequency rhythms; one sensor cannot support topography or inverse localization.')}</p>
-        {clError&&<p style={note} role="alert">{clError}</p>}
+        {feedbackMeasurement&&<p style={note} data-testid="feedback-measurement"
+          data-model-id={feedbackMeasurement.modelId}
+          data-head-model={feedbackMeasurement.headModel??'sphere'}>
+          {text('已冻结的测量来源','Frozen measurement')} · {feedbackMeasurement.modelId} · {feedbackMeasurement.electrode}
+        </p>}
+        {feedbackFailure&&<div role="alert"><p style={note}>{feedbackFailure.kind==='configuration'
+          ?text('无法启动闭环。请确认所选头部模型已加载，并检查脑区和输入参数。','Could not start feedback. Load the selected head model, then check the region and input settings.')
+          :text('无法读取完整的 EEG 反馈窗口。请确认闭环已启用，并让模型运行片刻后重试。','Could not read a complete feedback EEG window. Enable feedback and let the model run briefly before retrying.')}</p>
+          <details><summary>{text('技术信息','Technical details')}</summary>{feedbackFailure.detail}</details>
+        </div>}
         {clLiveLog.map((line, i) => <p key={i} style={note}>{line}</p>)}
       </div>
 
