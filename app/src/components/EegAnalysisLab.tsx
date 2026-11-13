@@ -24,6 +24,7 @@ import {
 import type { EegEvent, EegRecording, EegReference, EpochSet, NoiseParams } from '../lib/eegData';
 import {
   getLiveRecordingStore,
+  LIVE_DERIVATION_ID,
   reReferenceRecording,
   runExperiment,
   setLiveRecordingStore,
