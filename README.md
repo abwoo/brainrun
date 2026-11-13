@@ -30,6 +30,8 @@ The Advanced labs menu keeps additional tools away from the default workbench:
 - Brain regions, coordinate frames and model documentation.
 - Optional presets on a separate page. They run only when requested and do not cover the main model.
 
+For optional EEG feedback, select a sphere or template BEM source on the home page, choose a network region under **Regions & activity**, then open **Compare and replay**. Select **Selected head-model EEG** as the feedback measurement. Starting freezes that conductor, source orientation, sensor and reference; the displayed source label identifies the active measurement. **Stop and analyze feedback EEG** opens the actual retained causal-filter window. This neural-to-dipole coupling is an explicit uncalibrated assumption, not anatomical registration of the demonstration network.
+
 ## Computation and interface
 
 | Interaction | Numerical path | Display |

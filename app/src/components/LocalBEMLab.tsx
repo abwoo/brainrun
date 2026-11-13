@@ -1,6 +1,6 @@
 import {useI18n} from '../lib/i18n';
 import {potentialColor} from '../lib/scalpField';
-import {getTemplateSource,setTemplateSource,prepareTemplateAnalysis} from '../lib/templateExperiment';
+import {getTemplateSource,setTemplateSource,setTemplateMeasurementSource,prepareTemplateAnalysis} from '../lib/templateExperiment';
 import {getTemplateModel,registerTemplateModel} from '../lib/fsaverageBEM';
 import Dropdown from './ui/Dropdown';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -154,6 +154,7 @@ export default function LocalBEMLab({onClose,embedded=false,onAnalysis,onReady}:
   useEffect(()=>{
     if(data&&sourceMode==='manual')setTemplateSource({sourceIndex,moment,direction,
       reference:{mode:reference},electrode:selectedSensor});
+    else if(data)setTemplateMeasurementSource({sourceIndex,direction,reference:{mode:reference},electrode:selectedSensor});
   },[data,sourceMode,sourceIndex,moment,direction,reference,selectedSensor]);
   useEffect(()=>{
     if(getTemplateModel())return;

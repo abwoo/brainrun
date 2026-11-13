@@ -1,10 +1,12 @@
 import type {MontageKey} from './sphereForward.ts';
 import {equivalentMomentNAm,validateMorphology,type DipoleMorphology} from './localCorticalColumn.ts';
-/** Fixed model-clock feedback on dimensionless neural E, never browser frames.
+/** Fixed model-clock feedback on native neural E or physical EEG, never browser frames.
  * A full native window is required for RMS. A decision at t schedules input
  * no earlier than t+1 ms. This is a simulation controller, not device control.
  */
 export interface FeedbackEegMapping {
+ headModel?:'sphere'|'bem';coordinateFrame?:'head-RAS-sphere-centered'|'HEAD_RAS_MM';sourceRevision?:number;
+ templateSource?:{index:number;vertex:number;hemisphere:'lh'|'rh';atlas:string;region:string;anatomicalRegistration:'MNE-fsaverage-MRI-to-HEAD'};
  montage?:MontageKey;gainUvPerNAm:number;baselineE:number;baselineI:number;lowpassHz:number;
  morphology:DipoleMorphology;modelId:string;electrode:string;
  sourcePositionMm:readonly number[];direction:readonly number[];
@@ -29,6 +31,15 @@ export function validateFeedbackConfig(c:NativeFeedbackConfig,nNodes:number):voi
   c.cooldownMs<0||c.delayMs<0||c.delayMs>5000||c.maxTriggers<1||c.maxTriggers>100)
   throw new RangeError('Invalid native feedback configuration');
  if(c.eeg){const m=c.eeg;validateMorphology(m.morphology);
+  if((m.headModel!==undefined&&!['sphere','bem'].includes(m.headModel))||
+    (m.coordinateFrame!==undefined&&!['head-RAS-sphere-centered','HEAD_RAS_MM'].includes(m.coordinateFrame))||
+    (m.sourceRevision!==undefined&&(!Number.isInteger(m.sourceRevision)||m.sourceRevision<0))||
+    (m.headModel==='sphere'&&m.coordinateFrame!=='head-RAS-sphere-centered')||
+    (m.headModel==='bem'&&(m.coordinateFrame!=='HEAD_RAS_MM'||!m.templateSource||
+      !Number.isInteger(m.templateSource.index)||m.templateSource.index<0||!Number.isInteger(m.templateSource.vertex)||m.templateSource.vertex<0||
+      !['lh','rh'].includes(m.templateSource.hemisphere)||typeof m.templateSource.atlas!=='string'||typeof m.templateSource.region!=='string'||
+      m.templateSource.anatomicalRegistration!=='MNE-fsaverage-MRI-to-HEAD')))
+   throw new RangeError('Inconsistent feedback conductor or coordinate frame');
   if((m.montage!==undefined&&!['10-20','10-10','10-05'].includes(m.montage))||!Number.isFinite(m.gainUvPerNAm)||![m.baselineE,m.baselineI].every(x=>Number.isFinite(x)&&x>=0&&x<=1)||
     !Number.isFinite(m.lowpassHz)||m.lowpassHz<=0||m.lowpassHz>100||!m.modelId||!m.electrode||m.mapping!=='assumed-primary-source'||
     m.sourcePositionMm.length!==3||!m.sourcePositionMm.every(Number.isFinite)||m.direction.length!==3||!m.direction.every(Number.isFinite)||Math.abs(Math.hypot(...m.direction)-1)>1e-8)

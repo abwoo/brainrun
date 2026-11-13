@@ -7,10 +7,20 @@ import type {LeadField} from './sourceLocalization.ts';
 export interface TemplateSourceState {sourceIndex:number;moment:number;direction:Vec3Mm;reference:EegReference;electrode:string;revision:number;}
 let state:TemplateSourceState={sourceIndex:0,moment:10,direction:[1,0,0],reference:{mode:'average'},electrode:'Cz',revision:0};
 export const getTemplateSource=()=>state;
+/** Last displayed BEM measurement pose, independent of the local/manual waveform driver. */
+export type TemplateMeasurementSource=Pick<TemplateSourceState,'sourceIndex'|'direction'|'reference'|'electrode'|'revision'>;
+let measurement:TemplateMeasurementSource|null=null;
+export const getTemplateMeasurementSource=():TemplateMeasurementSource=>measurement??state;
+export function setTemplateMeasurementSource(patch:Omit<TemplateMeasurementSource,'revision'>):void {
+ const prior=getTemplateMeasurementSource();
+ const changed=JSON.stringify([prior.sourceIndex,prior.direction,prior.reference,prior.electrode])!==JSON.stringify([patch.sourceIndex,patch.direction,patch.reference,patch.electrode]);
+ measurement={...patch,direction:[...patch.direction],reference:{...patch.reference},revision:prior.revision+(changed?1:0)};
+}
 export function setTemplateSource(patch:Omit<TemplateSourceState,'revision'>):void {
  const physicalChange=JSON.stringify({...state,electrode:'',revision:0})!==JSON.stringify({...patch,electrode:'',revision:0});
  state={...patch,direction:[...patch.direction],reference:{...patch.reference},revision:state.revision+(physicalChange?1:0)};
  if(physicalChange&&getLiveRecordingStore()?.recording.templateSnapshot)setLiveRecordingStore(null);
+ setTemplateMeasurementSource({sourceIndex:state.sourceIndex,direction:state.direction,reference:state.reference,electrode:state.electrode});
 }
 export function prepareTemplateAnalysis():EegRecording {
  const model=getTemplateModel();if(!model)throw new Error('Template is not ready');

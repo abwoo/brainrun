@@ -74,3 +74,16 @@ test('shared EEG uses the exact causal feedback window, frozen geometry and auth
  assert.throws(()=>recordingFromFeedback({...message,t_ms:14},upstream,events),/current/);
  assert.throws(()=>recordingFromFeedback({...message,run_id:'old-run'},upstream,events),/current/);
 });
+
+test('shared head selection is explicit and unready BEM never falls back to a sphere',async()=>{
+ const {getHeadModelSelection,setHeadModelSelection,subscribeHeadModelSelection}=await import('../../app/src/lib/headModelSelection.ts');
+ const {physicalFeedbackMapping}=await import('../../app/src/lib/physicalFeedback.ts');
+ let notifications=0;const unsubscribe=subscribeHeadModelSelection(()=>notifications++);
+ try{
+  assert.equal(getHeadModelSelection(),'sphere');
+  setHeadModelSelection('bem');setHeadModelSelection('bem');
+  assert.equal(getHeadModelSelection(),'bem');assert.equal(notifications,1);
+  assert.throws(()=>physicalFeedbackMapping(null),/BEM is not ready/);
+  assert.throws(()=>setHeadModelSelection('fake'),/Unknown/);
+ }finally{setHeadModelSelection('sphere');unsubscribe();}
+});

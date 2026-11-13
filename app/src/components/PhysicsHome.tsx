@@ -1,3 +1,4 @@
+import {getHeadModelSelection,subscribeHeadModelSelection,setHeadModelSelection} from '../lib/headModelSelection';
 import LocalBEMLab from './LocalBEMLab';
 import {prepareTemplateAnalysis} from '../lib/templateExperiment';
 import {preparePhysicalAnalysis,physicalFixtureReady,subscribePhysicalSource} from '../lib/physicalExperiment';
@@ -26,7 +27,8 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
  const {locale}=useI18n();
  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
  const [model,setModel]=useState<'electric'|'network'>('electric');
- const [headModel,setHeadModel]=useState<'sphere'|'bem'>('sphere');
+ const headModel=useSyncExternalStore(subscribeHeadModelSelection,getHeadModelSelection);
+ const setHeadModel=setHeadModelSelection;
  const [templateReady,setTemplateReady]=useState(false);
  const [advanced,setAdvanced]=useState(false);
  const [help,setHelp]=useState(false);
