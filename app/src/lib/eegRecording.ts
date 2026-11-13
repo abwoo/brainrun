@@ -1016,10 +1016,9 @@ export function recordingToCsv(rec: EegRecording): string {
     `# reference=${JSON.stringify(rec.reference)}`,
     `# montage=${rec.montage}`,
     `# sfreq_hz=${rec.sfreqHz}`,
-    `# data_revision=${rec.dataRevision??0}`,
-    `# processing_history=${JSON.stringify(rec.processingHistory??[])}`,
     `# seed=${rec.seed}`,
     `# noise=${rec.noise ? JSON.stringify(rec.noise) : 'null'}`,
+    ...(rec.dataRevision?[`# data_revision=${rec.dataRevision}`,`# processing_history=${JSON.stringify(rec.processingHistory??[])}`]:[]),
     ['time_ms', ...labels].join(','),
   ];
   for (let j = 0; j < rec.timesMs.length; j++) {

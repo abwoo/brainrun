@@ -210,7 +210,7 @@ export default function EegAnalysisLab({
     input?: { recording: EegRecording; events: EegEvent[]; parameters: Record<string, unknown> },
   ) => {
     if (origin === 'raw' && recording?.provenance) {
-      setEpochs({ ...ep, dataRevision:recording.dataRevision??0, provenance: recording.provenance,
+      setEpochs({ ...ep, provenance: recording.provenance, dataRevision:recording.dataRevision??0,
         events: ep.events.map(event => ({ ...event, runId: recording.provenance!.runId })) });
       return;
     }
@@ -230,7 +230,7 @@ export default function EegAnalysisLab({
     // React batches this transaction: every analysis tab receives the same run.
     setRecording(rec);
     setEvents(input.events.map(event => ({ ...event, runId: session.runId })));
-    setEpochs({ ...ep, dataRevision:input.recording.dataRevision??0, provenance: session.provenance,
+    setEpochs({ ...ep, provenance: session.provenance, dataRevision:input.recording.dataRevision??0,
       events: ep.events.map(event => ({ ...event, runId: session.runId })) });
     setSelectedChannel(input.recording.channels[0].label);
     const loaded=configurationForRecording(rec);
