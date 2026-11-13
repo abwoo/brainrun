@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {preview} from 'vite';
+const server=await preview({preview:{port:0,host:'127.0.0.1'},logLevel:'error'});
+let browser;
+try{
+ browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
+ const page=await browser.newPage();
+ await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.getByRole('spinbutton',{name:'源强度 nA·m'}).fill('20');
+ await page.getByRole('spinbutton',{name:'源强度 nA·m'}).press('Enter');
+ await page.getByRole('spinbutton',{name:'左右位置 mm'}).fill('30');
+ await page.getByRole('spinbutton',{name:'左右位置 mm'}).press('Enter');
+ await page.getByRole('combobox',{name:'电流方向',exact:true}).selectOption('Z');
+ await page.waitForFunction(()=>document.querySelector('[data-testid="selected-potential"]')?.dataset.voltage!=='');
+ const homeValue=Number(await page.getByTestId('selected-potential').getAttribute('data-voltage'));
+ await page.getByRole('button',{name:'English',exact:true}).click();
+ await page.getByRole('button',{name:'Advanced labs',exact:true}).click();
+ await page.getByRole('button',{name:/^Signal analysis/}).click();
+ await page.getByTestId('eeg-summary').waitFor();
+ assert.equal(await page.locator('[data-analysis-run-id]').getAttribute('data-source-model'),'manual-static-dipole-v1');
+ const ready=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export JSON',exact:true}).click();
+ const download=await ready,stream=await download.createReadStream();let text='';
+ for await(const chunk of stream)text+=chunk.toString();
+ const rec=JSON.parse(text),i=rec.channels.findIndex(c=>c.label==='Cz');
+ assert.ok(Math.abs(rec.dataUv[i][0]-homeValue)<1e-12);
+ assert.deepEqual(rec.sourceSnapshot.position,[30,0,16]);assert.equal(rec.sourceSnapshot.moment,20);
+ assert.ok(rec.dataUv[i].every(v=>v===rec.dataUv[i][0]));
+ await page.getByRole('spinbutton',{name:'Raw recording observation time ms',exact:true}).fill('1000');
+ await page.getByRole('spinbutton',{name:'Raw recording observation time ms',exact:true}).press('Enter');
+ await page.getByRole('tab',{name:'Topography',exact:true}).click();
+ assert.equal(await page.getByTestId('topography-observation').getAttribute('data-time-ms'),'1000');
+ await page.getByRole('tab',{name:'Source localization',exact:true}).click();
+ assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-time-ms'),'1000');
+ console.log('Home physical source -> same recorded sensor voltages, exported source history, shared topography/inverse time PASS');
+}finally{await browser?.close();await server.httpServer.close();}

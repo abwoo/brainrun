@@ -122,6 +122,9 @@ jobs:
       - name: Native integration acquisition and EEG export
         working-directory: app
         run: node tests/native-acquisition-browser.mjs
+      - name: Shared physical source and observation time
+        working-directory: app
+        run: node tests/physical-source-browser.mjs
       - name: Upload manual physics and language screenshots
         if: always()
         uses: actions/upload-artifact@v4

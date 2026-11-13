@@ -695,6 +695,8 @@ export function runExperiment(opts: RunExperimentOptions): {
     montage,
     forwardModelId: SPHERE_MODEL_ID,
     sourceModelId: sourceModelId(sourceModel),
+    sourceSeries:{coordinateFrame:'head-RAS-sphere-centered',mapping:'assumed-local-column',
+      sources:sources.map(s=>({positionMm:s.positionMm,direction:s.normalHead,momentsNAm:s.momentsNAm}))},
     seed,
     noise,
     rawDataUvInfinity: raw,
@@ -1000,7 +1002,8 @@ export function recordingToJson(rec: EegRecording): string {
   const shared = liveRecordingStore?.recording === rec ? liveRecordingStore : null;
   return JSON.stringify({
     ...rec,
-    ...(shared ? { events: shared.events, epochs: shared.epochs } : {}),
+    ...(shared ? { events: shared.events, epochs: shared.epochs,
+      observation:shared.workspace?{channel:shared.workspace.selectedChannel,rawTimeMs:shared.workspace.atTimeMs}:null } : {}),
   }, null, 2);
 }
 

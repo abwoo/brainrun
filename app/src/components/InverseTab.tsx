@@ -38,6 +38,7 @@ import type { Vec3Mm } from '../lib/volumeConduction';
 
 export interface InverseTabProps {
   recording: EegRecording | null;
+  atTimeMs?:number;
   fixture: SphereFixture | null;
 }
 
@@ -45,7 +46,7 @@ function fmtVec(v: Vec3Mm): string {
   return `[${v.map((x) => x.toFixed(1)).join(', ')}]`;
 }
 
-export default function InverseTab({ recording, fixture }: InverseTabProps) {
+export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseTabProps) {
   const [truePos, setTruePos] = useState<Vec3Mm>([16, 16, 16]);
   const [trueAxis, setTrueAxis] = useState<'X' | 'Y' | 'Z'>('Y');
   const [trueMoment, setTrueMoment] = useState(10);
@@ -78,17 +79,10 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
     if (!recording || !fixture || recording.channels.length < 3) return null;
     try {
       const nT = recording.timesMs.length;
-      let bestJ = 0;
-      let bestRms = -1;
-      for (let j = 0; j < nT; j++) {
-        let ss = 0;
-        for (let c = 0; c < recording.channels.length; c++) ss += recording.dataUv[c][j] ** 2;
-        const rms = Math.sqrt(ss / recording.channels.length);
-        if (rms > bestRms) {
-          bestRms = rms;
-          bestJ = j;
-        }
-      }
+      let bestJ=0;
+      for(let j=1;j<nT;j++)if(Math.abs(recording.timesMs[j]-atTimeMs)<Math.abs(recording.timesMs[bestJ]-atTimeMs))bestJ=j;
+      const bestRms=Math.sqrt(recording.dataUv.reduce((sum,row)=>sum+row[bestJ]**2,0)/recording.channels.length);
+      if(bestRms<1e-12)return null; // A zero signal cannot identify a source.
       const dataUv = recording.channels.map((_, c) => recording.dataUv[c][bestJ]);
       const lf = buildLeadField(fixture, recording.montage, recording.reference);
       const fit = dipoleFit(lf, dataUv);
@@ -103,10 +97,10 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
     } catch {
       return null;
     }
-  }, [recording, fixture, lambda2, mneNoiseRmsUv]);
+  }, [recording, fixture, lambda2, mneNoiseRmsUv,atTimeMs]);
 
   return (
-    <div>
+    <div data-testid="inverse-observation" data-time-ms={onRecording?.atTimeMs??atTimeMs}>
       <h3>源定位——偶极子拟合 + MNE 逆解</h3>
       <p className="panel-text">
         正向模型：MNE 四层球形头 lead-field（64 点源网格，轴 −48–48 mm）。
@@ -211,11 +205,11 @@ export default function InverseTab({ recording, fixture }: InverseTabProps) {
         <div style={{ minWidth: 0 }}>
           <div className="conn-title">对当前记录（无真值，不编造误差）</div>
           {!recording && <p className="panel-text">还没有 EEG 记录。请先在 EEG tab 里运行实验。</p>}
-          {recording && !onRecording && <p className="panel-text">该记录的逆解算不出来（fixture 未加载或导联与 fixture 不符）。</p>}
+          {recording && !onRecording && <p className="panel-text">当前时刻无可定位的非零信号，或正向模型与通道不匹配。</p>}
           {recording && onRecording && (
             <>
               <p className="panel-text">
-                取全通道 RMS 最大的采样点（{onRecording.atTimeMs.toFixed(0)} ms，RMS {onRecording.rmsUv.toFixed(2)} µV，
+                当前观察采样点（{onRecording.atTimeMs.toFixed(0)} ms，RMS {onRecording.rmsUv.toFixed(2)} µV，
                 {onRecording.nCh} 导，导联 {recording.montage}）为实测向量。
               </p>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>

@@ -15,9 +15,10 @@ import Dropdown from './ui/Dropdown';
  *   [0, 10, 0] nA·m），与 2D 图的记录数据无关——两张图的数据来源
  *   本来就不一样，不要混读。
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {useI18n} from '../lib/i18n';
+import { useEffect, useMemo, useState } from 'react';
 import type { EegRecording } from '../lib/eegData';
-import { topoAtTime, forwardHeadPotential, TOPO_HEAD_RADIUS_MM } from '../lib/topography';
+import { topoAtTime, forwardHeadPotential,recordingForwardAtTime, TOPO_HEAD_RADIUS_MM } from '../lib/topography';
 import type { SphereFixture } from '../lib/sphereForward';
 import { validateSphereFixture } from '../lib/sphereForward';
 import type { Vec3Mm } from '../lib/volumeConduction';
@@ -39,6 +40,8 @@ function topoColor(v: number, maxAbs: number): string {
 }
 
 export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture }: TopoTabProps) {
+  const {locale}=useI18n();
+  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   // fixture 优先用壳传的 prop；没传才自己 fetch（与 HeadSphereLab 同模式）。
   const [fetchedFixture, setFetchedFixture] = useState<SphereFixture | null>(null);
   const loadedFixture = fixture ?? fetchedFixture;
@@ -98,27 +101,18 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
   }, [recording]);
 
   // 记录一到就检查一次：若当前时刻全部电极 |值| < 1e-9 µV（静息态、无响应），
-  // 自动跳到最大响应时刻。只在 recording 对象变化时做一次，不干扰用户
-  // 手动拖动滑杆（拖到静息时刻是用户自己的选择，不自动跳走）。
-  const lastSeenRecordingRef = useRef<EegRecording | null>(null);
-  useEffect(() => {
-    if (!recording || !maxResponse) return;
-    if (lastSeenRecordingRef.current === recording) return;
-    lastSeenRecordingRef.current = recording;
-    const cur = topo ? Math.max(...topo.electrodeValues.map((e) => Math.abs(e.valueUv))) : 0;
-    if (cur < 1e-9) onAtTimeMsChange(maxResponse.tMs);
-  }, [recording, maxResponse, topo, onAtTimeMsChange]);
 
   const forward = useMemo(() => {
     if (!loadedFixture) return null;
     try {
       const dir: Vec3Mm = srcAxis === 'X' ? [1, 0, 0] : srcAxis === 'Y' ? [0, 1, 0] : [0, 0, 1];
       const moment: Vec3Mm = [dir[0] * srcMoment, dir[1] * srcMoment, dir[2] * srcMoment];
+      if(recording?.sourceSeries)return recordingForwardAtTime(loadedFixture,recording,atTimeMs);
       return forwardHeadPotential(loadedFixture, srcPos, moment, { mode: reference });
     } catch {
       return null;
     }
-  }, [loadedFixture, srcPos, srcAxis, srcMoment, reference]);
+  }, [loadedFixture, srcPos, srcAxis, srcMoment, reference,recording,atTimeMs]);
 
   if (!recording) {
     return (
@@ -138,6 +132,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
 
   return (
     <div>
+      <output data-testid="topography-observation" data-time-ms={topo?.atTimeMs??atTimeMs}/>
       <h3>地形——{topo ? `${topo.atTimeMs.toFixed(0)} ms` : ''}，{recording.channels.length} 导</h3>
       <p className="panel-text">
         两张图的数据来源不一样，分开看：2D 图是记录实测值的球面样条插值（电极之间是算出来的）；
@@ -161,8 +156,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
           <button type="button" onClick={() => onAtTimeMsChange(maxResponse.tMs)}>
             跳到最大响应时刻（{maxResponse.tMs.toFixed(0)} ms，最大 |V| {maxResponse.maxAbsUv.toFixed(3)} µV）
           </button>
-          {' '}刺激前（第一事件前）记录处于静息态、全部电极值为 0，地形图是空白的——
-          默认时刻 400 ms 就落在刺激前，所以本页在记录到达时会自动跳到最大响应时刻。
+          {' '}刺激前电位可能为零。可手动选择观察时刻，或跳到最大响应。
         </p>
       )}
 
@@ -206,16 +200,16 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <div className="conn-title">独立正向实验 · 头皮采样点的 2D 投影（L·q，并非可旋转 3D 场）</div>
-          <p className="panel-text">
-            左侧 2D 地形读取当前 EEG 记录；右侧示例使用下面单独设置的源位置、方向和强度计算，
-            不是同一时刻、同一源的第二种视图。仅作为独立球形正向求解演示，不要直接比较两图数值。
-          </p>
+          <div className="conn-title">{recording.sourceSeries?text('当前源的头皮采样图 · 同一观察时刻','Current-source scalp samples · shared observation time'):'独立正向实验 · 头皮采样点的 2D 投影（L·q，并非可旋转 3D 场）'}</div>
+          <p className="panel-text">{recording.sourceSeries?text(
+            '左图是当前记录的电极插值；右图直接计算同一组源、同一时刻的电位，参考按当前记录的通道定义。右图不包含测量噪声。',
+            'Left: interpolation of the current recording. Right: direct forward values from the same sources and time, referenced over the recording channels. Measurement noise is excluded from the right panel.'
+          ):'左侧 2D 地形读取当前 EEG 记录；右侧示例使用下面单独设置的源位置、方向和强度计算，不是同一时刻、同一源的第二种视图。仅作为独立球形正向求解演示，不要直接比较两图数值。'}</p>
           {fixtureError && <p className="panel-text" role="alert">{fixtureError}</p>}
           {!loadedFixture && !fixtureError && <p className="panel-text">正在加载 MNE 正向模型…</p>}
           {forward && (
             <>
-              <svg width="100%" height="320" viewBox="0 0 320 320" role="img" aria-label="Independent spherical forward potentials projected onto a 2D sensor diagram">
+              <svg width="100%" height="320" viewBox="0 0 320 320" role="img" aria-label={recording.sourceSeries?text('当前源的正向电位采样图','Forward samples of the current sources'):'Independent spherical forward potentials projected onto a 2D sensor diagram'}>
                 <circle cx={160} cy={160} r={150} fill="#08131d" stroke="#335" />
                 {forward.positionsMm.map((p, i) => (
                   <circle
@@ -229,12 +223,13 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
               </svg>
               <p className="panel-text">
                 每个圆点都是一个传感器位置的直接计算值（{forward.labels.length} 个），不是插值。
-                源 [{srcPos.join(', ')}] mm、矩 {srcAxis} 向 {srcMoment} nA·m、参考 {reference}；
+                {recording.sourceSeries?text('使用当前记录的源与参考。','Using the recording source history and reference.'):
+                  <>源 [{srcPos.join(', ')}] mm、矩 {srcAxis} 向 {srcMoment} nA·m、参考 {reference}；</>}
                 最大 |V| {maxAbsFwd.toFixed(2)} µV。
               </p>
             </>
           )}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!recording.sourceSeries&&<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <label>
               源 X：
               <input type="number" value={srcPos[0]} min={-48} max={48} step={8} onChange={(e) => setSrcPos([+e.target.value, srcPos[1], srcPos[2]])} style={{ width: 64 }} />
@@ -267,8 +262,8 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
                 <option value="infinity">infinity</option>
               </Dropdown>
             </label>
-          </div>
-          <p className="panel-text">源位置限制在 ±48 mm（lead-field 网格边界，越界抛错）；矩 ±30 nA·m 与 PR5 的 HeadSphereLab 同范围。</p>
+          </div>}
+          {!recording.sourceSeries&&<p className="panel-text">源位置限制在 ±48 mm（lead-field 网格边界，越界抛错）；矩 ±30 nA·m 与 PR5 的 HeadSphereLab 同范围。</p>}
         </div>
       </div>
     </div>
