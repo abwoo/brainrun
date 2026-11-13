@@ -1,3 +1,4 @@
+import {getTemplateSource,setTemplateSource} from '../lib/templateExperiment';
 /**
  * PR-07 EEG 分析实验壳（B1）。
  *
@@ -151,6 +152,11 @@ export default function EegAnalysisLab({
         if(processed.experiment)processed.experiment={
           ...processed.experiment,parameters:{...processed.experiment.parameters,sourceState:source},
         };
+      }
+      if(recording.templateSnapshot&&recording.templateSnapshot.revision===getTemplateSource().revision){
+        setTemplateSource({...getTemplateSource(),reference:ref});
+        const source=getTemplateSource();processed.templateSnapshot={...source};
+        if(processed.experiment)processed.experiment={...processed.experiment,parameters:{...processed.experiment.parameters,sourceState:source}};
       }
       setRecording(processed);
       setEpochs(null);

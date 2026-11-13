@@ -100,7 +100,7 @@ export interface EegEvent {
   /** 该事件用的刺激驱动数值。 */
   drive: number;
   /** 驱动单位：'wc' = Wilson–Cowan 无量纲驱动；'jr' = Jansen–Rit 1/s。 */
-  driveUnit: 'wc' | 'jr';
+  driveUnit: 'wc' | 'jr' | 'nA_m';
 }
 
 export interface EpochSet {

@@ -40,7 +40,7 @@ export const SPHERE_MODEL_ID = 'mne-four-layer-sphere-ras-v1';
 const MONTAGES: MontageKey[] = ['10-20', '10-10', '10-05'];
 
 export function validateSphereFixture(data: SphereFixture): void {
-  if (data.model_id !== SPHERE_MODEL_ID ||
+  if (![SPHERE_MODEL_ID,SPHERE_MODEL_ID+'-skull-0.002',SPHERE_MODEL_ID+'-skull-0.008'].includes(data.model_id) ||
       data.coordinate_frame !== 'head-RAS-sphere-centered' ||
       !Array.isArray(data.source_grid_axis_mm) ||
       data.source_grid_axis_mm.length < 2 ||
@@ -171,4 +171,19 @@ export function sphereElectrodePotentials(
     sensors: labels.map(label => fixture.sensors[indices.get(label)!]),
     voltageUv: values.map(v => v-ref),
   };
+}
+
+/** Constrained electrode moves SNAP to an independently MNE-evaluated scalp vertex.
+ * Replace both position AND leadfield row. No stale standard-montage matrix survives.
+ */
+export function moveSphereElectrodes(fixture:SphereFixture,vertices:Record<string,number>):SphereFixture {
+ const grid=fixture.scalp_field_grid;if(!grid&&Object.keys(vertices).length)throw new Error('No scalp forward grid');
+ const sensors=fixture.sensors.map(s=>{
+  const j=vertices[s.label];if(j===undefined)return s;
+  if(!Number.isInteger(j)||j<0||j>=grid!.positions_mm.length)throw new Error('Invalid scalp vertex');
+  return {...s,position_mm:grid!.positions_mm[j]};
+ });
+ for(const label of Object.keys(vertices))if(!fixture.sensors.some(s=>s.label===label))throw new Error('Unknown electrode');
+ const model={...fixture,sensors,gain_uv_per_nAm:fixture.sensors.map((s,i)=>vertices[s.label]===undefined?fixture.gain_uv_per_nAm[i]:grid!.gain_uv_per_nAm[vertices[s.label]])};
+ validateSphereFixture(model);return model;
 }

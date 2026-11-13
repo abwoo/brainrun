@@ -29,7 +29,8 @@ RELATIVE_RADII = (0.90, 0.92, 0.97, 1.0)
 SIGMAS_S_M = (0.33, 1.0, 0.004, 0.33)
 
 
-def create_fixture():
+def create_fixture(skull_sigma=0.004):
+    sigmas=(0.33,1.0,skull_sigma,0.33)
     if mne.__version__ != MNE_REQUIRED:
         raise RuntimeError(
             f"Expected MNE {MNE_REQUIRED}, got {mne.__version__}; pin the version"
@@ -65,7 +66,7 @@ def create_fixture():
         })
     sphere = mne.make_sphere_model(
         r0=ORIGIN_M, head_radius=RADIUS_M,
-        relative_radii=RELATIVE_RADII, sigmas=SIGMAS_S_M, verbose=False,
+        relative_radii=RELATIVE_RADII, sigmas=sigmas, verbose=False,
     )
     coordinates = np.array([
         (x, y, z) for x in GRID_MM for y in GRID_MM for z in GRID_MM
@@ -133,14 +134,14 @@ def create_fixture():
             "gain_uv_per_nAm": np.round(scalp_gains, 9).tolist(),
             "method": "MNE forward values at scalp vertices; triangle colors interpolate only for rendering",
         },
-        "model_id": "mne-four-layer-sphere-ras-v1",
+        "model_id": "mne-four-layer-sphere-ras-v1"+("" if skull_sigma==0.004 else f"-skull-{skull_sigma:.3f}"),
         "mne_version": mne.__version__,
         "coordinate_frame": "head-RAS-sphere-centered",
         "origin_in_head_mm": [0.0, 0.0, 40.0],
         "radius_mm": RADIUS_M * 1000,
         "brain_inner_radius_mm": RADIUS_M * 1000 * RELATIVE_RADII[0],
         "relative_radii": RELATIVE_RADII,
-        "conductivities_S_m": SIGMAS_S_M,
+        "conductivities_S_m": sigmas,
         "source_grid_axis_mm": GRID_MM,
         "gain_units": "microvolts_per_nanoampere_metre",
         "source_moment_axes": ["x", "y", "z"],
@@ -164,8 +165,9 @@ def main():
         default=Path(__file__).resolve().parents[2] /
         "app/public/forward-assets/sphere-model.json",
     )
+    parser.add_argument('--skull-conductivity',type=float,choices=(0.002,0.004,0.008),default=0.004)
     args = parser.parse_args()
-    fixture = create_fixture()
+    fixture = create_fixture(args.skull_conductivity)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(fixture, ensure_ascii=False, separators=(",", ":"), allow_nan=False),

@@ -31,8 +31,16 @@ jobs:
         run: python -m pip install mne==1.11.0
       - name: Generate MNE multilayer spherical head forward model
         run: python scientific/forward/generate_sphere_model.py
+      - name: Generate conductivity-specific forward matrices
+        run: |
+          python scientific/forward/generate_sphere_model.py --skull-conductivity 0.002 --output app/public/forward-assets/sphere-skull-0.002.json
+          python scientific/forward/generate_sphere_model.py --skull-conductivity 0.008 --output app/public/forward-assets/sphere-skull-0.008.json
       - name: Validate direct scalp vertex forward values
         run: python -m unittest discover -s tests/pr5 -p 'test_scalp_field.py' -v
+      - name: Fresh MNE conductivity-specific check
+        run: python -m unittest discover -s tests/pr5 -p 'test_conductivity.py' -v
+      - name: Validate source superposition, electrode geometry, conductivity and time course
+        run: node --experimental-strip-types --test tests/pr6/physical-exploration.test.mjs
       - name: Unit-test fsaverage coregistration helpers (no dataset download)
         run: python -m unittest discover -s tests/pr5 -p 'test_fsaverage_bem_helpers.py' -v
       - name: Validate direct MNE physics and off-grid interpolation
@@ -129,7 +137,9 @@ jobs:
         run: node tests/physical-source-browser.mjs
       - name: Direct physical field, source orientation and sensor picking
         working-directory: app
-        run: node tests/physical-field-browser.mjs
+        run: |
+          node tests/physical-field-browser.mjs
+          node tests/physical-exploration-browser.mjs
       - name: Upload manual physics and language screenshots
         if: always()
         uses: actions/upload-artifact@v4
