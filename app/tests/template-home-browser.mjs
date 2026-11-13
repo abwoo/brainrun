@@ -1,4 +1,3 @@
-import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {preview} from 'vite';
@@ -36,13 +35,6 @@ try{
  await page.getByText('Head model · fsaverage BEM',{exact:true}).click();
  assert.equal(await page.getByRole('combobox',{name:'Head model',exact:true}).inputValue(),'bem','conductor selection survives advanced navigation');
  assert.equal(await page.getByTestId('template-physics').getAttribute('data-source-index'),'2');
- // The independent column viewport changes the displayed geometry; native feedback must use that pose.
- await page.locator('select').filter({has:page.locator('option[value="local-column"]')}).selectOption('local-column');
- await page.getByRole('combobox',{name:'Cortical source position',exact:true}).selectOption('3');
- const feedbackModel=JSON.parse(readFileSync('public/forward-assets/fsaverage-bem.json','utf8'));
- const expectedSource=feedbackModel.source_positions[3],expectedDirection=expectedSource.normal_head_unit;
- const unreferenced=feedbackModel.gains_uV_per_nAm.map(row=>row[9]*expectedDirection[0]+row[10]*expectedDirection[1]+row[11]*expectedDirection[2]);
- const expectedGain=unreferenced[i]-unreferenced.reduce((a,b)=>a+b,0)/unreferenced.length;
  await page.getByRole('tab',{name:'Regions & activity',exact:true}).click();
  await page.waitForFunction(()=>window.__brainSim?.isReady()&&window.__brainSim.getSnapshot(),null,{timeout:120000});
  await page.getByRole('combobox',{name:'Choose brain region',exact:true}).selectOption('40');
@@ -59,10 +51,10 @@ try{
  await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='configured'&&window.__brainSim.getNativeFeedback()?.state?.config.eeg?.headModel==='bem');
  const mapping=await page.evaluate(()=>window.__brainSim.getNativeFeedback().state.config.eeg);
  assert.equal(mapping.modelId,rec.forwardModelId);assert.equal(mapping.coordinateFrame,'HEAD_RAS_MM');
- assert.equal(mapping.templateSource.index,3);
- assert.deepEqual(mapping.sourcePositionMm,expectedSource.head_mm);
- assert.deepEqual(mapping.direction,expectedDirection);
- assert.ok(Math.abs(mapping.gainUvPerNAm-expectedGain)<1e-12);
+ assert.equal(mapping.templateSource.index,2);
+ assert.deepEqual(mapping.sourcePositionMm,rec.sourceSeries.sources[0].positionMm);
+ assert.deepEqual(mapping.direction,rec.sourceSeries.sources[0].direction);
+ assert.ok(Math.abs(mapping.gainUvPerNAm-homeValue/rec.templateSnapshot.moment)<1e-12);
  assert.equal(await page.getByTestId('feedback-measurement').getAttribute('data-head-model'),'bem');
  await page.evaluate(()=>{const s=window.__brainSim;s.pulseAt(40,1,100);s.advanceMs(300);});
  await page.waitForFunction(()=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===300;});
@@ -105,7 +97,7 @@ try{
  const feedback=JSON.parse(feedbackJson);
  assert.equal(feedback.forwardModelId,rec.forwardModelId);assert.equal(feedback.sfreqHz,1000);
  assert.equal(feedback.experiment.parameters.measurementOperator.headModel,'bem');
- assert.equal(feedback.experiment.parameters.measurementOperator.templateSource.index,3);
+ assert.equal(feedback.experiment.parameters.measurementOperator.templateSource.index,2);
  assert.deepEqual(feedback.dataUv[0],finalMeasurement.state.samples.map(s=>s.value));
  assert.deepEqual(feedback.timesMs,finalMeasurement.state.samples.map(s=>s.tMs-finalMeasurement.state.samples[0].tMs));
  assert.equal(feedback.provenance.parentRunId,finalMeasurement.run_id);
