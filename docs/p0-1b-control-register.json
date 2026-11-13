@@ -127,7 +127,7 @@
     {
       "controlId": "App:button:5",
       "path": "app/src/App.tsx",
-      "line": 1024,
+      "line": 1022,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -141,7 +141,7 @@
     {
       "controlId": "App:button:6",
       "path": "app/src/App.tsx",
-      "line": 1040,
+      "line": 1038,
       "element": "button",
       "visibleName": "{t(('mode.' + m) as MessageKey)}",
       "events": [
@@ -155,7 +155,7 @@
     {
       "controlId": "App:button:7",
       "path": "app/src/App.tsx",
-      "line": 1053,
+      "line": 1051,
       "element": "button",
       "visibleName": "渐进式展示：默认只显示 3D 大脑、少量控制、实时测量窗口和简单说明；点“更多”展开具体参数、数学模型、单位、频段设置、电极参考、源定位算法与模型假设",
       "events": [
@@ -169,7 +169,7 @@
     {
       "controlId": "App:button:8",
       "path": "app/src/App.tsx",
-      "line": 1062,
+      "line": 1060,
       "element": "button",
       "visibleName": "一键科学场景：15 个可运行的预设实验，每个都跑真实计算并追加实验记录",
       "events": [
@@ -183,7 +183,7 @@
     {
       "controlId": "App:button:9",
       "path": "app/src/App.tsx",
-      "line": 1070,
+      "line": 1068,
       "element": "button",
       "visibleName": "PLAY — {simReady ? t(paused ? 'shell.paused' : 'she",
       "events": [
@@ -197,7 +197,7 @@
     {
       "controlId": "App:button:10",
       "path": "app/src/App.tsx",
-      "line": 1079,
+      "line": 1077,
       "element": "button",
       "visibleName": "显示 / 隐藏选中脑区的主要连接弧线",
       "events": [
@@ -211,7 +211,7 @@
     {
       "controlId": "App:button:11",
       "path": "app/src/App.tsx",
-      "line": 1087,
+      "line": 1085,
       "element": "button",
       "visibleName": "恢复仿真状态、清除刺激与偏置输入；保留已改连接权重（权重只能用恢复动作改回）",
       "events": [
@@ -225,7 +225,7 @@
     {
       "controlId": "App:button:12",
       "path": "app/src/App.tsx",
-      "line": 1090,
+      "line": 1088,
       "element": "button",
       "visibleName": "MNE 四层球形头模型，源与标准电极产生实时模拟 EEG 电位",
       "events": [
@@ -239,7 +239,7 @@
     {
       "controlId": "App:button:13",
       "path": "app/src/App.tsx",
-      "line": 1094,
+      "line": 1092,
       "element": "button",
       "visibleName": "EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。",
       "events": [
@@ -253,7 +253,7 @@
     {
       "controlId": "App:button:14",
       "path": "app/src/App.tsx",
-      "line": 1098,
+      "line": 1096,
       "element": "button",
       "visibleName": "独立的均匀无限导体电流偶极子物理实验，不是 BEM EEG",
       "events": [
@@ -267,7 +267,7 @@
     {
       "controlId": "App:button:15",
       "path": "app/src/App.tsx",
-      "line": 1102,
+      "line": 1100,
       "element": "button",
       "visibleName": "细胞级实验台：LIF、Hodgkin–Huxley、多房室神经元与跨尺度耦合（PR-13）",
       "events": [
@@ -281,7 +281,7 @@
     {
       "controlId": "App:button:16",
       "path": "app/src/App.tsx",
-      "line": 1106,
+      "line": 1104,
       "element": "button",
       "visibleName": "脑刺激实验室：TES/TMS 电场与感觉输入，按物理完备程度分级（PR-14）",
       "events": [
@@ -295,7 +295,7 @@
     {
       "controlId": "App:button:17",
       "path": "app/src/App.tsx",
-      "line": 1110,
+      "line": 1108,
       "element": "button",
       "visibleName": "对照实验：双脑 A/B、时间机器、闭环控制（PR-15）",
       "events": [
@@ -309,7 +309,7 @@
     {
       "controlId": "App:button:18",
       "path": "app/src/App.tsx",
-      "line": 1114,
+      "line": 1112,
       "element": "button",
       "visibleName": "模型、数据来源与许可说明",
       "events": [
@@ -322,7 +322,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1123,
+      "line": 1121,
       "element": "button",
       "visibleName": "{t(focus3D ? 'workspace.exitFocus' : 'workspace.foc",
       "events": [
@@ -336,7 +336,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1132,
+      "line": 1130,
       "element": "input",
       "visibleName": "stage-share",
       "events": [
@@ -350,7 +350,7 @@
     },
     {
       "path": "app/src/App.tsx",
-      "line": 1136,
+      "line": 1134,
       "element": "button",
       "visibleName": "{t('workspace.resetLayout')} </bu",
       "events": [
@@ -365,7 +365,7 @@
     {
       "controlId": "App:button:22",
       "path": "app/src/App.tsx",
-      "line": 1177,
+      "line": 1175,
       "element": "button",
       "visibleName": "按兴奋活动 E 着色（固定色标：底色 E≈0.011 → 琥珀 E≈0.5）",
       "events": [
@@ -379,7 +379,7 @@
     {
       "controlId": "App:button:23",
       "path": "app/src/App.tsx",
-      "line": 1185,
+      "line": 1183,
       "element": "button",
       "visibleName": "按活动变化 ΔE = E − 刺激前基线着色（升高琥珀、降低蓝色；平方根压缩，±0.1 满格）",
       "events": [
@@ -393,7 +393,7 @@
     {
       "controlId": "App:button:24",
       "path": "app/src/App.tsx",
-      "line": 1193,
+      "line": 1191,
       "element": "button",
       "visibleName": "相机自动缓慢旋转（只是相机运动，不是神经活动）",
       "events": [
@@ -407,7 +407,7 @@
     {
       "controlId": "App:button:25",
       "path": "app/src/App.tsx",
-      "line": 1210,
+      "line": 1208,
       "element": "button",
       "visibleName": "恢复到这次按住开始前的完整状态",
       "events": [
@@ -421,7 +421,7 @@
     {
       "controlId": "App:button:26",
       "path": "app/src/App.tsx",
-      "line": 1220,
+      "line": 1218,
       "element": "button",
       "visibleName": "恢复仿真状态",
       "events": [
@@ -435,7 +435,7 @@
     {
       "controlId": "App:button:27",
       "path": "app/src/App.tsx",
-      "line": 1301,
+      "line": 1299,
       "element": "button",
       "visibleName": "运行一键场景 4：JR p0=220 极限环跑 12 s，生成 Pz 记录供下方的 WavesTab 分析",
       "events": [
@@ -449,7 +449,7 @@
     {
       "controlId": "App:button:28",
       "path": "app/src/App.tsx",
-      "line": 1337,
+      "line": 1335,
       "element": "button",
       "visibleName": "{t('scene.absolute')} </butto",
       "events": [
@@ -463,7 +463,7 @@
     {
       "controlId": "App:button:29",
       "path": "app/src/App.tsx",
-      "line": 1344,
+      "line": 1342,
       "element": "button",
       "visibleName": "{t('scene.delta')}",
       "events": [
@@ -477,7 +477,7 @@
     {
       "controlId": "App:button:30",
       "path": "app/src/App.tsx",
-      "line": 1377,
+      "line": 1375,
       "element": "button",
       "visibleName": "从窗口起点回放录下来的快照（不重算）",
       "events": [
@@ -491,7 +491,7 @@
     {
       "controlId": "App:button:31",
       "path": "app/src/App.tsx",
-      "line": 1387,
+      "line": 1385,
       "element": "button",
       "visibleName": "{replay.playing ? '暂停' : '继续播放'}",
       "events": [
@@ -505,7 +505,7 @@
     {
       "controlId": "App:button:32",
       "path": "app/src/App.tsx",
-      "line": 1399,
+      "line": 1397,
       "element": "button",
       "visibleName": "{s}× </button",
       "events": [
@@ -519,7 +519,7 @@
     {
       "controlId": "App:button:33",
       "path": "app/src/App.tsx",
-      "line": 1411,
+      "line": 1409,
       "element": "button",
       "visibleName": "回到直播",
       "events": [
@@ -533,7 +533,7 @@
     {
       "controlId": "App:input:34",
       "path": "app/src/App.tsx",
-      "line": 1416,
+      "line": 1414,
       "element": "input",
       "visibleName": "回放进度",
       "events": [
@@ -547,7 +547,7 @@
     {
       "controlId": "App:button:35",
       "path": "app/src/App.tsx",
-      "line": 1465,
+      "line": 1463,
       "element": "button",
       "visibleName": "dynamic",
       "events": [
@@ -561,7 +561,7 @@
     {
       "controlId": "App:button:36",
       "path": "app/src/App.tsx",
-      "line": 1491,
+      "line": 1489,
       "element": "button",
       "visibleName": "dynamic",
       "events": [
@@ -575,7 +575,7 @@
     {
       "controlId": "App:button:37",
       "path": "app/src/App.tsx",
-      "line": 1527,
+      "line": 1525,
       "element": "button",
       "visibleName": "{label}",
       "events": [
@@ -589,7 +589,7 @@
     {
       "controlId": "App:input:38",
       "path": "app/src/App.tsx",
-      "line": 1575,
+      "line": 1573,
       "element": "input",
       "visibleName": "bg-seed",
       "events": [
@@ -603,7 +603,7 @@
     {
       "controlId": "App:button:39",
       "path": "app/src/App.tsx",
-      "line": 1599,
+      "line": 1597,
       "element": "button",
       "visibleName": "手动保存当前状态到浏览器 localStorage（关掉页面还在，RESET 不清）",
       "events": [
@@ -617,7 +617,7 @@
     {
       "controlId": "App:button:40",
       "path": "app/src/App.tsx",
-      "line": 1608,
+      "line": 1606,
       "element": "button",
       "visibleName": "恢复手动保存的快照",
       "events": [
@@ -631,7 +631,7 @@
     {
       "controlId": "App:button:41",
       "path": "app/src/App.tsx",
-      "line": 1617,
+      "line": 1615,
       "element": "button",
       "visibleName": "恢复这次按住开始前的状态",
       "events": [
@@ -645,7 +645,7 @@
     {
       "controlId": "App:button:42",
       "path": "app/src/App.tsx",
-      "line": 1824,
+      "line": 1822,
       "element": "button",
       "visibleName": "恢复原始值",
       "events": [
@@ -659,7 +659,7 @@
     {
       "controlId": "App:button:43",
       "path": "app/src/App.tsx",
-      "line": 1841,
+      "line": 1839,
       "element": "button",
       "visibleName": "恢复全部原始值（{modifiedWeightCount} 条已改）",
       "events": [
@@ -673,7 +673,7 @@
     {
       "controlId": "App:button:44",
       "path": "app/src/App.tsx",
-      "line": 1865,
+      "line": 1863,
       "element": "button",
       "visibleName": "偏置 {selectedBias !== 0 ? '开' : '关'}",
       "events": [
@@ -687,7 +687,7 @@
     {
       "controlId": "App:button:45",
       "path": "app/src/App.tsx",
-      "line": 1913,
+      "line": 1911,
       "element": "button",
       "visibleName": "展开更多：参数、背景活动、脑区与连接",
       "events": [
@@ -701,7 +701,7 @@
     {
       "controlId": "App:button:46",
       "path": "app/src/App.tsx",
-      "line": 1967,
+      "line": 1965,
       "element": "button",
       "visibleName": "关闭 <div className=\"modal",
       "events": [
@@ -715,7 +715,7 @@
     {
       "controlId": "App:button:47",
       "path": "app/src/App.tsx",
-      "line": 1999,
+      "line": 1997,
       "element": "button",
       "visibleName": "关闭 <div className=\"modal",
       "events": [
@@ -729,7 +729,7 @@
     {
       "controlId": "App:button:48",
       "path": "app/src/App.tsx",
-      "line": 2150,
+      "line": 2148,
       "element": "button",
       "visibleName": "知道了",
       "events": [

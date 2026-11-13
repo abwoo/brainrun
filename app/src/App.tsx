@@ -473,16 +473,6 @@ export default function App() {
         snapInfoSigRef.current = infoSig;
         setSnapInfo(info);
       }
-      // Branch/external restores also update the client mirrors after the
-      // Worker confirms restoration. Keep controls aligned with that state,
-      // not only with restores initiated by this component's buttons.
-      // Always synchronize primitive values: a quick edit followed by a
-      // restore can return to the previous signature between polling ticks.
-      const parameters=sim.getParams();
-      setKStim(KNOB_MAP.stimulusK(parameters.stim_amplitude));
-      setKDur(KNOB_MAP.durationK(parameters.stim_duration_ms));
-      setKExcInh(KNOB_MAP.c_eiK(parameters.c_ei));
-      setKConn(KNOB_MAP.gK(parameters.g));
       const mp = sim.getModeParams();
       const mpSig = JSON.stringify(mp);
       if (mpSig !== modeParamsSigRef.current) {
@@ -744,6 +734,14 @@ export default function App() {
     },
     [data],
   );
+
+  // Branch restores and shared client commands must synchronize the same
+  // controls/weights/bias as this component's own restore button.
+  useEffect(()=>{
+    const sim=simRef.current;
+    if(!sim||!simReady)return;
+    return sim.subscribeRestored(syncFromSnapshot);
+  },[simReady,syncFromSnapshot]);
 
   const handleSaveSnapshot = useCallback(() => {
     const sim = simRef.current;
