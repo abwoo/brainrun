@@ -342,7 +342,11 @@ export default function EegAnalysisLab({
         {' · '}{text('处理版本','Processing revision')} {recording.dataRevision??0}
         <details><summary>{text('记录来源与参数','Recording source and parameters')}</summary>
           <code>{recording.sourceModelId}</code>
-          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,channels:recording.channels.map(c=>c.label),reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0},null,2)}</pre>
+          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,channels:recording.channels.map(c=>c.label),reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0,
+            sourceSeed:recording.nativeSource?recording.provenance?.seed:undefined,nativeSource:recording.nativeSource,
+            physicalSource:recording.physicalProjection?{headModel:recording.physicalProjection.headModel,modelId:recording.physicalProjection.modelId,
+             positionMm:recording.physicalProjection.sourcePositionMm,direction:recording.physicalProjection.direction,
+             revision:recording.physicalProjection.sourceRevision,templateSource:recording.physicalProjection.templateSource}:undefined},null,2)}</pre>
         </details>
       </div>}
       <div className="panel-text" role="status" data-testid="configuration-status" data-pending={pending}>
@@ -398,6 +402,7 @@ export default function EegAnalysisLab({
               data-model-id={recording.forwardModelId} data-frame={recording.physicalProjection.coordinateFrame}>
               {text('记录中冻结的物理源','Physical source frozen in this recording')} · {recording.forwardModelId}
               {' · '}{recording.channels.length}{text(' 通道',' channels')}{' · '}{recording.physicalProjection.coordinateFrame}
+              {' · ['}{recording.physicalProjection.sourcePositionMm.map(v=>v.toFixed(1)).join(', ')}{'] mm'}
             </p>}
             {nativeResult&&<p className="panel-text">{text(
               '原生记录完成：'+nativeResult.rate+' Hz，来自每 1 ms 的积分状态；边缘各舍弃 64 ms。Pz 峰值 ',

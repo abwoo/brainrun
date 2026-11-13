@@ -138,6 +138,7 @@ try{
  await page.getByRole('tab',{name:'Source localization',exact:true}).click();
  assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-channels'),String(rec.channels.length));
  assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-time-ms'),'700');
+ console.log('SCREENSHOT_NATIVE-BEM='+(await page.getByTestId('native-physical-source').locator('..').screenshot({type:'jpeg',quality:65})).toString('base64'));
  console.log('Actual native 250/500 Hz BEM multichannel Raw -> frozen physical source -> common topography/inverse cursor -> JSON PASS');
  console.log('Real template BEM -> selected source/sensor -> native causal feedback -> exact snapshot replay -> actual shared Raw/JSON PASS');
  console.log('Template auto-load without file import, matching Raw/export, topography and BEM inverse PASS');
