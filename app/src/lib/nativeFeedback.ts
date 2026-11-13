@@ -1,10 +1,11 @@
+import type {MontageKey} from './sphereForward.ts';
 import {equivalentMomentNAm,validateMorphology,type DipoleMorphology} from './localCorticalColumn.ts';
 /** Fixed model-clock feedback on dimensionless neural E, never browser frames.
  * A full native window is required for RMS. A decision at t schedules input
  * no earlier than t+1 ms. This is a simulation controller, not device control.
  */
 export interface FeedbackEegMapping {
- gainUvPerNAm:number;baselineE:number;baselineI:number;lowpassHz:number;
+ montage?:MontageKey;gainUvPerNAm:number;baselineE:number;baselineI:number;lowpassHz:number;
  morphology:DipoleMorphology;modelId:string;electrode:string;
  sourcePositionMm:readonly number[];direction:readonly number[];
  reference:unknown;electrodes:unknown;mapping:'assumed-primary-source';
@@ -28,7 +29,7 @@ export function validateFeedbackConfig(c:NativeFeedbackConfig,nNodes:number):voi
   c.cooldownMs<0||c.delayMs<0||c.delayMs>5000||c.maxTriggers<1||c.maxTriggers>100)
   throw new RangeError('Invalid native feedback configuration');
  if(c.eeg){const m=c.eeg;validateMorphology(m.morphology);
-  if(!Number.isFinite(m.gainUvPerNAm)||![m.baselineE,m.baselineI].every(x=>Number.isFinite(x)&&x>=0&&x<=1)||
+  if((m.montage!==undefined&&!['10-20','10-10','10-05'].includes(m.montage))||!Number.isFinite(m.gainUvPerNAm)||![m.baselineE,m.baselineI].every(x=>Number.isFinite(x)&&x>=0&&x<=1)||
     !Number.isFinite(m.lowpassHz)||m.lowpassHz<=0||m.lowpassHz>100||!m.modelId||!m.electrode||m.mapping!=='assumed-primary-source'||
     m.sourcePositionMm.length!==3||!m.sourcePositionMm.every(Number.isFinite)||m.direction.length!==3||!m.direction.every(Number.isFinite)||Math.abs(Math.hypot(...m.direction)-1)>1e-8)
    throw new RangeError('Invalid physical EEG feedback mapping');

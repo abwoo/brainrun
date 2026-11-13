@@ -1,3 +1,4 @@
+import {recordingFromFeedback} from '../lib/feedbackRecording';
 import {physicalFeedbackMapping} from '../lib/physicalFeedback';
 import {useI18n} from '../lib/i18n';
 import {compareNetworkBranches,networkComparisonJson,type NetworkComparison} from '../lib/networkComparison';
@@ -401,6 +402,20 @@ export default function ExperimentLab({
     });
   },[liveSim]);
 
+  const [feedbackReading,setFeedbackReading]=useState(false);
+  const analyzeFeedback=async()=>{
+   if(!liveSim)return;
+   setFeedbackReading(true);setClError(null);
+   try{
+    liveSim.pause();
+    const measurement=await liveSim.requestNativeFeedback();
+    const result=recordingFromFeedback(measurement,liveSim.getExperimentSession(),liveSim.getExperimentBundle().nativeFeedback.events);
+    liveSim.configureNativeFeedback(null);setClLiveRunning(false);clLiveRequestedRef.current=false;
+    setLiveRecordingStore({...result,epochs:null});
+    onOpenAnalysis?.();
+   }catch(e){setClError(String(e));}finally{setFeedbackReading(false);}
+  };
+
   return (
     <div>
       <div style={warn}>{CLOSED_LOOP_SIMULATION_ONLY}本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。</div>
@@ -655,6 +670,9 @@ export default function ExperimentLab({
         </div>
         {(clLiveRunning||clWorkerActive) && <p style={note}>{text('闭环运行中：每 250 ms 模型时间检测；RMS 需要完整 1000 ms 窗口，检测后至少 1 ms 施加输入。暂停冻结控制时钟。','Feedback active: evaluate every 250 model ms; RMS needs a full 1000 ms window, with at least 1 ms from detection to input. Pause freezes the control clock.')}</p>}
         <p style={note}>{text('EEG 模式：选定脑区的 E/I 驱动首页主电流源，按冻结的电极、方向、参考和导体矩阵计算微伏电位，再作 40 Hz 一阶因果低通。基线由 Worker 在启用时采集，滤波状态随快照保存。该映射未经人体校准，不代表脑区已与头部解剖配准；不包含第二个手动源。','EEG mode: selected-region E/I drives the home primary source through explicit assumptions. Frozen sensor, orientation, reference and conductor coefficients produce µV, followed by a causal first-order 40 Hz low-pass. Worker captures the activation baseline and saves filter state in snapshots. No human calibration or anatomical network registration is implied; the second manual source is excluded.')}</p>
+        <button style={button} disabled={feedbackReading||clSignal!=='eeg'||!(clLiveRunning||clWorkerActive)} onClick={analyzeFeedback}>{text('停止并分析反馈 EEG','Stop and analyze feedback EEG')}</button>
+        <p style={note}>{text('暂停仿真、停止后续反馈，并分析最近保留的单电极原生窗口（最多 1 秒）。原样保留触发所用的电位、参考和滤波信息；短窗不能证明低频节律，单电极不支持地形或逆解。','Pauses the simulation, stops future feedback and analyzes the retained single-sensor native window (up to 1 s). Keeps the measured voltage, reference and filter information. A short window cannot establish low-frequency rhythms; one sensor cannot support topography or inverse localization.')}</p>
+        {clError&&<p style={note} role="alert">{clError}</p>}
         {clLiveLog.map((line, i) => <p key={i} style={note}>{line}</p>)}
       </div>
 

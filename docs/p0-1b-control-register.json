@@ -3,7 +3,7 @@
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
   "disclaimer": "251 source-classified controls; source inventory is not runtime proof.",
   "counts": {
-    "total": 254,
+    "total": 255,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -20,7 +20,7 @@
       "LocalBEMLab": 15,
       "DipoleLab": 7,
       "StimLab": 29,
-      "ExperimentLab": 41,
+      "ExperimentLab": 42,
       "ActivityChart": 1,
       "ParamControl": 4,
       "PhysicsHome": 11,
@@ -37,7 +37,7 @@
       "CONFIG": 58,
       "INDEPENDENT": 75,
       "EXPORT": 5,
-      "DERIVED": 14
+      "DERIVED": 15
     }
   },
   "nativeCanvas": {
@@ -3058,7 +3058,7 @@
     {
       "controlId": "ExperimentLab:input:1",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 418,
+      "line": 433,
       "element": "input",
       "visibleName": "驱动 B（1/s） <input",
       "events": [
@@ -3072,7 +3072,7 @@
     {
       "controlId": "ExperimentLab:input:2",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 420,
+      "line": 435,
       "element": "input",
       "visibleName": "时长（ms） <input st",
       "events": [
@@ -3086,7 +3086,7 @@
     {
       "controlId": "ExperimentLab:input:3",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 422,
+      "line": 437,
       "element": "input",
       "visibleName": "运行对照</bu",
       "events": [
@@ -3100,7 +3100,7 @@
     {
       "controlId": "ExperimentLab:button:4",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 423,
+      "line": 438,
       "element": "button",
       "visibleName": "运行对照 {abError && <p style={note}",
       "events": [
@@ -3114,7 +3114,7 @@
     {
       "controlId": "ExperimentLab:button:5",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 440,
+      "line": 455,
       "element": "button",
       "visibleName": "源定位对照（深源 vs 浅源） <butt",
       "events": [
@@ -3128,7 +3128,7 @@
     {
       "controlId": "ExperimentLab:button:6",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 443,
+      "line": 458,
       "element": "button",
       "visibleName": "深度偏置对照（plain / depth / dSPM / eLORETA） </",
       "events": [
@@ -3151,48 +3151,6 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:input:7",
-      "line": 456
-    },
-    {
-      "path": "app/src/components/ExperimentLab.tsx",
-      "element": "button",
-      "visibleName": "Matched full-network comparison / restore / analyze / export",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false,
-      "controlId": "ExperimentLab:button:8",
-      "line": 457
-    },
-    {
-      "path": "app/src/components/ExperimentLab.tsx",
-      "element": "button",
-      "visibleName": "Matched full-network comparison / restore / analyze / export",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false,
-      "controlId": "ExperimentLab:button:9",
-      "line": 470
-    },
-    {
-      "path": "app/src/components/ExperimentLab.tsx",
-      "element": "button",
-      "visibleName": "Matched full-network comparison / restore / analyze / export",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false,
-      "controlId": "ExperimentLab:button:10",
       "line": 471
     },
     {
@@ -3206,8 +3164,50 @@
       "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
-      "controlId": "ExperimentLab:button:11",
+      "controlId": "ExperimentLab:button:8",
       "line": 472
+    },
+    {
+      "path": "app/src/components/ExperimentLab.tsx",
+      "element": "button",
+      "visibleName": "Matched full-network comparison / restore / analyze / export",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "ExperimentLab:button:9",
+      "line": 485
+    },
+    {
+      "path": "app/src/components/ExperimentLab.tsx",
+      "element": "button",
+      "visibleName": "Matched full-network comparison / restore / analyze / export",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "ExperimentLab:button:10",
+      "line": 486
+    },
+    {
+      "path": "app/src/components/ExperimentLab.tsx",
+      "element": "button",
+      "visibleName": "Matched full-network comparison / restore / analyze / export",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "Same Rust/WASM network, complete shared snapshot, native 1 ms branch recordings and matching EEG lineage",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "ExperimentLab:button:11",
+      "line": 487
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3221,7 +3221,7 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:12",
-      "line": 473
+      "line": 488
     },
     {
       "path": "app/src/components/ExperimentLab.tsx",
@@ -3235,12 +3235,12 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:button:13",
-      "line": 474
+      "line": 489
     },
     {
       "controlId": "ExperimentLab:button:14",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 490,
+      "line": 505,
       "element": "button",
       "visibleName": "载入最近 10 秒直播快照 {liveTmError && <p",
       "events": [
@@ -3254,7 +3254,7 @@
     {
       "controlId": "ExperimentLab:input:15",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 496,
+      "line": 511,
       "element": "input",
       "visibleName": "E = {fmt(liveTm[",
       "events": [
@@ -3268,7 +3268,7 @@
     {
       "controlId": "ExperimentLab:button:16",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 524,
+      "line": 539,
       "element": "button",
       "visibleName": "跑到 2000 ms（事件 1000 ms，驱动 120 1/s） <button sty",
       "events": [
@@ -3282,7 +3282,7 @@
     {
       "controlId": "ExperimentLab:button:17",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 525,
+      "line": 540,
       "element": "button",
       "visibleName": "单步 +0.5 ms <button style={button} disabled={!",
       "events": [
@@ -3296,7 +3296,7 @@
     {
       "controlId": "ExperimentLab:button:18",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 526,
+      "line": 541,
       "element": "button",
       "visibleName": "恢复到回放点 {tmError && <p style={not",
       "events": [
@@ -3310,7 +3310,7 @@
     {
       "controlId": "ExperimentLab:input:19",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 539,
+      "line": 554,
       "element": "input",
       "visibleName": "y0 = {fmt(replay",
       "events": [
@@ -3324,7 +3324,7 @@
     {
       "controlId": "ExperimentLab:input:20",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 554,
+      "line": 569,
       "element": "input",
       "visibleName": "分支后驱动（1/s） <inpu",
       "events": [
@@ -3338,7 +3338,7 @@
     {
       "controlId": "ExperimentLab:input:21",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 556,
+      "line": 571,
       "element": "input",
       "visibleName": "<button style={button} disabled={!tm} onClick={handle",
       "events": [
@@ -3352,7 +3352,7 @@
     {
       "controlId": "ExperimentLab:button:22",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 557,
+      "line": 572,
       "element": "button",
       "visibleName": "从该点改参数重跑（分支） {tmBranchResult &&",
       "events": [
@@ -3366,7 +3366,7 @@
     {
       "controlId": "ExperimentLab:Dropdown:23",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 574,
+      "line": 589,
       "element": "Dropdown",
       "visibleName": "关（无控制对照） <",
       "events": [
@@ -3380,7 +3380,7 @@
     {
       "controlId": "ExperimentLab:Dropdown:24",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 580,
+      "line": 595,
       "element": "Dropdown",
       "visibleName": "瞬时 Pz（µV）",
       "events": [
@@ -3394,7 +3394,7 @@
     {
       "controlId": "ExperimentLab:input:25",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 586,
+      "line": 601,
       "element": "input",
       "visibleName": "测量噪声 RMS（µV） <in",
       "events": [
@@ -3408,7 +3408,7 @@
     {
       "controlId": "ExperimentLab:input:26",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 588,
+      "line": 603,
       "element": "input",
       "visibleName": "{clMode === 'threshold' && ( <",
       "events": [
@@ -3422,7 +3422,7 @@
     {
       "controlId": "ExperimentLab:input:27",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 593,
+      "line": 608,
       "element": "input",
       "visibleName": "触发输出（1/s，负值 = 抑制）",
       "events": [
@@ -3436,7 +3436,7 @@
     {
       "controlId": "ExperimentLab:input:28",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 595,
+      "line": 610,
       "element": "input",
       "visibleName": ")} {clMode === 'pid' && (",
       "events": [
@@ -3450,7 +3450,7 @@
     {
       "controlId": "ExperimentLab:input:29",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 601,
+      "line": 616,
       "element": "input",
       "visibleName": "Ki <input st",
       "events": [
@@ -3464,7 +3464,7 @@
     {
       "controlId": "ExperimentLab:input:30",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 603,
+      "line": 618,
       "element": "input",
       "visibleName": "Kd <input st",
       "events": [
@@ -3478,7 +3478,7 @@
     {
       "controlId": "ExperimentLab:input:31",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 605,
+      "line": 620,
       "element": "input",
       "visibleName": "设定点（特征单位） <i",
       "events": [
@@ -3492,7 +3492,7 @@
     {
       "controlId": "ExperimentLab:input:32",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 607,
+      "line": 622,
       "element": "input",
       "visibleName": ")}",
       "events": [
@@ -3506,7 +3506,7 @@
     {
       "controlId": "ExperimentLab:button:33",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 611,
+      "line": 626,
       "element": "button",
       "visibleName": "运行闭环（3 s，事件 1000 ms，驱动 300 1/s）",
       "events": [
@@ -3529,12 +3529,12 @@
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
       "controlId": "ExperimentLab:Dropdown:34",
-      "line": 625
+      "line": 640
     },
     {
       "controlId": "ExperimentLab:Dropdown:35",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 629,
+      "line": 644,
       "element": "Dropdown",
       "visibleName": "瞬时 E（无量纲）",
       "events": [
@@ -3548,7 +3548,7 @@
     {
       "controlId": "ExperimentLab:input:36",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 634,
+      "line": 649,
       "element": "input",
       "visibleName": "反馈脉冲幅度（模型单位） <in",
       "events": [
@@ -3562,7 +3562,7 @@
     {
       "controlId": "ExperimentLab:input:37",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 636,
+      "line": 651,
       "element": "input",
       "visibleName": "触发上限（次） <input s",
       "events": [
@@ -3576,7 +3576,7 @@
     {
       "controlId": "ExperimentLab:input:38",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 638,
+      "line": 653,
       "element": "input",
       "visibleName": "{!clLiveRunning ? ( <button",
       "events": [
@@ -3590,7 +3590,7 @@
     {
       "controlId": "ExperimentLab:button:39",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 640,
+      "line": 655,
       "element": "button",
       "visibleName": "启动直播闭环 ) : (",
       "events": [
@@ -3604,7 +3604,7 @@
     {
       "controlId": "ExperimentLab:button:40",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 652,
+      "line": 667,
       "element": "button",
       "visibleName": "停止直播闭环 )} {(!liveSim || liveNode ==",
       "events": [
@@ -3616,9 +3616,23 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "ExperimentLab:button:41",
+      "element": "button",
       "path": "app/src/components/ExperimentLab.tsx",
-      "line": 662,
+      "visibleName": "Stop and analyze feedback EEG",
+      "events": [
+        "onClick"
+      ],
+      "category": "DERIVED",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "modelBoundary": "Reads the current Worker causal physical EEG window and opens the exact retained sensor samples in shared analysis, preserving frozen operator and model timestamps.",
+      "explicitFollowUp": false,
+      "controlId": "ExperimentLab:button:41",
+      "line": 673
+    },
+    {
+      "controlId": "ExperimentLab:button:42",
+      "path": "app/src/components/ExperimentLab.tsx",
+      "line": 680,
       "element": "button",
       "visibleName": "关闭 ); }",
       "events": [

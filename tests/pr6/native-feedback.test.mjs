@@ -51,3 +51,26 @@ test('physical EEG uses signed forward gain and causal filter; filter state rest
  assert.deepEqual(c.snapshot(),copy.snapshot());
  assert.throws(()=>new NativeFeedback({...config,eeg:{...eeg,lowpassHz:0}},1,0),/mapping/);
 });
+
+test('shared EEG uses the exact causal feedback window, frozen geometry and authoritative event times',async()=>{
+ const {recordingFromFeedback}=await import('../../app/src/lib/feedbackRecording.ts');
+ const {reReferenceRecording}=await import('../../app/src/lib/eegRecording.ts');
+ const state={config:{node:0,eeg:{montage:'10-20',modelId:'sphere-test',electrode:'Cz',lowpassHz:40,reference:{mode:'average'},
+  electrodes:[{label:'Cz',positionMm:[0,0,95]}]}},startedMs:0,
+  samples:[{tMs:11,value:-.2},{tMs:12,value:.3},{tMs:13,value:.8}]};
+ const upstream={provenance:{runId:'upstream',seed:42},commands:[],artifacts:[],snapshotTimesMs:[],lastModelTimeMs:13};
+ const message={type:'native_feedback',phase:'observed',run_id:'upstream',t_ms:13,state};
+ const events=[{type:'native_feedback',run_id:'upstream',phase:'applied',t_ms:12,action:{amplitude:1}},
+  {type:'native_feedback',run_id:'different-run',phase:'applied',t_ms:12,action:{amplitude:2}}];
+ const {recording,events:rebased}=recordingFromFeedback(message,upstream,events);
+ assert.deepEqual(recording.dataUv,[[-.2,.3,.8]]);assert.deepEqual(recording.timesMs,[0,1,2]);
+ assert.equal(recording.sfreqHz,1000);assert.equal(recording.provenance.upstreamStartMs,11);
+ assert.equal(recording.provenance.parentRunId,'upstream');assert.equal(recording.provenance.clock,'solver-integration-ms');
+ assert.deepEqual(recording.channels,[{label:'Cz',positionMm:[0,0,95]}]);
+ assert.equal(recording.experiment.parameters.processing.phase,'causal');assert.equal(recording.experiment.parameters.controllerState.startedMs,0);
+ assert.equal(rebased.length,1);assert.equal(rebased[0].tMs,1);assert.equal(rebased[0].condition,'unclassified');
+ state.samples[0].value=999;assert.equal(recording.dataUv[0][0],-.2,'export owns its data');
+ assert.throws(()=>reReferenceRecording(recording,{mode:'infinity'}),/raw|infinity|无限远/i);
+ assert.throws(()=>recordingFromFeedback({...message,t_ms:14},upstream,events),/current/);
+ assert.throws(()=>recordingFromFeedback({...message,run_id:'old-run'},upstream,events),/current/);
+});
