@@ -201,7 +201,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
           )}
           <p className="panel-text">
             黑点 = 实测电极位置；色块 = 插值场（单位圆内网格，25×25）。最大值 {maxAbsTopo.toFixed(2)} µV。
-            插值在电极点上近乎重现实测值（λ = 1e-5 平滑所致残差 ≤ 0.02 µV），但两电极之间的值仍是插值，不是测量。
+            {text('这是头坐标方向上的球面样条近似；布局改变时误差也会改变，不作整个空间的误差保证。电极之间的值是插值，不是测量。','This spherical-spline approximation uses head-coordinate directions. Error depends on the layout; no whole-space error bound is asserted. Between-sensor values are interpolated, not measured.')}
           </p>
         </div>
 
@@ -211,8 +211,8 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
             '左图是当前记录的电极插值；右图直接计算同一组源、同一时刻的电位，参考按当前记录的通道定义。右图不包含测量噪声。',
             'Left: interpolation of the current recording. Right: direct forward values from the same sources and time, referenced over the recording channels. Measurement noise is excluded from the right panel.'
           ):'左侧 2D 地形读取当前 EEG 记录；右侧示例使用下面单独设置的源位置、方向和强度计算，不是同一时刻、同一源的第二种视图。仅作为独立球形正向求解演示，不要直接比较两图数值。'}</p>
-          {fixtureError && <p className="panel-text" role="alert">{fixtureError}</p>}
-          {!loadedFixture && !fixtureError && <p className="panel-text">正在加载 MNE 正向模型…</p>}
+          {fixtureError&&recording.forwardModelId!==FSAVERAGE_BEM_MODEL_ID && <p className="panel-text" role="alert">{fixtureError}</p>}
+          {!forward&&!loadedFixture && !fixtureError && <p className="panel-text">正在加载 MNE 正向模型…</p>}
           {forward && (
             <>
               <svg width="100%" height="320" viewBox="0 0 320 320" role="img" aria-label={recording.sourceSeries?text('当前源的正向电位采样图','Forward samples of the current sources'):'Independent spherical forward potentials projected onto a 2D sensor diagram'}>

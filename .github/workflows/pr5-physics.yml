@@ -131,7 +131,9 @@ jobs:
         run: node tests/ui-language-workspace-browser.mjs
       - name: Native integration acquisition and EEG export
         working-directory: app
-        run: node tests/native-acquisition-browser.mjs
+        run: |
+          node tests/native-acquisition-browser.mjs
+          node tests/native-feedback-browser.mjs
       - name: Shared physical source and observation time
         working-directory: app
         run: node tests/physical-source-browser.mjs

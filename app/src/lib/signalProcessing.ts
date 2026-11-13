@@ -1,3 +1,4 @@
+import {analysisBandwidthHz} from './scientificValidity.ts';
 /**
  * PR6 — 信号处理核心（A1）。
  *
@@ -728,6 +729,7 @@ export function epochRecording(
     keptEvents.push(ev);
   }
   return {
+    ...(rec.effectiveBandwidthHz!==undefined||rec.acquisition||(rec.provenance&&'effectiveSourceSnapshotHz' in rec.provenance)?{effectiveBandwidthHz:analysisBandwidthHz(rec)}:{}),
     tminMs,
     tmaxMs,
     baselineMs: [baselineMs[0], baselineMs[1]],
@@ -899,6 +901,7 @@ export function erspItc(
   if (epochs.trials.length === 0) throw new RangeError('erspItc: no trials');
   assertFiniteArray(freqsHz, 'freqsHz');
   if (freqsHz.length === 0) throw new RangeError('erspItc: empty freqsHz');
+  if(freqsHz.some(f=>f>=analysisBandwidthHz(epochs)))throw new RangeError('erspItc: requested frequency exceeds source bandwidth');
   if (baselineMs[0] > baselineMs[1]) {
     throw new RangeError(`erspItc: baselineMs must satisfy lo <= hi, got [${baselineMs}]`);
   }

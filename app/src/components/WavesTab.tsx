@@ -1,3 +1,5 @@
+import {analysisBandwidthHz} from '../lib/scientificValidity';
+import {useI18n} from '../lib/i18n';
 /**
  * PR6 (B2) — WAVES tab：PSD / 频段 / 峰值 / 预设。
  *
@@ -51,9 +53,12 @@ export default function WavesTab({
   // PR8-D：叠加 PR6 噪声背景（默认关）。噪声是伪迹、不是神经源：开关只
   // 改变 PSD 的输入信号，不改记录本身、不跑模型。默认噪声参数
   // （白 2 / 粉红 1 / 工频 0.5 / 漂移 0.5 µV RMS）与种子取自当前记录。
+  const {locale}=useI18n();const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
+  const limit=recording?analysisBandwidthHz(recording):125;
   const [showBackground, setShowBackground] = useState(false);
   const analysis = useMemo(() => {
     if (!recording) return null;
+    if(limit<=.5)return {error:text('来源带宽不足以分析脑电频段。','Source bandwidth is too low for EEG-band analysis.')} as const;
     const chIdx = recording.channels.findIndex((c) => c.label === channel);
     if (chIdx < 0) return { error: `通道 ${channel} 不在记录中` } as const;
     const analyseSignal = (x: number[]) => {
@@ -65,12 +70,12 @@ export default function WavesTab({
       let peakHz = 0;
       let peakPsd = -1;
       for (let i = 0; i < freqsHz.length; i++) {
-        if (freqsHz[i] >= EEG_BANDS.alpha[0] && freqsHz[i] <= EEG_BANDS.alpha[1] && psd[i] > peakPsd) {
+        if (freqsHz[i]<limit&&freqsHz[i] >= EEG_BANDS.alpha[0] && freqsHz[i] <= EEG_BANDS.alpha[1] && psd[i] > peakPsd) {
           peakPsd = psd[i];
           peakHz = freqsHz[i];
         }
       }
-      const total = BAND_ORDER.reduce((s, b) => s + bands[b], 0);
+      const total = BAND_ORDER.filter(b=>EEG_BANDS[b][1]<limit).reduce((s, b) => s + bands[b], 0);
       const shares: Record<EegBandName, number> = {} as Record<EegBandName, number>;
       for (const b of BAND_ORDER) shares[b] = total > 0 ? bands[b] / total : 0;
       const rms = Math.sqrt(xc.reduce((s, v) => s + v * v, 0) / xc.length);
@@ -85,7 +90,7 @@ export default function WavesTab({
     const mixed = x.map((v, j) => v + noise.total[chIdx][j]);
     const withBg = analyseSignal(mixed);
     return { ...withBg, baseAlphaShare: base.shares.alpha, backgroundOn: true };
-  }, [recording, channel, showBackground]);
+  }, [recording, channel, showBackground,limit,locale]);
 
   if (!recording) {
     return (
@@ -95,7 +100,7 @@ export default function WavesTab({
       </div>
     );
   }
-  if (!analysis || analysis.error) {
+  if (!analysis || analysis.error !== null) {
     return (
       <div style={panel}>
         <h3 style={title}>频段 / PSD（WAVES）</h3>
@@ -109,7 +114,7 @@ export default function WavesTab({
   const realOz = PUBLIC_EEG_CONSTRAINT.alphaPeakHzAtOz;
   // PSD 曲线：0.5–45 Hz，y 取 log10（PSD 跨多个量级）。
   const lo = 0.5;
-  const hi = 45;
+  const hi = Math.min(45,limit);
   const pts: string[] = [];
   let logMin = Infinity;
   let logMax = -Infinity;
@@ -137,22 +142,25 @@ export default function WavesTab({
     <div>
       <div style={panel}>
         <h3 style={title}>频段 / PSD（WAVES）——通道 {channel}</h3>
+        <p style={note} data-testid="analysis-bandwidth" data-limit-hz={limit}>{text('来源有效分析上限','Source analysis ceiling')}: {limit.toFixed(2)} Hz</p>
         <label style={{ ...note, display: 'block', cursor: 'pointer' }}>
           <input aria-label="叠加噪声背景" type="checkbox" checked={showBackground}
             onChange={e => setShowBackground(e.target.checked)} /> 叠加 PR6 噪声背景（白 2 / 粉红 1 / 工频 0.5 / 漂移 0.5 µV RMS，伪迹，非神经源；只改变 PSD 输入，不改记录）
         </label>
         <p style={note}>
-          Welch PSD（nFft=1024，df≈0.244 Hz，周期 Hann、50% 重叠；先减均值，与 Python scipy 同口径）。
-          Alpha 峰 <strong>{peakHz.toFixed(2)} Hz</strong>；ds003061 实测 Pz {realPz.toFixed(2)} Hz / Oz{' '}
-          {realOz.toFixed(2)} Hz，偏差 {peakHz - realPz >= 0 ? '+' : ''}
-          {(peakHz - realPz).toFixed(2)} Hz（Pz）/ {peakHz - realOz >= 0 ? '+' : ''}
-          {(peakHz - realOz).toFixed(2)} Hz（Oz）。记录 RMS {rms.toFixed(3)} µV（真实基线 RMS 6.07 µV）。
-          {analysis.backgroundOn && ` 已叠加噪声背景：未叠加时 alpha 占比 ${(analysis.baseAlphaShare * 100).toFixed(1)}%。`}
+          Welch PSD · Hann · 50% overlap · Δf {(freqsHz[1]-freqsHz[0]).toFixed(3)} Hz.
+          {' '}{text('Alpha 峰','Alpha peak')}: <strong>{analysis.peakPsd>1e-16&&limit>13?peakHz.toFixed(2)+' Hz':text('无可分辨峰值','No resolved peak')}</strong>.
+          {' '}RMS {rms.toFixed(3)} µV.
+          {analysis.backgroundOn&&text(' 此图叠加了单独标注的测量噪声。',' Separately labeled measurement noise is added to this view.')}
         </p>
+        <details><summary>{text('公开记录的参考数值','Public-recording reference values')}</summary>
+         <p style={note}>ds003061 · Pz {realPz.toFixed(2)} Hz · Oz {realOz.toFixed(2)} Hz · RMS 6.07 µV.
+          {' '}{text('不同来源的描述性参考；不是当前实验的生理校准。','Descriptive values from a different source; not physiological calibration of this experiment.')}</p>
+        </details>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={`${channel} 通道 Welch PSD（0.5–45 Hz，log 坐标）`}
+          aria-label={text(`${channel} 通道 Welch PSD（0.5–${hi.toFixed(1)} Hz，log 坐标）`,`${channel} Welch PSD (0.5–${hi.toFixed(1)} Hz, log scale)`)}
           style={{ width: '100%', height: 'auto', background: '#08131d', display: 'block' }}
         >
           <polyline fill="none" stroke="#22d3ee" strokeWidth="1.5" points={pts.join(' ')} />
@@ -169,19 +177,19 @@ export default function WavesTab({
             <div style={{ flex: 1, height: 12, background: '#13293a', borderRadius: 3, overflow: 'hidden' }}>
               <div
                 style={{
-                  width: `${(shares[b] * 100).toFixed(1)}%`,
+                  width: `${EEG_BANDS[b][1]<limit?(shares[b]*100).toFixed(1):0}%`,
                   height: '100%',
                   background: b === 'alpha' ? '#22d3ee' : '#7b61ff',
                 }}
               />
             </div>
             <span style={{ width: 52, fontSize: 12, textAlign: 'right', flexShrink: 0 }}>
-              {(shares[b] * 100).toFixed(1)}%
+              {EEG_BANDS[b][1]<limit?(shares[b]*100).toFixed(1)+'%':text('带宽不足','Unavailable')}
             </span>
           </div>
         ))}
         <p style={note}>
-          占比分母是五个频段功率之和。JR p0=220 纯极限环的 alpha 占比约 99.8%，真实 Pz 只有 30.3%
+          {text('占比分母仅包含来源带宽完整支持的频段。','Shares include only complete bands supported by the source bandwidth.')}JR p0=220 纯极限环的 alpha 占比约 99.8%，真实 Pz 只有 30.3%
           （真实脑电有宽带背景），模型无背景噪声，占比虚高是已知局限，不是拟合结果。
           叠加默认噪声背景后，10 s 纯极限环 Pz 记录的 alpha 占比实测由 99.8% 降至 13.5%
           （噪声功率压过微弱的极限环信号，低于真实 30.3%——背景加过了头，不是校准到 30.3%；

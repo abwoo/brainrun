@@ -1,3 +1,5 @@
+import {analysisBandwidthHz,supportedAnalysisFrequencies} from '../lib/scientificValidity';
+import {useI18n} from '../lib/i18n';
 import Dropdown from './ui/Dropdown';
 /**
  * PR-10 时频 tab（B3）。
@@ -30,7 +32,7 @@ export interface TfrTabProps {
 
 type TfrMethod = 'stft' | 'morlet' | 'multitaper';
 
-const FREQS_HZ = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40];
+const ALL_FREQS_HZ = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40];
 
 const METHOD_NOTE: Record<TfrMethod, string> = {
   stft: 'STFT：nFft = min(256, epoch 长的 2 的幂)，hop = nFft/2，周期 Hann 窗。时间分辨率 = hop/fs，频率分辨率 = fs/nFft。',
@@ -54,6 +56,9 @@ function erspColor(db: number, maxAbs: number): string {
 }
 
 export default function TfrTab({ epochs, channel }: TfrTabProps) {
+  const {locale}=useI18n();const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
+  const limit=epochs?analysisBandwidthHz(epochs):125;
+  const FREQS_HZ=useMemo(()=>epochs?supportedAnalysisFrequencies(epochs,ALL_FREQS_HZ):ALL_FREQS_HZ,[epochs]);
   const [method, setMethod] = useState<TfrMethod>('morlet');
   const [band, setBand] = useState<EegBandName>('beta');
   const [tWin, setTWin] = useState<[number, number]>([100, 500]);
@@ -61,20 +66,21 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const tfr = useMemo(() => {
-    if (!epochs || epochs.trials.length === 0) return null;
+    if (!epochs || epochs.trials.length === 0||FREQS_HZ.length===0) return null;
     try {
       return erspItc(epochs, channel, FREQS_HZ, method, epochs.baselineMs);
     } catch {
       return null;
     }
-  }, [epochs, channel, method]);
+  }, [epochs, channel, method,FREQS_HZ]);
 
   // PR8-NUMFIX：无噪声时各试次完全相同（试次间最大差 <1e-6 µV），各试次
   // TFR 相位全同，ITC 恒为 1.000——是退化值，不是锁相证据。此时不展示
   // ITC 数值（ERSP 是功率比，仍有意义）；加测量噪声后试次有了差异，
   // ITC 才恢复为可读的测量。阈值与实测见 signalProcessing.ts。
   const itcDegenerate = useMemo(() => {
-    if (!epochs || epochs.trials.length < 2) return false;
+    if (!epochs) return false;
+    if(epochs.trials.length<2)return true;
     try {
       return maxTrialDifferenceUv(epochs, channel) < ITC_DEGENERATE_THRESHOLD_UV;
     } catch {
@@ -88,6 +94,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
     const chIdx = epochs.channels.indexOf(channel);
     if (chIdx < 0) return null;
     const [lo, hi] = EEG_BANDS[band];
+    if(hi>=limit)return null;
     const freqs: number[] = [];
     for (let f = Math.ceil(lo); f <= hi; f += 1) freqs.push(f);
     if (freqs.length === 0) return null;
@@ -102,7 +109,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
       }
     }
     return { timesMs: epochs.timesMs, powerUv2: acc.map((v) => v / epochs.trials.length), freqs };
-  }, [epochs, channel, band]);
+  }, [epochs, channel, band,limit,FREQS_HZ]);
 
   // 区域选择：所选时间–频率窗内的平均 ERSP 与 ITC。
   const regionStats = useMemo(() => {
@@ -121,17 +128,18 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
     }
     if (n === 0) return null;
     return { meanErspDb: sE / n, meanItc: sI / n, n };
-  }, [tfr, tWin, fWin]);
+  }, [tfr, tWin, fWin,FREQS_HZ]);
 
   // 热图绘制。
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !tfr) return;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
+    if(!tfr)return;
     let maxAbs = 1;
     for (const row of tfr.erspDb) for (const v of row) maxAbs = Math.max(maxAbs, Math.abs(v));
     const nF = tfr.erspDb.length;
@@ -186,14 +194,14 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
   return (
     <div>
       <h3>时频（ERSP / ITC）——{channel}，{epochs.trials.length} 试次</h3>
+      <p className="panel-text" data-testid="analysis-bandwidth" data-limit-hz={limit}>{text('来源有效分析上限','Source analysis ceiling')}: {limit.toFixed(2)} Hz · {text('上采样不增加原信号的带宽；不完整的频段不报告功率。','Upsampling adds no signal bandwidth; incomplete bands do not report power.')}</p>
       <p className="panel-text">
         ERSP = 10·log10(试次平均功率 / 基线功率)，基线 {epochs.baselineMs[0]}–{epochs.baselineMs[1]} ms；ITC = |试次平均 e^(iφ)|（0–1）。
         三种方法的结果不直接混比：同一份数据、不同方法算出的 ERSP 峰值本来就不一样（实测 ERP：Morlet 3.36 dB、STFT 5.37 dB）。
       </p>
       {itcDegenerate && (
         <p className="panel-text" style={{ color: '#ffb340' }}>
-          注意：当前试次完全相同（无测量噪声、确定性模型），ITC 恒为 1.000 是退化值、不是锁相证据，
-          本页不展示 ITC 数值。想看有意义的 ITC，请在 EEG tab 加测量噪声（如白噪声 0.25 µV）后重新运行实验。
+          {text('有效试次不足两次或试次完全相同，ITC 不具备试次间相位一致性的解释条件，本页不展示其数值。增加人工噪声也不能代替真实的独立试次验证。','Fewer than two trials, or identical trials, cannot support an inter-trial phase-consistency interpretation; ITC values are hidden. Adding artificial noise does not substitute for independent-trial validation.')}
         </p>
       )}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -209,7 +217,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
           频段：
           <Dropdown value={band} onChange={(e) => setBand(e.target.value as EegBandName)} style={{ marginLeft: 6 }}>
             {(Object.keys(EEG_BANDS) as EegBandName[]).map((b) => (
-              <option key={b} value={b}>
+              <option key={b} value={b} disabled={EEG_BANDS[b][1]>=limit}>
                 {b} {EEG_BANDS[b][0]}–{EEG_BANDS[b][1]} Hz
               </option>
             ))}
@@ -229,7 +237,7 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
             aria-label={`ERSP heatmap, ${channel}, ${method}`}
           />
           <p className="panel-text">
-            横轴 {tRange[0]}–{tRange[1]} ms（相对事件），纵轴 2–40 Hz（上高下低）；黄色框 = 下方区域选择。
+            横轴 {tRange[0]}–{tRange[1]} ms（相对事件），纵轴 {FREQS_HZ[0]??0}–{FREQS_HZ.at(-1)??0} Hz（上高下低）；黄色框 = 下方区域选择。
             蓝 = 功率低于基线，红 = 高于基线。
           </p>
         </div>
@@ -265,15 +273,15 @@ export default function TfrTab({ epochs, channel }: TfrTabProps) {
           <label>
             频率窗：{fWin[0]}–{fWin[1]} Hz
             <span style={{ display: 'flex', gap: 8 }}>
-              <input type="range" min={2} max={40} step={2} value={fWin[0]} onChange={(e) => setFWin([Math.min(+e.target.value, fWin[1]), fWin[1]])} aria-label="区域起始频率" />
-              <input type="range" min={2} max={40} step={2} value={fWin[1]} onChange={(e) => setFWin([fWin[0], Math.max(+e.target.value, fWin[0])])} aria-label="区域结束频率" />
+              <input type="range" min={2} max={Math.min(40,Math.floor(limit))} step={2} value={fWin[0]} onChange={(e) => setFWin([Math.min(+e.target.value, fWin[1]), fWin[1]])} aria-label="区域起始频率" />
+              <input type="range" min={2} max={Math.min(40,Math.floor(limit))} step={2} value={fWin[1]} onChange={(e) => setFWin([fWin[0], Math.max(+e.target.value, fWin[0])])} aria-label="区域结束频率" />
             </span>
           </label>
           {regionStats && (
             <span className="panel-text">
               区域内平均 ERSP <b>{regionStats.meanErspDb.toFixed(2)} dB</b>，平均 ITC{' '}
               {itcDegenerate ? (
-                <b>不适用（试次完全相同，ITC 恒为 1.000 是退化值）</b>
+                <b>{text('不可解释（有效试次不足或完全相同）','Uninterpretable: insufficient or identical trials')}</b>
               ) : (
                 <b>{regionStats.meanItc.toFixed(3)}</b>
               )}

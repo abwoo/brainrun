@@ -9,12 +9,12 @@ interface Integrator {
  time_ms():number;dt_ms():number;n_nodes():number;step():boolean;
  snapshot_e():Float64Array;snapshot_i():Float64Array;
 }
-export function advanceAcquiring(sim:Integrator,ms:number,run_id:string):NativeChunk {
+export function advanceAcquiring(sim:Integrator,ms:number,run_id:string,hooks?:{beforeStep?:(tMs:number)=>void;afterStep?:(tMs:number,e:Float64Array)=>void}):NativeChunk {
  if(!Number.isFinite(ms)||ms<0)throw new RangeError('Invalid integration duration');
  const dt=sim.dt_ms(),n=sim.n_nodes(),start=sim.time_ms(),values:number[]=[];
- const capture=()=>{values.push(...sim.snapshot_e(),...sim.snapshot_i());};
+ const capture=(integrated=false)=>{const e=sim.snapshot_e();values.push(...e,...sim.snapshot_i());if(integrated)hooks?.afterStep?.(sim.time_ms(),e);};
  capture();
- for(let j=0;j<Math.round(ms/dt);j++){if(!sim.step())break;capture();}
+ for(let j=0;j<Math.round(ms/dt);j++){hooks?.beforeStep?.(sim.time_ms());if(!sim.step())break;capture(true);}
  return {type:'native_samples',run_id,start_ms:start,dt_ms:dt,n_nodes:n,
   n_samples:values.length/(2*n),values:new Float64Array(values)};
 }

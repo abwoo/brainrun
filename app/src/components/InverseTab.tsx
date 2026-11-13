@@ -1,3 +1,4 @@
+import {useI18n} from '../lib/i18n';
 import {fixtureForPhysicalRecording} from '../lib/physicalExperiment';
 import {templateLeadField} from '../lib/templateExperiment';
 import {FSAVERAGE_BEM_MODEL_ID} from '../lib/fsaverageBEM';
@@ -50,6 +51,7 @@ function fmtVec(v: Vec3Mm): string {
 }
 
 export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseTabProps) {
+  const {locale}=useI18n();const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   const [truePos, setTruePos] = useState<Vec3Mm>([16, 16, 16]);
   const [trueAxis, setTrueAxis] = useState<'X' | 'Y' | 'Z'>('Y');
   const [trueMoment, setTrueMoment] = useState(10);
@@ -79,7 +81,7 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
 
   // 对当前记录：全通道 RMS 最大的采样点。
   const onRecording = useMemo(() => {
-    if (!recording || !fixture || recording.channels.length < 3) return null;
+    if (!recording || recording.channels.length < 3) return null;
     try {
       const nT = recording.timesMs.length;
       let bestJ=0;
@@ -89,7 +91,7 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
       const dataUv = recording.channels.map((_, c) => recording.dataUv[c][bestJ]);
       const lf = recording.forwardModelId===FSAVERAGE_BEM_MODEL_ID?templateLeadField(recording):
         recording.sourceSnapshot?buildLeadField(fixtureForPhysicalRecording(recording),recording.montage,recording.reference):
-        recording.forwardModelId===fixture.model_id?buildLeadField(fixture, recording.montage, recording.reference):null;
+        fixture&&recording.forwardModelId===fixture.model_id?buildLeadField(fixture, recording.montage, recording.reference):null;
       if(!lf)throw new Error('Forward model does not match recording');
       const fit = dipoleFit(lf, dataUv);
       const inv = mneInverse(lf, dataUv, { lambda2, noiseRmsUv: mneNoiseRmsUv });
@@ -110,10 +112,9 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
       <p className="panel-text">{recording?recording.forwardModelId:""}</p>
       <h3>源定位——偶极子拟合 + MNE 逆解</h3>
       <p className="panel-text">
-        正向模型：MNE 四层球形头 lead-field（64 点源网格，轴 −48–48 mm）。
-        逆解只读 lead-field + 电位数据，真值标签绝不进逆解函数；真值只在盲测演示里用来合成数据与事后算误差。
+        {text('左侧是独立球形盲测；右侧使用当前记录对应的正向矩阵与观察时刻。真值不进入逆解，只在盲测后计算误差。','Left: an independent sphere blind test. Right: the current recording, its matching forward matrix and observation time. Ground truth is used only to assess blind-test error after estimation.')}
       </p>
-      {!fixture && <p className="panel-text" role="alert">球形 lead-field 未传入（fixture 为空），逆解不可用。</p>}
+      {!fixture && <p className="panel-text" role="alert">{text('独立球形盲测的矩阵未加载。','The independent sphere blind-test matrix is not loaded.')}</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
@@ -244,8 +245,7 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
                 </tbody>
               </table>
               <p className="panel-text">
-                注意：此处没有真值，无法报告定位误差；两种方法位置不一致时，优先信残差小的那个，
-                并看 MNE 的分布范围——分布越散，峰值位置越不可信。
+                {text('两种方法的目标不同。残差用于检查单偶极子模型的适合程度，不能证明定位真实；最小范数存在深度偏置，分布范围不等于置信区间。','The methods optimize different objectives. Residuals assess the single-dipole model fit, not localization truth. Minimum norm has depth bias; spatial spread is not a confidence interval.')}
               </p>
             </>
           )}

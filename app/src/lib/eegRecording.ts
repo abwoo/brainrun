@@ -904,6 +904,7 @@ export function runLiveExperiment(opts: RunLiveExperimentOptions): {
   const labels = channels.map((c) => c.label);
   const recording: EegRecording = {
     version: 1,
+    effectiveBandwidthHz:Math.min(DEFAULT_SFREQ_HZ/2,snapshotHz/2),
     sfreqHz: DEFAULT_SFREQ_HZ,
     timesMs,
     channels,
@@ -1023,6 +1024,7 @@ export function recordingToCsv(rec: EegRecording): string {
     `# noise=${rec.noise ? JSON.stringify(rec.noise) : 'null'}`,
     ...(rec.dataRevision?[`# data_revision=${rec.dataRevision}`,`# processing_history=${JSON.stringify(rec.processingHistory??[])}`]:[]),
     ...(rec.acquisition?[`# acquisition=${JSON.stringify(rec.acquisition)}`]:[]),
+    ...(rec.effectiveBandwidthHz!==undefined?[`# effective_bandwidth_hz=${rec.effectiveBandwidthHz}`]:[]),
     ['time_ms', ...labels].join(','),
   ];
   for (let j = 0; j < rec.timesMs.length; j++) {

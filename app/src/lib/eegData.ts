@@ -35,6 +35,8 @@ export interface NoiseParams {
 
 export interface EegRecording {
   version: 1;
+  /** Analysis ceiling; never inferred from the upsampled grid alone. */
+  effectiveBandwidthHz?:number;
   sourceSeries?: {
     coordinateFrame:'head-RAS-sphere-centered'|'HEAD_RAS_MM';
     mapping:'manual-physical'|'manual-template'|'assumed-local-column'|'tvb-demo-unregistered';
@@ -104,6 +106,7 @@ export interface EegEvent {
 }
 
 export interface EpochSet {
+  effectiveBandwidthHz?:number;
   /** Raw processing revision used to derive these epochs. */
   dataRevision?: number;
   /** Parent run of the original Raw, or a separate independent late-ERP run. */

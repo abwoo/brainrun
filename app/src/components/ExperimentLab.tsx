@@ -364,56 +364,47 @@ export default function ExperimentLab({
   const [clLiveMax, setClLiveMax] = useState('5');
   const [clLiveRunning, setClLiveRunning] = useState(false);
   const [clLiveLog, setClLiveLog] = useState<string[]>([]);
-  const clLiveStateRef = useRef({ lastTriggerWall: 0, count: 0 });
+  const [clWorkerActive,setClWorkerActive]=useState(false);
+  const clLiveRequestedRef=useRef(false);
   const liveSim = live?.sim ?? null;
   const liveNode = live?.node ?? null;
 
   useEffect(() => {
-    if (!clLiveRunning) return;
+    if (!clLiveRunning) {
+      if(clLiveRequestedRef.current){liveSim?.configureNativeFeedback(null);clLiveRequestedRef.current=false;}
+      return;
+    }
     if (!liveSim || liveNode === null) {
       setClLiveRunning(false);
       return;
     }
-    const timer = window.setInterval(() => {
-      const latest = liveSim.getLatest();
-      if (!latest) return;
-      const node = liveNode;
-      let feat: number;
-      if (clLiveFeature === 'instant') {
-        feat = latest.e[node];
-      } else {
-        const hist = liveSim.getSnapshotHistory();
-        const win = hist.filter((s) => s.t_ms >= latest.t_ms - 1000);
-        feat = win.length
-          ? Math.sqrt(win.reduce((s, x) => s + x.e[node] * x.e[node], 0) / win.length)
-          : latest.e[node];
-      }
-      const thr = Number(clLiveThreshold);
-      const amp = Number(clLiveAmp);
-      const max = Number(clLiveMax);
-      const now = Date.now();
-      if (
-        Number.isFinite(feat) && Number.isFinite(thr) && feat > thr &&
-        now - clLiveStateRef.current.lastTriggerWall >= 2000 &&
-        clLiveStateRef.current.count < max
-      ) {
-        clLiveStateRef.current.lastTriggerWall = now;
-        clLiveStateRef.current.count += 1;
-        liveSim.pulseAt(node, amp, 100);
-        const n = clLiveStateRef.current.count;
-        setClLiveLog((prev) => [
-          ...prev,
-          `t=${(latest.t_ms / 1000).toFixed(2)} s 特征 ${feat.toFixed(3)} > 阈值 ${thr} → 脉冲 #${node}（幅度 ${amp}，100 ms），第 ${n}/${max} 次`,
-        ]);
-        if (n >= max) setClLiveRunning(false);
-      }
-    }, 250);
-    return () => window.clearInterval(timer);
+    try{
+      liveSim.configureNativeFeedback({node:liveNode,feature:clLiveFeature,threshold:Number(clLiveThreshold),
+       amplitude:Number(clLiveAmp),maxTriggers:Number(clLiveMax),durationMs:100,
+       periodMs:250,windowMs:1000,cooldownMs:2000,delayMs:0});
+      clLiveRequestedRef.current=true;
+    }catch(e){setClError(String(e));setClLiveRunning(false);}
   }, [clLiveRunning, clLiveFeature, clLiveThreshold, clLiveAmp, clLiveMax, liveSim, liveNode]);
+  useEffect(()=>()=>{liveSim?.configureNativeFeedback(null);clLiveRequestedRef.current=false;},[liveSim]);
+  useEffect(()=>{
+    if(!liveSim)return;
+    return liveSim.subscribeNativeFeedback(message=>{
+      setClWorkerActive(message.active);
+      if(message.phase==='restored'&&message.state){
+        const c=message.state.config;setClLiveFeature(c.feature);setClLiveThreshold(String(c.threshold));setClLiveAmp(String(c.amplitude));setClLiveMax(String(c.maxTriggers));
+      }
+      if(message.phase==='applied'&&message.action){
+        const a=message.action;
+        setClLiveLog(prev=>[...prev,
+          't='+message.t_ms+' ms · E='+a.featureValue.toFixed(4)+' · detected='+a.detectedMs+' ms → applied='+message.t_ms+' ms · #'+a.id]);
+      }
+      if((message.phase==='applied'&&!message.active)||message.phase==='stopped')setClLiveRunning(false);
+    });
+  },[liveSim]);
 
   return (
     <div>
-      <div style={warn}>{CLOSED_LOOP_SIMULATION_ONLY}本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的三节来自主仿真真实快照。</div>
+      <div style={warn}>{CLOSED_LOOP_SIMULATION_ONLY}本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。</div>
 
       {/* A/B 对照 */}
       <div style={panel}>
@@ -615,30 +606,30 @@ export default function ExperimentLab({
       <div style={panel}>
         <h3 style={title}>闭环控制 · 直播闭环</h3>
         <p style={note}>
-          特征取自直播：选中脑区 #{liveNode ?? '—'} {live?.label ?? ''} 的 live E
+          特征取自原生积分：选中脑区 #{liveNode ?? '—'} {live?.label ?? ''} 的 live E
           （瞬时值，或最近 1 秒的 RMS）。特征超过阈值时，经 Worker 脉冲
-          （pulseAt，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 +
+          （原生积分时钟，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 +
           2 秒冷却 + 手动停止：脉冲可能把双稳态网络翻进高活动态，触发到上限
           自动停；停后若网络锁住，用主界面横幅的恢复/RESET 回来。
         </p>
         <div style={row}>
           <span style={label}>特征</span>
-          <Dropdown value={clLiveFeature} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
+          <Dropdown value={clLiveFeature} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveFeature(e.target.value as 'instant' | 'rms')}>
             <option value="instant">瞬时 E（无量纲）</option>
             <option value="rms">1 秒 RMS E（无量纲）</option>
           </Dropdown>
           <span style={label}>阈值</span>
-          <input style={input} value={clLiveThreshold} onChange={(e) => setClLiveThreshold(e.target.value)} />
+          <input style={input} aria-label="直播闭环阈值" value={clLiveThreshold} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveThreshold(e.target.value)} />
           <span style={label}>反馈脉冲幅度（模型单位）</span>
-          <input style={input} value={clLiveAmp} onChange={(e) => setClLiveAmp(e.target.value)} />
+          <input style={input} aria-label="直播闭环反馈幅度" value={clLiveAmp} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveAmp(e.target.value)} />
           <span style={label}>触发上限（次）</span>
-          <input style={input} value={clLiveMax} onChange={(e) => setClLiveMax(e.target.value)} />
-          {!clLiveRunning ? (
+          <input style={input} aria-label="直播闭环触发上限" value={clLiveMax} disabled={clLiveRunning||clWorkerActive} onChange={(e) => setClLiveMax(e.target.value)} />
+          {!(clLiveRunning||clWorkerActive) ? (
             <button
               style={button}
               disabled={!liveSim || liveNode === null}
               onClick={() => {
-                clLiveStateRef.current = { lastTriggerWall: 0, count: 0 };
+                clLiveRequestedRef.current=false;
                 setClLiveLog([]);
                 setClLiveRunning(true);
               }}
@@ -646,11 +637,11 @@ export default function ExperimentLab({
               启动直播闭环
             </button>
           ) : (
-            <button style={button} onClick={() => setClLiveRunning(false)}>停止直播闭环</button>
+            <button style={button} onClick={() => {setClLiveRunning(false);liveSim?.configureNativeFeedback(null);clLiveRequestedRef.current=false;}}>停止直播闭环</button>
           )}
           {(!liveSim || liveNode === null) && <span style={label}>先在主界面选一个脑区（直播未就绪或未选区时不可启动）。</span>}
         </div>
-        {clLiveRunning && <p style={note}>直播闭环运行中：每 250 ms 读一次直播快照，超阈值即反馈脉冲。</p>}
+        {(clLiveRunning||clWorkerActive) && <p style={note}>直播闭环运行中：Worker 每 250 ms 模型时间检查原生 E；RMS 需要完整 1000 ms 窗口。检测后至少 1 ms 施加输入，冷却 2000 ms；暂停会冻结控制时钟。</p>}
         {clLiveLog.map((line, i) => <p key={i} style={note}>{line}</p>)}
       </div>
 

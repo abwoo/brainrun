@@ -1,5 +1,17 @@
 /** Display phrases; scientific IDs, input values and exports are never translated. */
 export const englishPhrases: Record<string, string> = {
+  "JR p0=220 纯极限环的 alpha 占比约 99.8%，真实 Pz 只有 30.3% （真实脑电有宽带背景），模型无背景噪声，占比虚高是已知局限，不是拟合结果。 叠加默认噪声背景后，10 s 纯极限环 Pz 记录的 alpha 占比实测由 99.8% 降至 13.5% （噪声功率压过微弱的极限环信号，低于真实 30.3%——背景加过了头，不是校准到 30.3%； 见 PR8 方法学测试）。开关默认关闭，打开后上方同时显示未叠加时的占比以便对照。": "JR p0=220 has a nearly pure alpha limit cycle (about 99.8% alpha), whereas the cited real Pz recording has 30.3% with broadband background. This model mismatch is documented, not a fit. Adding default noise reduced alpha share to 13.5% in the cited 10 s example: noise overwhelmed the weak oscillation, rather than calibrating it. The optional overlay is off by default; its baseline share is also shown.",
+  "本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。": "The JR sections use a simulated cortical column, not human measurements. Live comparisons and replay use the main model; live feedback reads every 1 ms integration state.",
+  "特征取自原生积分：选中脑区 #": "Native-integration features from the selected region #",
+  "的 live E （瞬时值，或最近 1 秒的 RMS）。特征超过阈值时，经 Worker 脉冲 （原生积分时钟，100 ms）反馈回主仿真——不是只算 JR 柱。触发上限 + 2 秒冷却 + 手动停止：脉冲可能把双稳态网络翻进高活动态，触发到上限 自动停；停后若网络锁住，用主界面横幅的恢复/RESET 回来。": "live E (instantaneous or 1 s RMS). Above-threshold features schedule a 100 ms input through the Worker model clock. A trigger limit, 2 s model-time cooldown and manual stop bound the simulation. Inputs can switch the bistable network into a high-activity state; use restore/reset if needed.",
+  "直播闭环阈值":"Live feedback threshold",
+  "直播闭环反馈幅度":"Live feedback amplitude",
+  "直播闭环触发上限":"Live feedback trigger limit",
+  "特征取自原生积分":"Features use native integration",
+  "原生积分时钟":"Native integration clock",
+  "标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。":"Live comparisons and replay use the main model; live feedback reads every 1 ms integration state.",
+  "直播闭环运行中：Worker 每 250 ms 模型时间检查原生 E；RMS 需要完整 1000 ms 窗口。检测后至少 1 ms 施加输入，冷却 2000 ms；暂停会冻结控制时钟。":"Live feedback: Worker evaluates native E every 250 model ms; RMS needs a complete 1000 ms window. Input starts at least 1 ms after detection, with a 2000 ms cooldown. Pause freezes the control clock.",
+
   "减小": "Decrease",
   "拖动改值": "Drag to change",
   "双击恢复原始值": "Double-click to restore",

@@ -9,9 +9,11 @@ BrainRun is an interactive browser workbench for exploring physical head models 
 The home page opens directly to **Currents & sensors**. There is no automatic experiment, setup wizard, or preset dialog in front of the model.
 
 1. Drag the orange current source, or use the three position sliders.
-2. Change its direction or strength.
-3. Select a scalp sensor and inspect its potential. Source changes immediately update the forward calculation, 3D sensor display, and numerical readings.
-4. Expand model details only when you need electrode layout, voltage reference, units, or assumptions.
+2. Drag the arrow to rotate continuously, change its signed strength, or reverse polarity.
+3. Click a scalp sensor and inspect its potential. Scalp colors, the selected reading and the voltage trace share one forward calculation and a fixed µV scale.
+4. Expand model details for electrode layout/reference, a defined source pulse, a second source, scalp-constrained electrode dragging or skull conductivity. These controls change the corresponding calculation.
+5. Choose **Head model → Anatomical template BEM** for matching anatomy and precomputed cortical-source lead fields. It loads automatically; file preparation is not needed.
+6. Open **Signal analysis** to inspect the same physical source history. Raw, scalp samples, source estimates and exports retain its model, geometry, reference and observation time.
 
 The **Regions & activity** tab shows the 76-region network. Select a region, adjust input strength and duration, and apply an input explicitly. Selecting a region or rotating the view does not stimulate it. The activity trace reads the same Worker snapshots as the 3D view.
 
@@ -49,8 +51,10 @@ These are educational models, not measurements or predictions for an individual 
 - The four-layer sphere represents brain, CSF, skull and scalp. It uses a 95 mm radius and a finite, interpolated source grid. It is not individual MRI/BEM.
 - The TVB demonstration connectome is a hybrid example, mainly macaque CoCoMac weights with scaled human callosal DSI information. It is not a subject-specific human connectome and is not registered to the head-conductor model.
 - Neural-to-dipole gains remain explicit assumptions. Absolute EEG/ERP amplitudes are uncalibrated; the known amplitude and inverse-depth limitations remain documented.
-- A live recording derived from roughly 60 Hz visualization snapshots is not native 250/500 Hz acquisition.
-- Optional MRI/BEM models must be obtained and generated separately. Simulation feedback does not control human-use equipment.
+- The main network records every 1 ms integration state and produces anti-aliased 250/500 Hz EEG independently of display refresh. Its centered offline FIR discards 64 ms on each edge; it is not a causal online filter. Legacy snapshot-derived experiments retain explicit information-bandwidth limits.
+- The optional fsaverage BEM loads automatically with complete data notices; it is template anatomy with solved cortical nodes, not individual MRI or arbitrary-position BEM interpolation. Simulation feedback operates on Worker model time and never controls human-use equipment.
+
+Progress and remaining evidence requirements: [2.0 delivery and acceptance](docs/2.0-sequential-delivery.md).
 
 See [model specification](docs/model-spec.md), [frontend/solver contract](docs/frontend-backend-contract.md), [scientific validation](docs/validation.md), and [data licensing](docs/data-license.md).
 
@@ -59,10 +63,13 @@ See [model specification](docs/model-spec.md), [frontend/solver contract](docs/f
 Requirements: Node.js 24, Python 3.12, Rust with the WebAssembly target, and wasm-pack.
 
 ```bash
-python3 -m pip install numpy mne==1.11.0
+python3 -m pip install numpy mne==1.11.0 nibabel trimesh fast-simplification
 python3 scripts/prepare-brain-data/fetch.py
 python3 scripts/prepare-brain-data/prepare.py
 python3 scientific/forward/generate_sphere_model.py
+python3 scientific/forward/generate_sphere_model.py --skull-conductivity 0.002 --output app/public/forward-assets/sphere-skull-0.002.json
+python3 scientific/forward/generate_sphere_model.py --skull-conductivity 0.008 --output app/public/forward-assets/sphere-skull-0.008.json
+python3 scientific/forward/generate_fsaverage_bem.py --download --package-public --output app/public/forward-assets/fsaverage-bem.json
 bash scripts/build-wasm.sh
 cd app
 npm ci
