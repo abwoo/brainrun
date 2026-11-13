@@ -30,6 +30,12 @@ try{
   assert.equal(await page.getByTestId('network-state').getAttribute('data-active-inputs'),'0');
   assert.equal(await page.locator('.chart-wrap').getAttribute('data-y-max'),'1');
   console.log('Repeated-input measured case '+JSON.stringify({node,t:before.t,e:before.e,i:before.i,nativeTail:before.native.slice(-3)}));
+  // Populate an actual live chart at the later time before rewinding it.
+  await page.evaluate(()=>window.__brainSim.resume());
+  await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms>5100&&!window.__brainSim.getSnapshot()?.paused);
+  await page.waitForFunction(()=>window.__brainActivity.getBufferedSamples().some(x=>x.t_ms>5000));
+  await page.evaluate(()=>window.__brainSim.pause());
+  await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.paused);
   const checkpoint=JSON.parse(before.saved.json);
   await page.getByRole('button',{name:'Restore before input',exact:true}).click();
   await page.waitForFunction(old=>window.__brainSim.getSnapshot()?.run_id!==old&&window.__brainSim.getSnapshot()?.t_ms===500,before.run);
@@ -53,6 +59,27 @@ try{
   return {node,recovered:true};
  };
  await run(0);await run(40);await run(69);
+ // A local bistable state must not be mistaken for a recovered network just
+ // because the other 75 nodes keep the global mean below the high-state threshold.
+ await page.getByRole('combobox',{name:'Choose brain region',exact:true}).selectOption('0');
+ await page.evaluate(()=>{const s=window.__brainSim;s.setParams({g:0});s.setBackgroundMode('quiet');s.resetPaused();});
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===0);
+ await page.evaluate(()=>window.__brainSim.advanceMs(500));
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===500);
+ await page.evaluate(()=>{const s=window.__brainSim;s.pulseAt(0,2,500);s.advanceMs(2500);});
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===3000);
+ const local=await page.evaluate(()=>{const s=window.__brainSim;return {e:s.getSnapshot().e[0],mean:s.getSnapshot().mean_e,
+  before:s.getExperimentBundle().snapshots.find(x=>x.id==='pulse-baseline')};});
+ assert.ok(local.e>.15,'the case must actually reach a local high state');
+ assert.ok(local.mean<.15,'global mean alone must fail to identify this local state');
+ assert.equal(local.before.t_ms,500);
+ await page.evaluate(()=>{const s=window.__brainSim;s.pulseAt(0,2,100);s.advanceMs(1000);});
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===4000);
+ const after=await page.evaluate(()=>window.__brainSim.getExperimentBundle().snapshots.find(x=>x.id==='pulse-baseline'));
+ assert.equal(after.json,local.before.json,'a high selected node must not overwrite its low-state recovery point');
+ await page.getByRole('button',{name:'Restore before input',exact:true}).click();
+ await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms===500&&window.__brainSim.getSnapshot()?.e[0]<.15);
+ console.log('Local high state / low global mean checkpoint regression PASS '+JSON.stringify({e:local.e,mean:local.mean}));
  assert.deepEqual(errors,[]);
  console.log('Repeated strong pulses: native clock continues, inputs expire, exact pre-input recovery, same-run chart reset, gentle UI controls and pause status PASS');
 }finally{await browser?.close();await server.httpServer.close();}

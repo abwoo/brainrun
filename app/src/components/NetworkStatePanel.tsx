@@ -30,7 +30,7 @@ export default function NetworkStatePanel({sim,selectedId,onRecover}:{sim:SimCli
   return()=>{unsubscribe?.();clearInterval(timer);};
  },[sim,selectedId]);
  const s=view.snap;
- const status=!s?'loading':s.diverged?'diverged':s.paused?'paused':view.stalled?'stalled':s.locked?'high':view.settled?'settled':'running';
+ const status=!s?'loading':s.diverged?'diverged':s.paused?'paused':view.stalled?'stalled':((s.locked&&s.mean_e>.15)||(view.settled&&selectedId!==null&&s.e[selectedId]>.15))?'high':view.settled?'settled':'running';
  const labels={
   loading:text('等待求解器','Waiting for solver'),
   diverged:text('计算已停止：数值发散','Computation stopped: numerical divergence'),

@@ -291,7 +291,7 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (!sim) return;
         // Retain an explicit recovery point before a non-overlapping low-state pulse.
         // Rapid/overlapping pulses must not overwrite it with an already-driven state.
-        if(!lockedLatched&&sim.mean_e()<LOCK_MEAN_E&&!pulses.length&&!holds.size&&
+        if(!lockedLatched&&sim.mean_e()<LOCK_MEAN_E&&sim.snapshot_e()[msg.node]<LOCK_MEAN_E&&!pulses.length&&!holds.size&&
            !activeInputs.some(p=>p.start_ms+p.duration_ms>sim!.time_ms())){
           const json=fullSnapshot(),t_ms=sim.time_ms();
           snapshots.set('pulse-baseline',{t_ms,json});
