@@ -262,6 +262,7 @@ export class SimClient {
   private worker: Worker | null = null;
   private listeners = new Set<SnapshotListener>();
   private latest: Snapshot | null = null;
+  private feedbackReadSequence=0;
   private feedbackMessage:Extract<WorkerOutMessage,{type:'native_feedback'}>|null=null;
   private feedbackEvents:Array<Extract<WorkerOutMessage,{type:'native_feedback'}>>=[];
   private feedbackListeners=new Set<(message:Extract<WorkerOutMessage,{type:'native_feedback'}>)=>void>();
@@ -550,6 +551,19 @@ export class SimClient {
 
   configureNativeFeedback(config:NativeFeedbackConfig|null):void {if(config)validateFeedbackConfig(config,this.currentWeights?.length??0);this.send({type:'set_native_feedback',config});}
   getNativeFeedback(){return this.feedbackMessage;}
+  requestNativeFeedback():Promise<Extract<WorkerOutMessage,{type:'native_feedback'}>> {
+    const requestId='feedback-read-'+(++this.feedbackReadSequence);
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{unsubscribe();reject(new Error('Worker feedback read timed out'));},5000);
+      const unsubscribe=this.subscribeNativeFeedback(message=>{
+        if(message.phase!=='observed'||message.requestId!==requestId)return;
+        clearTimeout(timer);unsubscribe();resolve(message);
+      });
+      if(this.send({type:'get_native_feedback',requestId})===null){
+        clearTimeout(timer);unsubscribe();reject(new Error('Worker is not ready'));
+      }
+    });
+  }
   subscribeNativeFeedback(fn:(message:Extract<WorkerOutMessage,{type:'native_feedback'}>)=>void):()=>void {
     this.feedbackListeners.add(fn);return()=>{this.feedbackListeners.delete(fn);};
   }
@@ -1122,6 +1136,7 @@ export class SimClient {
       compareNetworkBranches:(node:number,g:number,ms?:number)=>compareNetworkBranches(this,node,g,ms),
       configureNativeFeedback:(config:NativeFeedbackConfig|null)=>this.configureNativeFeedback(config),
       getNativeFeedback:()=>this.getNativeFeedback(),
+      requestNativeFeedback:()=>this.requestNativeFeedback(),
       resetSnapshotHistory: () => this.resetSnapshotHistory(),
       getParams: () => this.getParams(),
       getMarkers: () => this.getMarkers(),

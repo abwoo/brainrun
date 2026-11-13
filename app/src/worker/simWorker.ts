@@ -195,8 +195,8 @@ function snapshot(): Snapshot | null {
   };
 }
 
-function feedbackReport(phase:'configured'|'detected'|'applied'|'stopped'|'restored',action?:FeedbackAction):void {
- if(sim)post({type:'native_feedback',run_id:runId,phase,t_ms:sim.time_ms(),active:feedback?.active??false,state:feedback?.snapshot()??null,...(action?{action}:{})});
+function feedbackReport(phase:'configured'|'detected'|'applied'|'stopped'|'restored'|'observed',action?:FeedbackAction,requestId?:string):void {
+ if(sim)post({type:'native_feedback',requestId,run_id:runId,phase,t_ms:sim.time_ms(),active:feedback?.active??false,state:feedback?.snapshot()??null,...(action?{action}:{})});
 }
 function applyInput(node:number,start_ms:number,duration_ms:number,amplitude:number):void {
  if(!sim)return;sim.add_stimulus(node,start_ms,duration_ms,amplitude);
@@ -484,6 +484,9 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         const snap = snapshot();
         if (snap) post(snap);
         return;
+      }
+      case 'get_native_feedback': {
+        if(!sim)return;acknowledge(msg);feedbackReport('observed',undefined,msg.requestId);return;
       }
       case 'set_native_feedback': {
         if(!sim)return;

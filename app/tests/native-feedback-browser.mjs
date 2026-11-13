@@ -79,7 +79,23 @@ try{
  await page.evaluate(()=>window.__brainSim.restoreSnapshot('manual'));await page.evaluate(()=>window.__brainSim.advanceMs(400));
  await page.waitForFunction(t=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===t+400;},start);
  assert.deepEqual(await page.evaluate(start=>window.__brainSim.getNativeHistory().filter(s=>s.t_ms>=start).map(s=>s.e[40]),start),eegPath);
- await page.getByRole('button',{name:'停止直播闭环',exact:true}).click();
+ const retained=await page.evaluate(async()=>{const m=await window.__brainSim.requestNativeFeedback();return {values:m.state.samples.map(s=>s.value),times:m.state.samples.map(s=>s.tMs),runId:m.run_id,eeg:m.state.config.eeg};});
+ await page.getByRole('button',{name:'English',exact:true}).click();
+ await page.getByRole('button',{name:'Stop and analyze feedback EEG',exact:true}).click();
+ await page.getByTestId('eeg-summary').waitFor();
+ assert.equal(await page.locator('[data-analysis-run-id]').getAttribute('data-source-model'),'native-feedback-physical-eeg-v1');
+ const pendingDownload=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export JSON',exact:true}).click();
+ const download=await pendingDownload,stream=await download.createReadStream();let json='';
+ for await(const chunk of stream)json+=chunk.toString();
+ const raw=JSON.parse(json);
+ assert.deepEqual(raw.dataUv[0],retained.values);
+ assert.deepEqual(raw.timesMs,retained.times.map(t=>t-retained.times[0]));
+ assert.equal(raw.sfreqHz,1000);assert.equal(raw.provenance.parentRunId,retained.runId);
+ assert.equal(raw.experiment.parameters.measurementOperator.gainUvPerNAm,retained.eeg.gainUvPerNAm);
+ assert.equal(raw.experiment.parameters.processing.phase,'causal');
+ await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='stopped');
+ console.log('Exact native feedback EEG window -> shared analysis and JSON, frozen operator and rebased model time PASS');
  console.log('Physical EEG causal feedback: frozen MNE measurement, µV decisions, native E/I and filter-state replay PASS');
  console.log('Actual Worker feedback: 1 ms acquisition, display-rate invariance, model-time action stamps and complete controller snapshot replay PASS');
 }finally{await browser?.close();await server.httpServer.close();}
