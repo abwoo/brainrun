@@ -63,7 +63,9 @@ try{
  // set reciprocal weights to 3 and G=.35, and stimulate both nodes.
  // This explicitly constructed local circuit can stay high without a high global mean.
  const pair=await page.evaluate(()=>{
-  const s=window.__brainSim,w=s.getWeights();
+  const s=window.__brainSim,flat=s.getWeights(),n=Math.sqrt(flat.length);
+  if(!Number.isInteger(n))throw new Error('Invalid square row-major connectivity');
+  const w=Array.from({length:n},(_,i)=>flat.slice(i*n,(i+1)*n));
   let pair=null;
   for(let a=0;a<w.length&&!pair;a++)for(let b=a+1;b<w.length;b++)if(w[a][b]>0&&w[b][a]>0){pair=[a,b];break;}
   if(!pair)throw new Error('No existing reciprocal edge');
