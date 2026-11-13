@@ -62,7 +62,7 @@ try{
  await page.getByRole('tab',{name:'Source localization',exact:true}).click();
  assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-time-ms'),'600');
  assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-channels'),'19');
- await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('button',{name:'Back to physical models',exact:true}).click();
  await page.getByRole('button',{name:'中文',exact:true}).click();
  await page.getByRole('tab',{name:'脑区与传播',exact:true}).click();
  await page.waitForFunction(()=>window.__brainSim?.isReady()&&window.__brainSim.getSnapshot());
