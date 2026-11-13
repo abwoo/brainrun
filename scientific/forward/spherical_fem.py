@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""Conforming P1 tetrahedral spherical conductor benchmark, SI internally.
+
+Finite source/sink pair loads are deposited with P1 barycentric weights.
+No analytic gain is used to construct the FEM result; MNE is a validation only.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import time
+
+import numpy as np
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import splu
+
+RADII_MM = np.array([10,20,30,40,50,60,70,80,85.5,87.4,92.15,95.0])
+GRID_MM = [-16.0,16.0]
+PAIR_M = 0.002
+MODEL_ID = "p1-four-layer-spherical-fem-v1"
+
+
+def icosphere(level):
+    t = (1 + np.sqrt(5))/2
+    vertices = [(-1,t,0),(1,t,0),(-1,-t,0),(1,-t,0),
+                (0,-1,t),(0,1,t),(0,-1,-t),(0,1,-t),
+                (t,0,-1),(t,0,1),(-t,0,-1),(-t,0,1)]
+    vertices = [np.asarray(v)/np.linalg.norm(v) for v in vertices]
+    faces = [(0,11,5),(0,5,1),(0,1,7),(0,7,10),(0,10,11),
+             (1,5,9),(5,11,4),(11,10,2),(10,7,6),(7,1,8),
+             (3,9,4),(3,4,2),(3,2,6),(3,6,8),(3,8,9),
+             (4,9,5),(2,4,11),(6,2,10),(8,6,7),(9,8,1)]
+    for _ in range(level):
+        cache = {}
+        def midpoint(a,b):
+            key = tuple(sorted((a,b)))
+            if key not in cache:
+                p = vertices[a]+vertices[b]
+                cache[key] = len(vertices)
+                vertices.append(p/np.linalg.norm(p))
+            return cache[key]
+        refined = []
+        for a,b,c in faces:
+            ab,bc,ca = midpoint(a,b),midpoint(b,c),midpoint(c,a)
+            refined.extend([(a,ab,ca),(b,bc,ab),(c,ca,bc),(ab,bc,ca)])
+        faces = refined
+    return np.asarray(vertices), np.asarray(faces,dtype=np.int64)
+
+
+def mesh(level):
+    unit,faces = icosphere(level)
+    n = len(unit)
+    points = np.vstack([np.zeros((1,3)), *[unit*r*1e-3 for r in RADII_MM]])
+    tets,regions = [],[]
+    for f in faces:
+        tets.append([0,*(f+1)])
+        regions.append(0)
+    for ring in range(len(RADII_MM)-1):
+        region = 0 if RADII_MM[ring+1]<=85.5 else 1 if RADII_MM[ring+1]<=87.4 else 2 if RADII_MM[ring+1]<=92.15 else 3
+        for face in faces:
+            a,b,c = np.sort(face)+1+ring*n
+            A,B,C = a+n,b+n,c+n
+            tets.extend([[a,b,c,C],[a,b,B,C],[a,A,B,C]])
+            regions.extend([region]*3)
+    return points,np.asarray(tets),np.asarray(regions),unit,faces
+
+
+def geometry(points,tets):
+    x = points[tets]
+    J = np.transpose(x[:,1:]-x[:,:1],(0,2,1))
+    det = np.linalg.det(J)
+    assert np.min(np.abs(det))>1e-18, "Degenerate tetrahedron"
+    inverse = np.linalg.inv(J)
+    grad = np.concatenate([-inverse.sum(axis=1,keepdims=True),inverse],axis=1)
+    volume = np.abs(det)/6
+    return x[:,0],inverse,grad,volume
+
+
+def stiffness(points,tets,regions,sigmas,geom):
+    _,_,grad,volume = geom
+    local = np.einsum("eik,ejk,e->eij",grad,grad,volume*np.asarray(sigmas)[regions])
+    K = coo_matrix((local.ravel(),(np.repeat(tets,4,axis=1).ravel(),
+                                 np.tile(tets,(1,4)).ravel())),
+                   shape=(len(points),len(points))).tocsc()
+    return K
+
+
+def point_load(points,tets,geom,p):
+    x0,inverse,_,_ = geom
+    coordinates = np.einsum("eij,ej->ei",inverse,p-x0)
+    weights = np.concatenate([1-coordinates.sum(axis=1,keepdims=True),coordinates],axis=1)
+    candidates = np.flatnonzero(np.min(weights,axis=1)>=-1e-10)
+    if not len(candidates):
+        raise ValueError(f"Source outside mesh: {p}")
+    j = candidates[0]
+    out = np.zeros(len(points))
+    out[tets[j]] = weights[j]
+    return out
+
+
+def rhs_for_sources(points,tets,geom,positions):
+    columns = []
+    for p in positions:
+        for direction in np.eye(3):
+            plus,minus = p+PAIR_M/2*direction,p-PAIR_M/2*direction
+            assert max(np.linalg.norm(plus),np.linalg.norm(minus))<0.0855-0.001
+            b = (point_load(points,tets,geom,plus)-point_load(points,tets,geom,minus))*(1e-9/PAIR_M)
+            assert abs(b.sum())<1e-18, "Unbalanced current"
+            assert np.linalg.norm(points.T@b-1e-9*direction)<1e-20, "Dipole moment not conserved"
+            columns.append(b)
+    return np.asarray(columns).T
+
+
+def scalp_weights(points,faces,offset):
+    vertices = points[offset:]
+    tri = vertices[faces]
+    areas = np.linalg.norm(np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0]),axis=1)/2
+    weights = np.zeros(len(vertices))
+    for j in range(3):
+        np.add.at(weights,faces[:,j],areas/3)
+    return weights/weights.sum()
+
+
+def solve(points,tets,regions,geom,sigmas,rhs,faces):
+    K = stiffness(points,tets,regions,sigmas,geom)
+    assert np.max(np.abs(K@np.ones(len(points))))<1e-12
+    assert np.max(np.abs((K-K.T).data),initial=0)<1e-14
+    factor = splu(K[1:,1:].tocsc(),permc_spec="MMD_AT_PLUS_A")
+    values = np.vstack([np.zeros((1,rhs.shape[1])),factor.solve(rhs[1:])])
+    offset = len(points)-len(icosphere_from_faces(faces))
+    # Surface-area mean fixes only the additive Neumann gauge.
+    values -= scalp_weights(points,faces,offset)@values[offset:]
+    residual = np.linalg.norm(K@values-rhs)/np.linalg.norm(rhs)
+    assert residual<1e-8, f"Linear solve residual {residual}"
+    assert np.all(np.sum(rhs*values,axis=0)>0), "Nonpositive energy"
+    reciprocal = rhs.T@values
+    reciprocity = np.linalg.norm(reciprocal-reciprocal.T)/np.linalg.norm(reciprocal)
+    assert reciprocity<1e-9
+    return values,{"relative_residual":float(residual),"reciprocity_error":float(reciprocity)}
+
+
+def icosphere_from_faces(faces):
+    return np.arange(int(faces.max())+1)
+
+
+def project_sensors(unit,faces,directions):
+    # Intersect each radial ray with the actual polyhedral FEM boundary.
+    inv = np.linalg.inv(np.transpose(unit[faces],(0,2,1)))
+    result,weights,indices = [],[],[]
+    for direction in directions:
+        c = inv@direction
+        choices = np.flatnonzero(np.min(c,axis=1)>=-1e-10)
+        assert len(choices), "No boundary facet intersection"
+        i = choices[0]
+        w = c[i]/c[i].sum()
+        result.append(w@unit[faces[i]]*0.095)
+        weights.append(w)
+        indices.append(faces[i])
+    return np.asarray(result),np.asarray(weights),np.asarray(indices)
+
+
+def mne_reference(positions,sensor_positions,sigmas):
+    import mne
+    assert mne.__version__=="1.11.0"
+    origin = np.array([0.,0.,0.04])
+    info = mne.create_info([f"S{i}" for i in range(len(sensor_positions))],250,"eeg")
+    for ch,p in zip(info["chs"],sensor_positions):
+        ch["loc"][:3] = p+origin
+        ch["coord_frame"] = mne.io.constants.FIFF.FIFFV_COORD_HEAD
+    sphere = mne.make_sphere_model(r0=origin,head_radius=.095,
+        relative_radii=(.90,.92,.97,1),sigmas=sigmas,verbose=False)
+    dipoles = mne.Dipole(np.arange(len(positions)*3)*.001,
+        np.repeat(positions+origin,3,axis=0),np.full(len(positions)*3,1e-9),
+        np.tile(np.eye(3),(len(positions),1)),np.ones(len(positions)*3))
+    fwd,_ = mne.make_forward_dipole(dipoles,sphere,info,verbose=False)
+    return np.asarray(fwd["sol"]["data"])*1e-3
+
+
+def build(level=3,skull=.004):
+    start=time.monotonic()
+    points,tets,regions,unit,faces=mesh(level)
+    geom=geometry(points,tets)
+    positions=np.array([(x,y,z) for x in GRID_MM for y in GRID_MM for z in GRID_MM])*1e-3
+    rhs=rhs_for_sources(points,tets,geom,positions)
+    sigmas=[.33,1,skull,.33]
+    values,metrics=solve(points,tets,regions,geom,sigmas,rhs,faces)
+    surface=values[-len(unit):]*1e6
+    reference=mne_reference(positions,unit*.095,sigmas)
+    field=surface-surface.mean(axis=0)
+    reference-=reference.mean(axis=0)
+    errors=np.linalg.norm(field-reference,axis=0)/np.linalg.norm(reference,axis=0)
+    metrics.update(level=level,nodes=len(points),tetrahedra=len(tets),
+        max_mne_relative_l2=float(errors.max()),
+        rms_mne_relative_l2=float(np.linalg.norm(field-reference)/np.linalg.norm(reference)),
+        seconds=round(time.monotonic()-start,2))
+    print(json.dumps(metrics),flush=True)
+    return points,tets,regions,unit,faces,positions,values,metrics
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--levels",nargs="+",type=int,default=[2,3])
+    parser.add_argument("--report",type=Path,default=Path("fem-report.json"))
+    args=parser.parse_args()
+    reports=[]
+    for level in args.levels:
+        *_,report=build(level)
+        reports.append(report)
+    args.report.write_text(json.dumps({"status":"numerical-prototype-not-public-model","threshold":.05,"meshes":reports},indent=2))
+    assert reports[-1]["max_mne_relative_l2"]<.05, "FEM benchmark exceeds predeclared 5% field L2 tolerance"
+    assert reports[-1]["rms_mne_relative_l2"]<reports[0]["rms_mne_relative_l2"], "Refinement did not improve the field"
+
+
+if __name__=="__main__":
+    main()
