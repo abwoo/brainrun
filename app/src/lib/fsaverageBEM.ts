@@ -2,7 +2,7 @@
  * Human template MRI/BEM EEG lead-field runtime (optional local asset).
  *
  * Produced by scientific/forward/generate_fsaverage_bem.py from FreeSurfer's
- * fsaverage human template; data derivatives are NOT redistributed by BrainRun.
+ * fsaverage human template; public derivatives carry the FreeSurfer 1.0 terms and modification notice.
  * HEAD RAS coordinates in millimetres, source current dipoles in nA.m,
  * electrode potential in µV. The forward matrix was solved by MNE offline.
  *
@@ -43,6 +43,8 @@ export interface LocalFsaverageBEM {
   source_moment_unit: 'nA_m';
   interpolation: string;
   license_status: string;
+  distribution_notice?:string;license_source?:string;modified_by?:string;
+  comparison_sphere?:{description:string;gains_uV_per_nAm:number[][]};
   transform_mri_to_head_rowmajor: number[][];
   transform_mri_to_mni305_rowmajor: number[][];
   standard_coordinate_definition: string;
@@ -86,9 +88,13 @@ export function validateFsaverageBEM(f:LocalFsaverageBEM):void {
       f.subject!=='fsaverage' || f.frame!=='HEAD_RAS_MM' ||
       f.gain_unit!=='uV_per_nA_m' || f.source_moment_unit!=='nA_m' ||
       !f.interpolation.startsWith('none') ||
-      f.license_status!=='REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET') {
+      !['REVIEW_REQUIRED_FREESURFER_DERIVED_ASSET','FREESURFER_1_0_WITH_NOTICE'].includes(f.license_status)) {
     throw new Error('Invalid or unreviewed template BEM model metadata');
   }
+  if(f.license_status==='FREESURFER_1_0_WITH_NOTICE'&&(
+    !f.distribution_notice?.includes('PART B. DOWNLOADING AGREEMENT')||
+    !f.distribution_notice?.includes('All or portions of this licensed product')||!f.modified_by))
+    throw new Error('Missing FreeSurfer distribution terms or modification notice');
   if (!Array.isArray(f.transform_mri_to_head_rowmajor) ||
       f.transform_mri_to_head_rowmajor.length!==4 ||
       f.transform_mri_to_head_rowmajor.some(row=>
@@ -177,3 +183,8 @@ export function templateSourcePotentials(
   }
   return values.map(v=>v-ref);
 }
+
+/** Cache only the validated template; every downstream view uses this exact matrix. */
+let publicTemplate:LocalFsaverageBEM|null=null;
+export function registerTemplateModel(model:LocalFsaverageBEM):void {validateFsaverageBEM(model);publicTemplate=model;}
+export function getTemplateModel():LocalFsaverageBEM|null{return publicTemplate;}

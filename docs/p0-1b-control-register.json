@@ -1,9 +1,9 @@
 {
   "auditVersion": "manual-physics-workbench-v1",
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
-  "disclaimer": "216 static JSX controls including 36 native Dropdown lab instances and locale switch; all are source-classified, not all runtime proven.",
+  "disclaimer": "239 static JSX controls; source classification is not runtime proof.",
   "counts": {
-    "total": 237,
+    "total": 239,
     "bySource": {
       "App": 48,
       "ExplorePanel": 6,
@@ -17,13 +17,13 @@
       "InverseTab": 9,
       "WavesTab": 1,
       "HeadSphereLab": 15,
-      "LocalBEMLab": 14,
+      "LocalBEMLab": 15,
       "DipoleLab": 7,
       "StimLab": 29,
       "ExperimentLab": 34,
       "ActivityChart": 1,
       "ParamControl": 4,
-      "PhysicsHome": 10,
+      "PhysicsHome": 11,
       "ControlField": 2,
       "LanguageSwitch": 2
     },
@@ -34,10 +34,10 @@
       "MIXED": 17,
       "SELECTION": 4,
       "DIAGNOSTIC": 2,
-      "CONFIG": 48,
+      "CONFIG": 49,
       "INDEPENDENT": 75,
       "EXPORT": 3,
-      "DERIVED": 13
+      "DERIVED": 14
     }
   },
   "nativeCanvas": {
@@ -1916,202 +1916,6 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "LocalBEMLab:button:1",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 287,
-      "element": "button",
-      "visibleName": "关闭",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:input:2",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 295,
-      "element": "input",
-      "visibleName": "导入本地 BEM 模型",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:3",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 312,
-      "element": "Dropdown",
-      "visibleName": "BEM物理源模式",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:4",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 322,
-      "element": "Dropdown",
-      "visibleName": "皮层源位置",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:5",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 329,
-      "element": "Dropdown",
-      "visibleName": "MRI BEM源方向",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:input:6",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 337,
-      "element": "input",
-      "visibleName": "MRI BEM源强度",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:7",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 342,
-      "element": "Dropdown",
-      "visibleName": "局部源模型",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:button:8",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 359,
-      "element": "button",
-      "visibleName": "{running?'暂停神经动力学':'运行神经动力学'} <button",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:button:9",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 361,
-      "element": "button",
-      "visibleName": "施加局部刺激 <button type=\"button\" classNam",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:button:10",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 363,
-      "element": "button",
-      "visibleName": "重置神经动力学 <label c",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:input:11",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 367,
-      "element": "input",
-      "visibleName": "局部刺激驱动",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:12",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 388,
-      "element": "Dropdown",
-      "visibleName": "MRI BEM参考",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:Dropdown:13",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 395,
-      "element": "Dropdown",
-      "visibleName": "MRI BEM电极",
-      "events": [
-        "onChange"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "LocalBEMLab:button:14",
-      "path": "app/src/components/LocalBEMLab.tsx",
-      "line": 403,
-      "element": "button",
-      "visibleName": "重置模板实验 所选源的全部",
-      "events": [
-        "onClick"
-      ],
-      "category": "INDEPENDENT",
-      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "DipoleLab:button:1",
       "path": "app/src/components/DipoleLab.tsx",
       "line": 147,
@@ -3166,146 +2970,6 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "PhysicsHome:button:1",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 41,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:2",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 42,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "VISUAL",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:3",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 51,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:4",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 61,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:5",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 62,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:Dropdown:6",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 76,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "SELECTION",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:7",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 85,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:Dropdown:8",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 93,
-      "element": "Dropdown",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onChange"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:9",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 100,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
-      "controlId": "PhysicsHome:button:10",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 101,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "LIVE",
-      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "ControlField:input:1",
       "path": "app/src/components/ui/ControlField.tsx",
       "line": 14,
@@ -3388,6 +3052,370 @@
       ],
       "category": "INDEPENDENT",
       "modelBoundary": "Reverse the signed nA.m dipole moment; recompute sensor and scalp potentials",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:button:1",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 314,
+      "element": "button",
+      "visibleName": "关闭",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:input:2",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 322,
+      "element": "input",
+      "visibleName": "导入本地 BEM 模型",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:3",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 338,
+      "element": "Dropdown",
+      "visibleName": "BEM物理源模式",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:4",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 348,
+      "element": "Dropdown",
+      "visibleName": "皮层源位置",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:5",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 355,
+      "element": "Dropdown",
+      "visibleName": "MRI BEM源方向",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:input:6",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 363,
+      "element": "input",
+      "visibleName": "MRI BEM源强度",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:7",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 368,
+      "element": "Dropdown",
+      "visibleName": "局部源模型",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:button:8",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 385,
+      "element": "button",
+      "visibleName": "{running?'暂停神经动力学':'运行神经动力学'} <button",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:button:9",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 387,
+      "element": "button",
+      "visibleName": "施加局部刺激 <button type=\"button\" classNam",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:button:10",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 389,
+      "element": "button",
+      "visibleName": "重置神经动力学 <label c",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:input:11",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 393,
+      "element": "input",
+      "visibleName": "局部刺激驱动",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:12",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 414,
+      "element": "Dropdown",
+      "visibleName": "MRI BEM参考",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "LocalBEMLab:Dropdown:13",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 421,
+      "element": "Dropdown",
+      "visibleName": "MRI BEM电极",
+      "events": [
+        "onChange"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 427,
+      "element": "button",
+      "visibleName": "Analyze current template experiment",
+      "events": [
+        "onClick"
+      ],
+      "category": "DERIVED",
+      "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "LocalBEMLab:button:14"
+    },
+    {
+      "controlId": "LocalBEMLab:button:15",
+      "path": "app/src/components/LocalBEMLab.tsx",
+      "line": 430,
+      "element": "button",
+      "visibleName": "重置模板实验 所选源的全部",
+      "events": [
+        "onClick"
+      ],
+      "category": "INDEPENDENT",
+      "modelBoundary": "Local imported BEM; unregistered to TVB 76 nodes",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:1",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 47,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:2",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 48,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "VISUAL",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:3",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 57,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:4",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 70,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:5",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 71,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 76,
+      "element": "Dropdown",
+      "visibleName": "Head model",
+      "events": [
+        "onChange"
+      ],
+      "category": "CONFIG",
+      "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false,
+      "controlId": "PhysicsHome:Dropdown:6"
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:7",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 93,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "SELECTION",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:8",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 102,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:Dropdown:9",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 110,
+      "element": "Dropdown",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onChange"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:10",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 117,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:11",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 118,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "LIVE",
+      "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false
     }

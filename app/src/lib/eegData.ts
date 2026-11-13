@@ -36,10 +36,11 @@ export interface NoiseParams {
 export interface EegRecording {
   version: 1;
   sourceSeries?: {
-    coordinateFrame:'head-RAS-sphere-centered';
-    mapping:'manual-physical'|'assumed-local-column'|'tvb-demo-unregistered';
+    coordinateFrame:'head-RAS-sphere-centered'|'HEAD_RAS_MM';
+    mapping:'manual-physical'|'manual-template'|'assumed-local-column'|'tvb-demo-unregistered';
     sources:Array<{positionMm:Vec3Mm;direction:Vec3Mm;momentsNAm:number[]}>;
   };
+  templateSnapshot?:import('./templateExperiment').TemplateSourceState;
   sourceSnapshot?: import('./physicalExperiment').PhysicalSourceState;
   acquisition?: {
     source:'solver-integration';integrationRateHz:number;sampleRateHz:250|500;

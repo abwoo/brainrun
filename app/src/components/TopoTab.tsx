@@ -1,3 +1,5 @@
+import {templateRecordingForward} from '../lib/templateExperiment';
+import {FSAVERAGE_BEM_MODEL_ID} from '../lib/fsaverageBEM';
 import Dropdown from './ui/Dropdown';
 /**
  * PR-11 地形 tab（B3）。
@@ -103,6 +105,9 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
   // 记录一到就检查一次：若当前时刻全部电极 |值| < 1e-9 µV（静息态、无响应），
 
   const forward = useMemo(() => {
+    if(recording?.forwardModelId===FSAVERAGE_BEM_MODEL_ID){
+      try{return templateRecordingForward(recording,atTimeMs);}catch{return null;}
+    }
     if (!loadedFixture) return null;
     try {
       const dir: Vec3Mm = srcAxis === 'X' ? [1, 0, 0] : srcAxis === 'Y' ? [0, 1, 0] : [0, 0, 1];
@@ -135,8 +140,8 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
       <output data-testid="topography-observation" data-time-ms={topo?.atTimeMs??atTimeMs}/>
       <h3>地形——{topo ? `${topo.atTimeMs.toFixed(0)} ms` : ''}，{recording.channels.length} 导</h3>
       <p className="panel-text">
-        两张图的数据来源不一样，分开看：2D 图是记录实测值的球面样条插值（电极之间是算出来的）；
-        3D 图是正向计算值（每个传感器位置的 L·q，电极之间不插值），源由下方控件给定，与 2D 图的记录数据无关。
+        {recording.sourceSeries?text('同一记录与观察时刻：左图插值电极电位，右图从记录的源历史正向计算。','Same recording and observation time: left interpolates electrode values; right computes forward values from the recorded sources.'):
+        text('左图读取当前记录；右图使用独立教学源，不能视为同一实验。','Left uses the current recording; right uses an independent teaching source, not the same experiment.')}
       </p>
       <label>
         时刻：{atTimeMs.toFixed(0)} ms（{tMin.toFixed(0)}–{tMax.toFixed(0)} ms）

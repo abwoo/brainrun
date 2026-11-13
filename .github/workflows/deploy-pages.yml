@@ -68,6 +68,21 @@ jobs:
       - name: Generate four-layer sphere forward matrix
         run: python3 scientific/forward/generate_sphere_model.py
 
+      - name: Install template geometry tools
+        run: python3 -m pip install 'nibabel>=5,<6' 'trimesh>=4,<5' 'fast-simplification>=0.1,<1'
+      - name: Cache pinned fsaverage inputs
+        uses: actions/cache@v4
+        with:
+          path: ~/mne_data/MNE-fsaverage-data
+          key: fsaverage-root-1270f22c-bem-07b52d9b-v1
+      - name: Generate noticed template BEM and same-coordinate sphere comparison
+        run: |
+          if [ ! -f "$HOME/mne_data/MNE-fsaverage-data/fsaverage/bem/fsaverage-ico-5-src.fif" ]; then
+            python scientific/forward/generate_fsaverage_bem.py --download --sources-per-hemisphere 8 --montage 10-20 --package-public --output app/public/forward-assets/fsaverage-bem.json
+          else
+            python scientific/forward/generate_fsaverage_bem.py --sources-per-hemisphere 8 --montage 10-20 --package-public --output app/public/forward-assets/fsaverage-bem.json
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

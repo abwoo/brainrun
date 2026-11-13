@@ -1,3 +1,5 @@
+import {templateLeadField} from '../lib/templateExperiment';
+import {FSAVERAGE_BEM_MODEL_ID} from '../lib/fsaverageBEM';
 import Dropdown from './ui/Dropdown';
 /**
  * PR-12 源定位 tab（B3）。
@@ -84,7 +86,9 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
       const bestRms=Math.sqrt(recording.dataUv.reduce((sum,row)=>sum+row[bestJ]**2,0)/recording.channels.length);
       if(bestRms<1e-12)return null; // A zero signal cannot identify a source.
       const dataUv = recording.channels.map((_, c) => recording.dataUv[c][bestJ]);
-      const lf = buildLeadField(fixture, recording.montage, recording.reference);
+      const lf = recording.forwardModelId===FSAVERAGE_BEM_MODEL_ID?templateLeadField(recording):
+        recording.forwardModelId===fixture.model_id?buildLeadField(fixture, recording.montage, recording.reference):null;
+      if(!lf)throw new Error('Forward model does not match recording');
       const fit = dipoleFit(lf, dataUv);
       const inv = mneInverse(lf, dataUv, { lambda2, noiseRmsUv: mneNoiseRmsUv });
       return {
@@ -101,6 +105,7 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
 
   return (
     <div data-testid="inverse-observation" data-time-ms={onRecording?.atTimeMs??atTimeMs}>
+      <p className="panel-text">{recording?recording.forwardModelId:""}</p>
       <h3>源定位——偶极子拟合 + MNE 逆解</h3>
       <p className="panel-text">
         正向模型：MNE 四层球形头 lead-field（64 点源网格，轴 −48–48 mm）。

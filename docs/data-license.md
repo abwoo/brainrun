@@ -1,3 +1,7 @@
+## 2026-11-13 template update
+
+The fsaverage distribution/provenance record has been updated with the official MNE release mirror, exact hashes and a complete carried license package. See [template distribution record](pr5-license-and-zero-config.md). Older fsaverage blocking conclusions below describe the previous evidence state. The separate TVB demo-data uncertainty remains unresolved.
+
 # BrainRun 数据许可核查（PR1 任务 2）
 
 核查日期：2026-11-11。核查对象：`app/public/brain-assets/` 中的 6 个已提交文件，以及生成它们的上游 TVB 示例数据。核查方法：逐项读上游原文（仓库 LICENSE / README / 数据子目录清单、TVB 官方文档、Zenodo API 元数据、论文原文）与本地原始文件，不依赖二手转述。以下引文均为核查当日实际读到的原文。
