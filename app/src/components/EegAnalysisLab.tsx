@@ -339,7 +339,7 @@ export default function EegAnalysisLab({
         {' · '}{text('处理版本','Processing revision')} {recording.dataRevision??0}
         <details><summary>{text('记录来源与参数','Recording source and parameters')}</summary>
           <code>{recording.sourceModelId}</code>
-          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0},null,2)}</pre>
+          <pre>{JSON.stringify({sourceModelId:recording.sourceModelId,montage:recording.montage,channels:recording.channels.map(c=>c.label),reference:recording.reference,seed:recording.seed,noise:recording.noise,durationMs:recording.timesMs.at(-1)??0},null,2)}</pre>
         </details>
       </div>}
       <div className="panel-text" role="status" data-testid="configuration-status" data-pending={pending}>

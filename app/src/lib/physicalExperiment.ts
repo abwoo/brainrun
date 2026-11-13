@@ -7,7 +7,7 @@ import {setLiveRecordingStore,getLiveRecordingStore} from './eegRecording.ts';
 export interface PhysicalSourceState {
  waveform:'constant'|'pulse';timeMs:number;modelId:string;electrodeVertices:Record<string,number>;secondary?:{position:Vec3Mm;direction:Vec3Mm;moment:number};
  revision:number;position:Vec3Mm;axis:'X'|'Y'|'Z'|'free';direction:Vec3Mm;moment:number;
- montage:MontageKey;reference:EegReference;electrode:string;
+ selectedLabels?:readonly string[];montage:MontageKey;reference:EegReference;electrode:string;
 }
 const initial=():PhysicalSourceState=>({waveform:'constant',timeMs:0,modelId:SPHERE_MODEL_ID,electrodeVertices:{},revision:0,position:[16,0,16],axis:'X',direction:[1,0,0],moment:10,
  montage:'10-20',reference:{mode:'average'},electrode:'Cz'});
@@ -17,13 +17,15 @@ export function getPhysicalSource():PhysicalSourceState{return state;}
 export function subscribePhysicalSource(fn:()=>void):()=>void {listeners.add(fn);return ()=>{listeners.delete(fn);};}
 export function setPhysicalSource(patch:Partial<Omit<PhysicalSourceState,'revision'>>):PhysicalSourceState {
  const next={...state,...patch,position:patch.position?[...patch.position] as Vec3Mm:state.position};
+ if(patch.montage&&patch.montage!==state.montage&&patch.selectedLabels===undefined)next.selectedLabels=undefined;
+ if(next.selectedLabels&&(next.selectedLabels.length<4||new Set(next.selectedLabels).size!==next.selectedLabels.length||next.selectedLabels.some(x=>typeof x!=='string'||!x)))throw new RangeError('Select at least four unique electrodes');
  const direction:Vec3Mm=next.axis==='free'?next.direction:next.axis==='X'?[1,0,0]:next.axis==='Y'?[0,1,0]:[0,0,1];
  const norm=Math.hypot(...direction);
  if(!direction.every(Number.isFinite)||norm<1e-12||!next.position.every(Number.isFinite)||!Number.isFinite(next.moment))
   throw new RangeError('Invalid physical source');
  next.direction=Math.abs(norm-1)>1e-12?[direction[0]/norm,direction[1]/norm,direction[2]/norm]:direction;
- const oldFields={waveform:state.waveform,modelId:state.modelId,electrodeVertices:state.electrodeVertices,secondary:state.secondary,position:state.position,axis:state.axis,direction:state.direction,moment:state.moment,montage:state.montage,reference:state.reference};
- const newFields={waveform:next.waveform,modelId:next.modelId,electrodeVertices:next.electrodeVertices,secondary:next.secondary,position:next.position,axis:next.axis,direction:next.direction,moment:next.moment,montage:next.montage,reference:next.reference};
+ const oldFields={waveform:state.waveform,modelId:state.modelId,electrodeVertices:state.electrodeVertices,secondary:state.secondary,position:state.position,axis:state.axis,direction:state.direction,moment:state.moment,montage:state.montage,selectedLabels:state.selectedLabels,reference:state.reference};
+ const newFields={waveform:next.waveform,modelId:next.modelId,electrodeVertices:next.electrodeVertices,secondary:next.secondary,position:next.position,axis:next.axis,direction:next.direction,moment:next.moment,montage:next.montage,selectedLabels:next.selectedLabels,reference:next.reference};
  const physicalChange=JSON.stringify(oldFields)!==JSON.stringify(newFields);
  if(!physicalChange&&next.electrode===state.electrode&&next.timeMs===state.timeMs)return state;
  if(next.secondary&&(!Number.isFinite(next.secondary.moment)||next.secondary.position.length!==3||
@@ -32,6 +34,7 @@ export function setPhysicalSource(patch:Partial<Omit<PhysicalSourceState,'revisi
  state=Object.freeze({...next,position:Object.freeze([...next.position]) as Vec3Mm,
   direction:Object.freeze([...next.direction]) as Vec3Mm,
   electrodeVertices:Object.freeze({...next.electrodeVertices}),
+  selectedLabels:next.selectedLabels?Object.freeze([...next.selectedLabels]):undefined,
   secondary:next.secondary?Object.freeze({...next.secondary,position:Object.freeze([...next.secondary.position]) as Vec3Mm,direction:Object.freeze([...next.secondary.direction]) as Vec3Mm}):undefined,
   reference:Object.freeze({...next.reference}),revision:state.revision+(physicalChange?1:0)});
  const current=getLiveRecordingStore();
@@ -52,9 +55,9 @@ export function preparePhysicalAnalysis(rate:250|500=250):EegRecording {
  if(!physicalFixtureReady()||!fixture)throw new Error('Physical forward model is not ready');
  const source=state,direction:Vec3Mm=source.direction;
  const potentials=sphereElectrodePotentials(fixture,source.position,[direction[0]*source.moment,direction[1]*source.moment,direction[2]*source.moment],
-  source.montage,{mode:'infinity'});
+  source.montage,{mode:'infinity'},source.selectedLabels);
  const allSources=[{position:source.position,direction:source.direction,moment:source.moment},...(source.secondary?[source.secondary]:[])];
- const second=source.secondary?sphereElectrodePotentials(fixture,source.secondary.position,source.secondary.direction.map(x=>x*source.secondary!.moment) as unknown as Vec3Mm,source.montage,{mode:'infinity'}):null;
+ const second=source.secondary?sphereElectrodePotentials(fixture,source.secondary.position,source.secondary.direction.map(x=>x*source.secondary!.moment) as unknown as Vec3Mm,source.montage,{mode:'infinity'},source.selectedLabels):null;
  if(second)potentials.voltageUv=potentials.voltageUv.map((v,i)=>v+second.voltageUv[i]);
  const channels=potentials.sensors.map(s=>({label:s.label,positionMm:s.position_mm}));
  const session=new ExperimentSession({origin:'independent',solverId:source.waveform==='constant'?'manual-static-dipole-v1':'manual-defined-current-v1',
@@ -64,9 +67,9 @@ export function preparePhysicalAnalysis(rate:250|500=250):EegRecording {
  // A time-independent source has a constant voltage. Never invent neural oscillations.
  const ref=source.reference;
  const referenced=sphereElectrodePotentials(fixture,source.position,[direction[0]*source.moment,direction[1]*source.moment,direction[2]*source.moment],
-  source.montage,ref);
+  source.montage,ref,source.selectedLabels);
  if(source.secondary){
-  const other=sphereElectrodePotentials(fixture,source.secondary.position,source.secondary.direction.map(x=>x*source.secondary!.moment) as unknown as Vec3Mm,source.montage,ref);
+  const other=sphereElectrodePotentials(fixture,source.secondary.position,source.secondary.direction.map(x=>x*source.secondary!.moment) as unknown as Vec3Mm,source.montage,ref,source.selectedLabels);
   referenced.voltageUv=referenced.voltageUv.map((v,i)=>v+other.voltageUv[i]);
  }
  session.recordModelTime(session.runId,2000);

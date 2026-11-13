@@ -41,3 +41,39 @@ test('conductivity changes computed coefficients without moving sources or senso
  assert.ok(av.some((v,i)=>Math.abs(v-bv[i])>1e-3));
  assert.deepEqual(a.sensors,b.sensors);assert.notEqual(a.model_id,b.model_id);
 });
+
+test('free channel order drives reference, dense scalp, inverse matrix, feedback and exported Raw consistently',async()=>{
+ const {buildLeadField}=await import('../../app/src/lib/sourceLocalization.ts');
+ const {scalpVertexPotentials}=await import('../../app/src/lib/scalpField.ts');
+ const {physicalFeedbackMapping}=await import('../../app/src/lib/physicalFeedback.ts');
+ const {interpolateSphereGain}=await import('../../app/src/lib/sphereForward.ts');
+ const labels=['P4','F3','C3','F4','C4','P3'],position=[16,16,16],q=[0,0,10];
+ registerPhysicalFixture(fixture);
+ setPhysicalSource({modelId:SPHERE_MODEL_ID,electrodeVertices:{},position,axis:'Z',moment:10,montage:'10-20',
+  selectedLabels:labels,electrode:'F3',reference:{mode:'average'},secondary:undefined,waveform:'constant'});
+ const rec=preparePhysicalAnalysis();
+ assert.deepEqual(rec.channels.map(c=>c.label),labels);
+ const infinity=sphereElectrodePotentials(fixture,position,q,'10-20',{mode:'infinity'},labels);
+ const mean=infinity.voltageUv.reduce((a,b)=>a+b,0)/labels.length;
+ rec.dataUv.forEach((row,i)=>assert.ok(Math.abs(row[0]-(infinity.voltageUv[i]-mean))<1e-12));
+ const dense=recordingForwardAtTime(fixture,rec,0);
+ rec.channels.forEach((c,i)=>assert.ok(Math.abs(dense.valueUv[dense.labels.indexOf(c.label)]-rec.dataUv[i][0])<1e-12));
+ const field=scalpVertexPotentials(fixture,position,q,'10-20',{mode:'average'},labels);
+ const rawField=interpolateSphereGain({...fixture,gain_uv_per_nAm:fixture.scalp_field_grid.gain_uv_per_nAm},position);
+ field.forEach((v,j)=>assert.ok(Math.abs(v-(rawField[j][2]*10-mean))<1e-12));
+ for(const reference of [{mode:'average'},{mode:'electrode',label:'C3'}]){
+  const lf=buildLeadField(fixture,'10-20',reference,labels);
+  const sourceIndex=lf.sourcePositionsMm.findIndex(p=>p.every((v,k)=>v===position[k]));
+  const expected=sphereElectrodePotentials(fixture,position,q,'10-20',reference,labels);
+  lf.gain.forEach((row,i)=>assert.ok(Math.abs(row[3*sourceIndex+2]*10-expected.voltageUv[i])<1e-12));
+ }
+ const feedback=physicalFeedbackMapping(fixture);
+ assert.deepEqual(feedback.electrodes.map(c=>c.label),labels);
+ assert.ok(Math.abs(feedback.gainUvPerNAm-rec.dataUv[labels.indexOf('F3')][0]/10)<1e-12);
+ setPhysicalSource({selectedLabels:['F3','F4','C3','C4']});
+ assert.equal(getLiveRecordingStore(),null,'a changed measurement operator invalidates previous Raw');
+ assert.throws(()=>sphereElectrodePotentials(fixture,position,q,'10-20',{mode:'average'},['Cz']),/four/);
+ assert.throws(()=>sphereElectrodePotentials(fixture,position,q,'10-20',{mode:'average'},['Cz','Cz','F3','F4']),/unique/);
+ assert.throws(()=>sphereElectrodePotentials(fixture,position,q,'10-20',{mode:'electrode',label:'Cz'},labels),/Reference/);
+ setPhysicalSource({selectedLabels:undefined});
+});

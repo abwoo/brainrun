@@ -168,7 +168,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 251, 'UI migration includes Dropdown and workspace controls');
+  assert.equal(actual.length, 254, 'UI migration includes Dropdown and workspace controls');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

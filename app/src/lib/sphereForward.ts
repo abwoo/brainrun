@@ -135,6 +135,15 @@ export function interpolateSphereGain(
   });
 }
 
+/** Explicit ordered channel subset; the standard montage definition stays intact. */
+export function sphereChannelLabels(fixture:SphereFixture,montage:MontageKey,selectedLabels?:readonly string[]):string[] {
+ const base=fixture.montages[montage];if(!base)throw new Error('Unknown montage: '+montage);
+ const labels=selectedLabels??base;
+ if(labels.length<4||new Set(labels).size!==labels.length||labels.some(label=>!base.includes(label)))
+  throw new RangeError('Select at least four unique electrodes from the current montage');
+ return [...labels];
+}
+
 /**
  * Source dipole projection through all model electrodes. Applying a different
  * montage re-references only the selected subset, never all 345 electrodes.
@@ -143,12 +152,12 @@ export function sphereElectrodePotentials(
   fixture: SphereFixture, sourceMm: Vec3Mm, momentNAm: Vec3Mm,
   montage: MontageKey = '10-20',
   reference: SphereReference = { mode: 'average' },
+  selectedLabels?:readonly string[],
 ): { sensors: SphereSensor[]; voltageUv: number[] } {
   if (momentNAm.length !== 3 || !momentNAm.every(Number.isFinite)) {
     throw new RangeError('Moment vector must contain three finite nA.m numbers');
   }
-  const labels = fixture.montages[montage];
-  if (!labels) throw new Error('Unknown montage: ' + montage);
+  const labels = sphereChannelLabels(fixture,montage,selectedLabels);
   const indices = new Map(fixture.sensors.map((s, i) => [s.label, i]));
   const gain = interpolateSphereGain(fixture, sourceMm);
   const values = labels.map(label => {
