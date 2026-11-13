@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {registerTemplateModel} from '../../app/src/lib/fsaverageBEM.ts';
+import {setTemplateSource,prepareTemplateAnalysis,templateLeadField,templateRecordingForward} from '../../app/src/lib/templateExperiment.ts';
+import {dipoleFit} from '../../app/src/lib/sourceLocalization.ts';
+import {reReferenceRecording} from '../../app/src/lib/eegRecording.ts';
+const model=JSON.parse(readFileSync('app/public/forward-assets/fsaverage-bem.json','utf8'));
+test('real template Raw, shared cursor, leadfield and reference use matching geometry',()=>{
+ registerTemplateModel(model);
+ setTemplateSource({sourceIndex:2,moment:12,direction:[0,1,0],reference:{mode:'average'},electrode:'Cz'});
+ const rec=prepareTemplateAnalysis(),forward=templateRecordingForward(rec,1000),lf=templateLeadField(rec);
+ assert.equal(rec.forwardModelId,model.model_id);assert.equal(rec.sourceSeries.coordinateFrame,'HEAD_RAS_MM');
+ assert.equal(forward.atTimeMs,1000);
+ rec.dataUv.forEach((row,c)=>assert.ok(Math.abs(row[250]-forward.valueUv[c])<1e-12));
+ const fit=dipoleFit(lf,rec.dataUv.map(row=>row[250]));
+ assert.ok(fit.residualRmsUv<1e-6);
+ assert.ok(Math.hypot(...fit.estimatedPositionMm.map((x,k)=>x-model.source_positions[2].head_mm[k]))<1e-3);
+ const processed=reReferenceRecording(rec,{mode:'electrode',label:'Cz'});
+ const f=templateRecordingForward(processed,1000);
+ processed.dataUv.forEach((row,c)=>assert.ok(Math.abs(row[250]-f.valueUv[c])<1e-12));
+ assert.ok(model.distribution_notice.includes('PART B. DOWNLOADING AGREEMENT'));
+ assert.ok(model.comparison_sphere.gains_uV_per_nAm.some((r,i)=>r.some((x,k)=>Math.abs(x-model.gains_uV_per_nAm[i][k])>1e-6)));
+ assert.throws(()=>templateLeadField({...rec,channels:rec.channels.map((c,i)=>i===0?{...c,positionMm:[0,0,0]}:c)}),/geometry/);
+});

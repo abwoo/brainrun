@@ -53,3 +53,9 @@
 - Sanz-Leon, P., Knock, S. A., Spiegler, A., & Jirsa, V. K. (2015).
   Mathematical framework for large-scale brain network modeling in
   The Virtual Brain. *NeuroImage*, 111, 385–430.
+
+## fsaverage template derivative (2026-11-13)
+
+The optional anatomical head model is a **modified derivative**, not the original FreeSurfer distribution or an individual MRI. BrainRun transforms MRI geometry to HEAD, decimates display surfaces, selects cortical vertices and calculates EEG lead fields with MNE 1.11.0. The source archives are pinned by SHA-256 from the official [MNE fsaverage 1.0 mirror](https://github.com/mne-tools/mne-data/releases/tag/fsaverage-1.0); the mirror explicitly identifies the former OSF archives. Full [FreeSurfer 1.0 terms](licenses/FreeSurfer-1.0.txt) and [MNE mirror BSD notice](licenses/MNE-data-BSD-3-Clause.txt) accompany every public model JSON. The code MIT license does not replace these data terms. No MRI volumes or unrelated PALS-B12 labels are served.
+
+Attribution: FreeSurfer/MGH fsaverage; Fischl, Sereno, Tootell & Dale (1999), High-resolution intersubject averaging and a coordinate system for the cortical surface, Human Brain Mapping 8:272–284. The aparc labels originate from the Desikan–Killiany cortical parcellation (Desikan et al., 2006, NeuroImage 31:968–980). BEM and template registration are provided by MNE. Research/teaching only; no clinical approval or source-author endorsement is implied.

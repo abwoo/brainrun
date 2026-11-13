@@ -1,3 +1,5 @@
+import LocalBEMLab from './LocalBEMLab';
+import {prepareTemplateAnalysis} from '../lib/templateExperiment';
 import {preparePhysicalAnalysis,physicalFixtureReady,subscribePhysicalSource} from '../lib/physicalExperiment';
 import { useSyncExternalStore,useState, type ReactNode } from 'react';
 import { useI18n } from '../lib/i18n';
@@ -24,6 +26,8 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
  const {locale}=useI18n();
  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
  const [model,setModel]=useState<'electric'|'network'>('electric');
+ const [headModel,setHeadModel]=useState<'sphere'|'bem'>('sphere');
+ const [templateReady,setTemplateReady]=useState(false);
  const [advanced,setAdvanced]=useState(false);
  const [help,setHelp]=useState(false);
  const choices:Array<{key:AdvancedDestination;zh:string;en:string;hintZh:string;hintEn:string}>=[
@@ -50,8 +54,8 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
     text('点击大脑选择位置，再按“施加刺激”。调整强度和持续时间，比较活动曲线。单纯选择和旋转不会施加刺激。','Select a location on the brain, then apply an input. Adjust its strength and duration and compare the trace. Selecting and rotating do not stimulate the model.')}</p>
   </section>}
   {advanced&&<nav className="physics-advanced" aria-label={text('高级实验分类','Advanced lab categories')}>
-   {choices.map(item=><button type="button" className="advanced-card" key={item.key} disabled={item.key==='signals'&&model==='electric'&&!physicalReady} onClick={()=>{
-    if(item.key==='signals'&&model==='electric')preparePhysicalAnalysis();
+   {choices.map(item=><button type="button" className="advanced-card" key={item.key} disabled={item.key==='signals'&&model==='electric'&&!(headModel==='sphere'?physicalReady:templateReady)} onClick={()=>{
+    if(item.key==='signals'&&model==='electric'){if(headModel==='bem')prepareTemplateAnalysis();else preparePhysicalAnalysis();}
     onAdvanced(item.key);
    }}>
     <strong>{text(item.zh,item.en)}</strong><span>{text(item.hintZh,item.hintEn)}</span>
@@ -67,7 +71,15 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
      <button type="button" role="tab" aria-selected={model==='network'} onClick={()=>setModel('network')}>{text('脑区与传播','Regions & activity')}</button>
     </div>
    </div>
-   {model==='electric'?<HeadSphereLab embedded onClose={()=>{}}/>:
+   {model==='electric'?<>
+    <details className="physics-details"><summary>{text('头部模型','Head model')} · {headModel==='sphere'?text('球形教学模型','Teaching sphere'):'fsaverage BEM'}</summary>
+     <Dropdown aria-label={text('头部模型','Head model')} value={headModel} onChange={e=>setHeadModel(e.target.value as 'sphere'|'bem')}>
+      <option value="sphere">{text('四层球形：自由移动源','Four-layer sphere: move the source freely')}</option>
+      <option value="bem">{text('真实模板 BEM：选择皮层位置','Anatomical template BEM: choose a cortical location')}</option>
+     </Dropdown>
+    </details>
+    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}} onReady={setTemplateReady} onAnalysis={()=>onAdvanced('signals')}/>}
+   </>:
     <div className="manual-network" data-testid="manual-network">
      <section className="manual-network-view">
       <div className="model-instruction">{text('点击选择位置 · 拖动旋转 · 滚轮缩放','Click to select · drag to rotate · scroll to zoom')}</div>

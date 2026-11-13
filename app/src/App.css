@@ -1469,3 +1469,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .physics-color-gradient {height:10px;flex:1;max-width:200px;border-radius:3px;background:linear-gradient(to right,#38a8ff,#40525e,#ff6152)}
 .physics-voltage-trace {padding:6px 18px 12px;color:#aac4d6;font-size:12px;border-top:1px solid #203545}
 .physics-voltage-trace svg {display:block;width:100%;height:80px}
+
+.template-physics-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(240px,1fr);gap:16px}
+.template-physics-body{border:1px solid var(--ui-border,#284555);border-radius:12px;background:#08131d;padding:16px;box-sizing:border-box}
+.template-physics-body label{display:block;margin-bottom:12px}.template-physics-body input[type=range]{width:100%}
+.template-physics-body td,.template-physics-body th{padding:4px 10px;text-align:right}.template-physics-body pre{max-height:240px;overflow:auto;font-size:12px}
+@media(max-width:760px){.template-physics-grid{grid-template-columns:minmax(0,1fr)}.template-physics-body{padding:8px}}

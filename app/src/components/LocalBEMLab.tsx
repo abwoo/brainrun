@@ -1,3 +1,7 @@
+import {useI18n} from '../lib/i18n';
+import {potentialColor} from '../lib/scalpField';
+import {getTemplateSource,setTemplateSource,prepareTemplateAnalysis} from '../lib/templateExperiment';
+import {getTemplateModel,registerTemplateModel} from '../lib/fsaverageBEM';
 import Dropdown from './ui/Dropdown';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import * as THREE from 'three';
@@ -36,14 +40,17 @@ function QTrace({values,color,label}:{values:number[];color:string;label:string}
  * FreeSurfer assets. Clicking/dragging a visible cortical source selects the
  * nearest precomputed MNE-valid point; no artificial BEM spatial interpolation.
  */
-export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
-  const [data,setData]=useState<LocalFsaverageBEM|null>(null);
+export default function LocalBEMLab({onClose,embedded=false,onAnalysis,onReady}:{onClose:()=>void;embedded?:boolean;onAnalysis?:()=>void;onReady?:(ready:boolean)=>void}) {
+  const {locale}=useI18n();const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
+  const saved=getTemplateSource();
+  const loadingGeneration=useRef(0);
+  const [data,setData]=useState<LocalFsaverageBEM|null>(getTemplateModel);
   const [error,setError]=useState<string|null>(null);
-  const [sourceIndex,setSourceIndex]=useState(0);
-  const [moment,setMoment]=useState(10);
-  const [axis,setAxis]=useState<'X'|'Y'|'Z'>('X');
-  const [reference,setReference]=useState<'average'|'infinity'>('average');
-  const [selectedSensor,setSelectedSensor]=useState('Cz');
+  const [sourceIndex,setSourceIndex]=useState(saved.sourceIndex);
+  const [moment,setMoment]=useState(saved.moment);
+  const [axis,setAxis]=useState<'X'|'Y'|'Z'>(saved.direction[1]===1?'Y':saved.direction[2]===1?'Z':'X');
+  const [reference,setReference]=useState<'average'|'infinity'>(saved.reference.mode==='infinity'?'infinity':'average');
+  const [selectedSensor,setSelectedSensor]=useState(saved.electrode);
   const [sourceMode,setSourceMode]=useState<'manual'|'local-column'>('manual');
   const simulator=useMemo(()=>createLocalCorticalColumn(),[]);
   const simulatorRef=useRef(simulator);
@@ -85,7 +92,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
       jrMomentVector,{mode:reference}):[],
   }),[data,sourceIndex,wcMomentVector,jrMomentVector,reference]);
   const volts=columnModel==='jr'?voltsFor.jr:voltsFor.wc;
-  const max=Math.max(.001,...volts.map(Math.abs));
+  const sphereComparison=useMemo(()=>data?.comparison_sphere?templateSourcePotentials({...data,gains_uV_per_nAm:data.comparison_sphere.gains_uV_per_nAm},sourceIndex,columnModel==='jr'?jrMomentVector:wcMomentVector,{mode:reference}):null,[data,sourceIndex,columnModel,jrMomentVector,wcMomentVector,reference]);
   const current=data?.electrodes.findIndex(x=>x.label===selectedSensor)??-1;
   const currentV=current>=0?volts[current]:null;
   const currentVwc=current>=0?voltsFor.wc[current]:null;
@@ -140,12 +147,32 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
     setRunning(true);
   };
 
+  useEffect(()=>{
+    onReady?.(!!data);
+    if(data)registerTemplateModel(data);
+  },[data,onReady]);
+  useEffect(()=>{
+    if(data&&sourceMode==='manual')setTemplateSource({sourceIndex,moment,direction,
+      reference:{mode:reference},electrode:selectedSensor});
+  },[data,sourceMode,sourceIndex,moment,direction,reference,selectedSensor]);
+  useEffect(()=>{
+    if(getTemplateModel())return;
+    const controller=new AbortController(),generation=++loadingGeneration.current;
+    fetch(import.meta.env.BASE_URL+'forward-assets/fsaverage-bem.json',{signal:controller.signal})
+      .then(async r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then((model:LocalFsaverageBEM)=>{validateFsaverageBEM(model);
+        if(generation===loadingGeneration.current){registerTemplateModel(model);setData(model);setError(null);}
+      }).catch(e=>{if(!controller.signal.aborted&&generation===loadingGeneration.current)
+        setError(text('模板暂未加载，请刷新重试。','The template could not load. Reload to retry.')+' '+String(e));});
+    return()=>controller.abort();
+  },[]);
   const load=async(file?:File)=>{
     if(!file)return;
+    loadingGeneration.current++;
     try{
       const parsed=JSON.parse(await file.text()) as LocalFsaverageBEM;
       validateFsaverageBEM(parsed);
-      setData(parsed);resetColumn();setSourceIndex(0);setSelectedSensor(
+      registerTemplateModel(parsed);setData(parsed);resetColumn();setSourceIndex(0);setSelectedSensor(
         parsed.electrodes.some(e=>e.label==='Cz')?'Cz':parsed.electrodes[0].label
       );setError(null);
     }catch(e){setError('无效 MRI/BEM 模型：'+String(e));setData(null);}
@@ -251,8 +278,8 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
       });
       sensors.forEach((mesh,i)=>{
         const v=values[i];
-        (mesh.material as THREE.MeshBasicMaterial).color.set(v>=0?0xffb340:0x4fb6f2);
-        mesh.scale.setScalar(1+Math.min(1.3,Math.abs(v)/Math.max(.001,...values.map(Math.abs))));
+        (mesh.material as THREE.MeshBasicMaterial).color.setRGB(...potentialColor(v,2));
+        mesh.scale.setScalar(1+Math.min(1.3,Math.abs(v)/2));
       });
     };
     let frame=0;
@@ -277,38 +304,37 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
   useEffect(()=>display.current?.(sourceIndex,direction,volts),
     [sourceIndex,direction,volts]);
 
-  return <div className="modal-backdrop" onClick={onClose}>
-    <div className="modal screen" role="dialog" aria-modal="true"
+  return <div className={embedded?'template-physics':'modal-backdrop'} onClick={embedded?undefined:onClose}>
+    <div className={embedded?"template-physics-body":"modal screen"} role={embedded?"region":"dialog"} aria-modal={embedded?undefined:true}
       aria-label="真实模板 MRI BEM 实验" onClick={e=>e.stopPropagation()}
-      style={{width:'min(1180px,96vw)',maxWidth:'none',maxHeight:'86vh'}}>
+      style={{width:embedded?'100%':'min(1180px,96vw)',maxWidth:'none',maxHeight:embedded?'none':'86vh'}}>
       <div className="screen-title" style={{display:'flex',justifyContent:'space-between',
-        alignItems:'center',right:0,pointerEvents:'auto'}}>
+        alignItems:'center',right:0,pointerEvents:'auto',position:embedded?'relative':undefined}}>
         FSAVERAGE · MRI/BEM PHYSICS
-        <button type="button" className="chip chip-small" onClick={onClose}>关闭</button>
+        {!embedded&&<button type="button" className="chip chip-small" onClick={onClose}>关闭</button>}
       </div>
       <div className="modal-body">
         <p className="panel-text" style={{color:'#ffb340'}}>
           真实人类平均解剖模板 · 三层 BEM 电位计算；不是个体化 MRI、不是临床预测。
-          本模式仅载入用户自行获取并生成的本地模型文件，软件不分发 FreeSurfer 模板数据。
+          {text('默认加载配套几何与正向矩阵，无需准备文件。','Loads matching geometry and forward matrices; no files to prepare.')}
         </p>
-        <label className="panel-text">加载本地 fsaverage BEM 模型 JSON
+        <details className="physics-details"><summary>{text("高级：导入其他兼容模型","Advanced: import a compatible model")}</summary><label className="panel-text">加载本地 fsaverage BEM 模型 JSON
           <input type="file" accept=".json,application/json" aria-label="导入本地 BEM 模型"
             onChange={e=>void load(e.target.files?.[0])}/>
-        </label>
+        </label></details>
         {error&&<p role="alert" className="panel-text">{error}</p>}
         {!data&&<p className="panel-text">
-          首次使用可在本地运行 scientific/forward/generate_fsaverage_bem.py。
-          模型必须带有 MRI↔HEAD 坐标、原始皮层源、aparc 标注、BEM lead-field 和真实头部几何。
+          {text('正在加载模板模型…','Loading the template model…')}
         </p>}
         {data&&<>
           <p className="panel-text">模板 {data.subject} · {data.source_positions.length} 个可选物理源 ·
             {data.electrodes.length} 个 EEG 电极 · 拖动源时吸附至最近已求解的皮层点，不做未经验证的插值</p>
-          <div style={{display:'grid',gridTemplateColumns:'minmax(0,1.5fr) minmax(240px,1fr)',gap:12}}>
+          <div className="template-physics-grid" data-testid="template-physics" data-source-index={sourceIndex} data-voltage={currentV??''} data-model={data.model_id}>
             <div ref={mount} role="img" aria-label="真实模板头皮、颅骨、皮层与可选BEM电流源"
               style={{height:460,width:'100%',border:'1px solid #133954'}}/>
             <div>
               <div className="conn-title">解剖与电流源</div>
-              <label className="panel-text">物理源模式
+              {!embedded&&<label className="panel-text">物理源模式
                 <Dropdown aria-label="BEM物理源模式" value={sourceMode}
                   onChange={e=>{
                     setSourceMode(e.target.value as 'manual'|'local-column');
@@ -318,7 +344,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                   <option value="local-column">局部 E/I 神经群体（假设参数）</option>
                 </Dropdown>
               </label>
-              <label className="panel-text">选择已验证皮层点
+              }<label className="panel-text">选择已验证皮层点
                 <Dropdown value={sourceIndex} aria-label="皮层源位置"
                   onChange={e=>setSourceIndex(Number(e.target.value))}>
                   {data.source_positions.map((p,i)=>
@@ -398,6 +424,7 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                     <option key={e.label} value={e.label}>{e.label}</option>)}
                 </Dropdown>
               </label>
+              {onAnalysis&&sourceMode==="manual"&&<button type="button" className="ui-button" onClick={()=>{prepareTemplateAnalysis();onAnalysis();}}>{text("分析当前模板实验","Analyze this template experiment")}</button>}
               <p className="panel-text">电位：{currentV===null?'—':currentV.toFixed(4)+' µV'}</p>
               <p className="panel-text">MNI305 (mm)：{data.source_positions[sourceIndex].mni305_mm.map(v=>v.toFixed(1)).join(', ')}</p>
               <button type="button" className="chip chip-small" onClick={()=>{
@@ -413,8 +440,8 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
                 <div style={{height:7,background:'#152938',flex:1,position:'relative'}}>
                   <div style={{position:'absolute',left:'50%',width:1,height:7,background:'#afbdca'}}/>
                   <div style={{
-                    position:'absolute',left:(volts[i]<0?50-48*Math.abs(volts[i])/max:50)+'%',
-                    width:(48*Math.abs(volts[i])/max)+'%',height:7,
+                    position:'absolute',left:(volts[i]<0?50-48*Math.min(1,Math.abs(volts[i])/2):50)+'%',
+                    width:(48*Math.min(1,Math.abs(volts[i])/2))+'%',height:7,
                     background:volts[i]>=0?'#ffb340':'#4fb6f2',
                   }}/>
                 </div>
@@ -422,6 +449,14 @@ export default function LocalBEMLab({onClose}:{onClose:()=>void}) {
               </div>)}
             </div>
           </div>
+          <details className="physics-details"><summary>{text('球形/BEM 对照与数据来源','Sphere/BEM comparison and data source')}</summary>
+           <p>{text('同一 HEAD 源、电极、偶极矩和参考；球形模型为包围这些源的四层近似，几何与组织不同。差异不是准确度证明。','Same HEAD source, sensors, moment and reference. The enclosing four-layer sphere approximates different geometry and tissues; a difference does not prove accuracy.')}</p>
+           <table><thead><tr><th>{text('电极','Sensor')}</th><th>BEM µV</th><th>{text('四层球形 µV','Four-layer sphere µV')}</th></tr></thead><tbody>
+            {data.electrodes.map((e,i)=><tr key={e.label}><td>{e.label}</td><td>{volts[i].toFixed(4)}</td><td>{sphereComparison?.[i].toFixed(4)??'—'}</td></tr>)}
+           </tbody></table>
+           <p>{text('颜色和圆点大小使用固定 ±2 µV 色标。','Colors and sensor sizes use a fixed ±2 µV scale.')}</p>
+           {data.distribution_notice&&<details><summary>FreeSurfer 1.0 · MGH</summary><pre style={{whiteSpace:'pre-wrap'}}>{data.distribution_notice}</pre></details>}
+          </details>
           <p className="panel-text">方法：MNE make_forward_dipole + fsaverage MRI 三层 BEM；
             HEAD RAS 毫米，nA·m→µV。模型源只能选已预计算节点，不进行空间插值。
             可选局部 E/I（Wilson–Cowan）或 Jansen–Rit 锥体 PSP→电流源均采用明确假设参数，尚无人体校准；与 TVB 76 区网络不互通，亦无经验证的 Talairach 转换。

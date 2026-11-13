@@ -448,9 +448,9 @@ export default function EegAnalysisLab({
           </p>
         )}
         <p className="panel-text eeg-foot">
-          {text('正向模型','Forward model')} {SPHERE_MODEL_ID}
+          {text('正向模型','Forward model')} {recording?.forwardModelId??SPHERE_MODEL_ID}
           {' · '}{recording?.acquisition?text('主求解器原生积分记录','Native solver integration recording'):
-            recording?.sourceSnapshot?text('首页手动物理源','Manual physical source from home'):
+            (recording?.sourceSnapshot||recording?.templateSnapshot)?text('首页手动物理源','Manual physical source from home'):
             recording?.sourceModelId===LIVE_DERIVATION_ID?text('旧版显示快照派生记录','Legacy display-snapshot derivation'):
             text('独立模型实验','Independent model experiment')}
           {' · '}{text('测量噪声与神经源分开记录。','Measurement noise is separate from neural sources.')}

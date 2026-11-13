@@ -1,4 +1,4 @@
-name: PR5 MRI Template BEM Scientific Validation (no asset redistribution)
+name: Template BEM Cloud Validation
 
 on:
   push:
@@ -16,6 +16,9 @@ on:
       - app/src/lib/fsaverageBEM.ts
       - app/src/components/LocalBEMLab.tsx
       - .github/workflows/pr5-fsaverage-bem.yml
+  pull_request:
+    branches: [main]
+    paths: ['scientific/forward/**', 'app/src/lib/fsaverageBEM.ts', 'app/src/lib/templateExperiment.ts', 'app/src/components/LocalBEMLab.tsx', 'app/tests/template-home-browser.mjs', 'licenses/**', '.github/workflows/pr5-fsaverage-bem.yml']
   workflow_dispatch:
 
 permissions:
@@ -34,6 +37,11 @@ jobs:
           python-version: '3.12'
       - name: Install pinned MNE scientific solver
         run: python -m pip install 'mne==1.11.0' 'nibabel>=5,<6' 'trimesh>=4,<5' 'fast-simplification>=0.1,<1'
+      - name: Cache pinned template inputs
+        uses: actions/cache@v4
+        with:
+          path: ~/mne_data/MNE-fsaverage-data
+          key: fsaverage-root-1270f22c-bem-07b52d9b-v1
       - name: Explicitly fetch fsaverage and compute true MRI BEM
         run: |
           python scientific/forward/generate_fsaverage_bem.py \
@@ -82,6 +90,17 @@ jobs:
       - name: Test REAL fsaverage anatomy and MNE BEM field in Chromium
         working-directory: app
         run: node tests/pr5-real-bem-browser.mjs
+      - name: Produce noticed web template and shared-recording regression
+        run: |
+          python scientific/forward/generate_fsaverage_bem.py --sources-per-hemisphere 8 --montage 10-20 --package-public --output app/public/forward-assets/fsaverage-bem.json
+          node --experimental-strip-types --test tests/pr5/template-recording.test.mjs
+          python scientific/forward/generate_sphere_model.py
+      - name: Build the main application (template entry uses no network Worker)
+        working-directory: app
+        run: npm run build
+      - name: Verify template home, shared Raw and matching inverse matrix
+        working-directory: app
+        run: node tests/template-home-browser.mjs
       - name: Generate a denser 128-source / 343-electrode MRI/BEM validation model
         run: |
           python scientific/forward/generate_fsaverage_bem.py \

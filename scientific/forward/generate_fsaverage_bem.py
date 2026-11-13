@@ -286,6 +286,84 @@ def build(fs_dir:Path, out:Path, sources_per_hemisphere:int, montage_name:str, d
     }))
     return payload
 
+def fetch_pinned_fsaverage(subjects_dir:Path):
+    """Official MNE mirror of the exact OSF inputs used by pinned MNE 1.11."""
+    import hashlib, urllib.request, zipfile
+    from tempfile import TemporaryDirectory
+    archives=[
+      ("fsaverage-root.zip","1270f22cbbdc6590ceded4ac48f1f456641cf0fdb0906a821632763d02ac9d83",subjects_dir),
+      ("fsaverage-bem.zip","07b52d9b119e6bfb22ba262f0098a020708f52895a5bc9f4012f736d537ade5f",subjects_dir/"fsaverage"),
+    ]
+    subjects_dir.mkdir(parents=True,exist_ok=True)
+    with TemporaryDirectory() as temporary:
+        for name,digest,dest in archives:
+            url="https://github.com/mne-tools/mne-data/releases/download/fsaverage-1.0/"+name
+            archive=Path(temporary)/name
+            urllib.request.urlretrieve(url,archive)
+            if hashlib.sha256(archive.read_bytes()).hexdigest()!=digest:
+                raise ValueError("fsaverage archive checksum mismatch")
+            with zipfile.ZipFile(archive) as z:
+                for member in z.infolist():
+                    if not (dest/member.filename).resolve().is_relative_to(dest.resolve()):
+                        raise ValueError("Unsafe archive path")
+                z.extractall(dest)
+                notices=[n for n in z.namelist() if any(t in Path(n).name.lower() for t in ("license","copying","copyright","notice"))]
+                print(json.dumps({"archive":name,"sha256":digest,"source":url,"included_notice_paths":notices}))
+    return subjects_dir/"fsaverage"
+
+def package_public_asset(payload, out:Path):
+    """Redistribute only the modified, attributed template derivative, not MRI."""
+    import hashlib
+    notice = (
+      'All or portions of this licensed product (such portions are the "Software") '
+      'have been obtained under license from The General Hospital Corporation "MGH" '
+      'and are subject to the following terms and conditions:\n'
+    )
+    license_file=Path(__file__).resolve().parents[2]/"licenses/FreeSurfer-1.0.txt"
+    license_text=license_file.read_text(encoding="utf-8")
+    if 'PART B. DOWNLOADING AGREEMENT' not in license_text:
+        raise ValueError("Missing FreeSurfer distribution terms")
+    # Same physical sources and electrodes. No coordinate scaling/clamping.
+    info=registered_montage(payload["montage"])
+    pos=np.asarray([p["head_mm"] for p in payload["source_positions"]])*1e-3
+    center=np.mean(np.asarray(payload["meshes"]["scalp"]["vertices_head_mm"])*1e-3,axis=0)
+    radius=max(.095, float(np.max(np.linalg.norm(pos-center,axis=1)))/.85)
+    sphere=mne.make_sphere_model(r0=center,head_radius=radius,
+        relative_radii=(.87,.92,.97,1.),sigmas=(.33,1.,.004,.33),verbose=False)
+    count=len(pos)
+    dipoles=mne.Dipole(times=np.arange(3*count)*.001,
+        pos=np.repeat(pos,3,axis=0),amplitude=np.full(3*count,1e-9),
+        ori=np.tile(np.eye(3),(count,1)),gof=np.ones(3*count))
+    fwd,_=mne.make_forward_dipole(dipoles,bem=sphere,info=info,
+        trans=None,on_inside="raise",verbose=False)
+    sphere_gain=np.asarray(fwd["sol"]["data"])*1e-3
+    if sphere_gain.shape!=np.asarray(payload["gains_uV_per_nAm"]).shape or not np.isfinite(sphere_gain).all():
+        raise ValueError("Incompatible same-coordinate sphere comparison")
+    payload["comparison_sphere"]={
+      "description":"Enclosing four-layer sphere; same HEAD source and sensor coordinates, not an individual fit",
+      "center_head_mm":(center*1000).tolist(),"outer_radius_mm":radius*1000,
+      "relative_radii":[.87,.92,.97,1.],"conductivity_S_per_m":[.33,1.,.004,.33],
+      "gains_uV_per_nAm":np.round(sphere_gain,8).tolist(),
+    }
+    payload["license_status"]="FREESURFER_1_0_WITH_NOTICE"
+    mne_terms=(Path(__file__).resolve().parents[2]/"licenses/MNE-data-BSD-3-Clause.txt").read_text(encoding="utf-8")
+    payload["distribution_notice"]=notice+license_text+"\nMNE mirror notice:\n"+mne_terms
+    payload["license_source"]="https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferSoftwareLicense"
+    payload["modified_by"]="BrainRun: reduced display meshes, selected cortical vertices, HEAD transform and MNE EEG forward matrices"
+    payload["input_provenance"]={"mne_version":mne.__version__,
+      "mirror":"https://github.com/mne-tools/mne-data/releases/tag/fsaverage-1.0",
+      "archive_sha256":{"root":"1270f22cbbdc6590ceded4ac48f1f456641cf0fdb0906a821632763d02ac9d83","bem":"07b52d9b119e6bfb22ba262f0098a020708f52895a5bc9f4012f736d537ade5f"},
+      "dataset":"MNE fetch_fsaverage; FreeSurfer fsaverage",
+      "source_space":"fsaverage-ico-5-src.fif",
+      "bem":"fsaverage-5120-5120-5120-bem-sol.fif"}
+    payload["limitations"][-1]="Modified FreeSurfer-derived template; full FreeSurfer 1.0 terms accompany every asset."
+    out.parent.mkdir(parents=True,exist_ok=True)
+    out.write_text(json.dumps(payload,allow_nan=False,separators=(",",":")),encoding="utf-8")
+    (out.parent/"FreeSurfer-LICENSE.txt").write_text(notice+license_text,encoding="utf-8")
+    digest=hashlib.sha256(out.read_bytes()).hexdigest()
+    (out.parent/"fsaverage-bem.sha256").write_text(digest+"  "+out.name+"\n",encoding="utf-8")
+    print(json.dumps({"public_asset":str(out),"bytes":out.stat().st_size,"sha256":digest}))
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--subjects-dir",type=Path,
@@ -297,12 +375,15 @@ def main():
     parser.add_argument("--display-mesh-faces",type=int,default=12000)
     parser.add_argument("--output",type=Path,
        default=Path(".local-assets/pr5/fsaverage-bem.json"))
+    parser.add_argument("--package-public",action="store_true",help="Include FreeSurfer terms and modified-data notice in a web asset")
     args=parser.parse_args()
     if args.download:
-        fs_dir=mne.datasets.fetch_fsaverage(subjects_dir=args.subjects_dir,verbose=False)
+        fs_dir=fetch_pinned_fsaverage(args.subjects_dir)
     else:
         fs_dir=args.subjects_dir/"fsaverage"
-    build(fs_dir,args.output,args.sources_per_hemisphere,args.montage,args.display_mesh_faces)
+    payload=build(fs_dir,args.output,args.sources_per_hemisphere,args.montage,args.display_mesh_faces)
+    if args.package_public:
+        package_public_asset(payload,args.output)
 
 if __name__=="__main__":
     main()
