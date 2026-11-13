@@ -1,7 +1,7 @@
-import {getPhysicalSource,getPhysicalFixture} from './physicalExperiment';
-import {sphereElectrodePotentials,type SphereFixture} from './sphereForward';
-import {DEFAULT_MORPHOLOGY} from './localCorticalColumn';
-import type {FeedbackEegMapping} from './nativeFeedback';
+import {getPhysicalSource,getPhysicalFixture} from './physicalExperiment.ts';
+import {sphereElectrodePotentials,type SphereFixture} from './sphereForward.ts';
+import {DEFAULT_MORPHOLOGY} from './localCorticalColumn.ts';
+import type {FeedbackEegMapping} from './nativeFeedback.ts';
 /** Freeze a primary-source measurement operator, not an anatomical network registration.
  * Neural activity modulates the primary source via explicit, uncalibrated assumptions.
  */
