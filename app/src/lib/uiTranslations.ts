@@ -1,5 +1,7 @@
 /** Display phrases; scientific IDs, input values and exports are never translated. */
 export const englishPhrases: Record<string, string> = {
+  "· 电极头坐标方向径向投影到 95 mm 球面 · 源位置插值（已独立验证误差）": "· Head-coordinate sensor directions projected to a 95 mm sphere · bounded source interpolation with case-specific error checks",
+  "导中幅值最大，尖峰时跟最大值走）": "channels; follows the largest magnitude during peaks)",
   "JR p0=220 纯极限环的 alpha 占比约 99.8%，真实 Pz 只有 30.3% （真实脑电有宽带背景），模型无背景噪声，占比虚高是已知局限，不是拟合结果。 叠加默认噪声背景后，10 s 纯极限环 Pz 记录的 alpha 占比实测由 99.8% 降至 13.5% （噪声功率压过微弱的极限环信号，低于真实 30.3%——背景加过了头，不是校准到 30.3%； 见 PR8 方法学测试）。开关默认关闭，打开后上方同时显示未叠加时的占比以便对照。": "JR p0=220 has a nearly pure alpha limit cycle (about 99.8% alpha), whereas the cited real Pz recording has 30.3% with broadband background. This model mismatch is documented, not a fit. Adding default noise reduced alpha share to 13.5% in the cited 10 s example: noise overwhelmed the weak oscillation, rather than calibrating it. The optional overlay is off by default; its baseline share is also shown.",
   "本页 JR 柱三节的结果来自 JR 皮层柱模拟，不是人体实测；标“直播”的对照与回放来自主仿真；直播闭环直接读取每 1 ms 积分状态。": "The JR sections use a simulated cortical column, not human measurements. Live comparisons and replay use the main model; live feedback reads every 1 ms integration state.",
   "特征取自原生积分：选中脑区 #": "Native-integration features from the selected region #",
