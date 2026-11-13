@@ -113,7 +113,7 @@ export default function TopoTab({ recording, atTimeMs, onAtTimeMsChange, fixture
     try {
       const dir: Vec3Mm = srcAxis === 'X' ? [1, 0, 0] : srcAxis === 'Y' ? [0, 1, 0] : [0, 0, 1];
       const moment: Vec3Mm = [dir[0] * srcMoment, dir[1] * srcMoment, dir[2] * srcMoment];
-      if(recording?.sourceSeries)return recordingForwardAtTime(recording.sourceSnapshot?fixtureForPhysicalRecording(recording):loadedFixture,recording,atTimeMs);
+      if(recording?.sourceSeries)return recordingForwardAtTime((recording.sourceSnapshot||recording.physicalProjection?.headModel==='sphere')?fixtureForPhysicalRecording(recording):loadedFixture,recording,atTimeMs);
       return forwardHeadPotential(loadedFixture, srcPos, moment, { mode: reference });
     } catch {
       return null;

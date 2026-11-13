@@ -83,3 +83,32 @@ test('feedback follows a local-column viewport pose without replacing the retain
   assert.equal(getTemplateSource().sourceIndex,1,'independent manual experiment is not overwritten by local-column activity');
  }finally{setHeadModelSelection('sphere');}
 });
+
+test('250/500 Hz multichannel native BEM recordings share q(t), reference, cursor and the frozen full inverse model',async()=>{
+ const {setHeadModelSelection}=await import('../../app/src/lib/headModelSelection.ts');
+ const {capturePhysicalProjection}=await import('../../app/src/lib/physicalProjection.ts');
+ const {runNativeExperiment}=await import('../../app/src/lib/nativeEeg.ts');
+ const {templateSourcePotentials}=await import('../../app/src/lib/fsaverageBEM.ts');
+ const samples=Array.from({length:2001},(_,t)=>({t_ms:t,e:Float64Array.of(.1+.02*Math.sin(2*Math.PI*10*t/1000)),i:Float64Array.of(.1)}));
+ registerTemplateModel(model);setHeadModelSelection('bem');
+ try{
+  const sourceIndex=2,direction=model.source_positions[sourceIndex].normal_head_unit;
+  setTemplateSource({sourceIndex,moment:10,direction,reference:{mode:'average'},electrode:'Cz'});
+  const projection=capturePhysicalProjection(),unit=templateSourcePotentials(model,sourceIndex,direction,{mode:'infinity'});
+  for(const sfreqHz of [250,500]){
+   const {recording:rec}=runNativeExperiment({projection,samples,node:0,baselineE:.1,baselineI:.1,sfreqHz,noise:null});
+   assert.equal(rec.forwardModelId,model.model_id);assert.equal(rec.channels.length,model.electrodes.length);
+   assert.equal(rec.sourceSeries.coordinateFrame,'HEAD_RAS_MM');
+   assert.deepEqual(rec.sourceSeries.sources[0].positionMm,model.source_positions[sourceIndex].head_mm);
+   rec.rawDataUvInfinity.forEach((row,c)=>row.forEach((v,j)=>assert.ok(Math.abs(v-unit[c]*rec.sourceSeries.sources[0].momentsNAm[j])<1e-12)));
+   // Replacing a same-ID registry model must not reinterpret an existing recording.
+   registerTemplateModel({...model,gains_uV_per_nAm:model.gains_uV_per_nAm.map(row=>row.map(x=>2*x))});
+   const processed=reReferenceRecording({...rec},{mode:'electrode',label:'Cz'}),j=processed.timesMs.indexOf(400);
+   const field=templateRecordingForward(processed,400),lf=templateLeadField(processed);
+   processed.channels.forEach((c,k)=>assert.ok(Math.abs(field.valueUv[k]-processed.dataUv[k][j])<1e-12));
+   const expected=templateSourcePotentials(model,sourceIndex,direction,{mode:'electrode',label:'Cz'});
+   const q=rec.sourceSeries.sources[0].momentsNAm[j];
+   lf.gain.forEach((row,c)=>assert.ok(Math.abs((row[3*sourceIndex]*direction[0]+row[3*sourceIndex+1]*direction[1]+row[3*sourceIndex+2]*direction[2])*q-expected[c]*q)<1e-12));
+  }
+ }finally{registerTemplateModel(model);setHeadModelSelection('sphere');}
+});

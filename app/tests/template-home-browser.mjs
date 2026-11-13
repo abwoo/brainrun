@@ -107,6 +107,38 @@ try{
  assert.deepEqual(feedback.timesMs,finalMeasurement.state.samples.map(s=>s.tMs-finalMeasurement.state.samples[0].tMs));
  assert.equal(feedback.provenance.parentRunId,finalMeasurement.run_id);
  assert.deepEqual(feedback.channels[0].positionMm,rec.channels[i].positionMm);
+
+ const exportCurrent=async()=>{
+  const ready=page.waitForEvent('download');await page.getByRole('button',{name:'Export JSON',exact:true}).click();
+  const download=await ready,stream=await download.createReadStream();let body='';
+  for await(const chunk of stream)body+=chunk.toString();
+  return JSON.parse(body);
+ };
+ for(const rate of [250,500]){
+  await page.getByRole('combobox',{name:'Native EEG sample rate',exact:true}).selectOption(String(rate));
+  await page.getByRole('button',{name:'Record neural EEG at the physical source',exact:true}).click();
+  await page.waitForFunction(rate=>{
+   const root=document.querySelector('[data-analysis-run-id]'),active=document.querySelector('[data-testid="active-recording"]');
+   return root?.getAttribute('data-source-model')==='live-wc-integration-fir-v1'&&active?.getAttribute('data-sfreq-hz')===String(rate);
+  },rate);
+  const full=await exportCurrent();
+  assert.equal(full.sfreqHz,rate);assert.equal(full.forwardModelId,rec.forwardModelId);
+  assert.equal(full.channels.length,rec.channels.length);assert.equal(full.physicalProjection.headModel,'bem');
+  assert.equal(full.physicalProjection.templateSource.index,2);
+  assert.deepEqual(full.sourceSeries.sources[0].positionMm,rec.sourceSeries.sources[0].positionMm);
+  assert.equal(full.sourceSeries.mapping,'assumed-physical-primary');
+  assert.equal(full.nativeSource.node,40);assert.equal(full.acquisition.integrationRateHz,1000);
+  const q=full.sourceSeries.sources[0].momentsNAm;
+  full.rawDataUvInfinity.forEach((row,c)=>row.forEach((v,j)=>assert.ok(Math.abs(v-full.physicalProjection.infinityGainUvPerNAm[c]*q[j])<1e-12)));
+ }
+ await page.getByRole('spinbutton',{name:'Raw recording observation time ms',exact:true}).fill('700');
+ await page.getByRole('spinbutton',{name:'Raw recording observation time ms',exact:true}).press('Enter');
+ await page.getByRole('tab',{name:'Topography',exact:true}).click();
+ assert.equal(await page.getByTestId('topography-observation').getAttribute('data-time-ms'),'700');
+ await page.getByRole('tab',{name:'Source localization',exact:true}).click();
+ assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-channels'),String(rec.channels.length));
+ assert.equal(await page.getByTestId('inverse-observation').getAttribute('data-time-ms'),'700');
+ console.log('Actual native 250/500 Hz BEM multichannel Raw -> frozen physical source -> common topography/inverse cursor -> JSON PASS');
  console.log('Real template BEM -> selected source/sensor -> native causal feedback -> exact snapshot replay -> actual shared Raw/JSON PASS');
  console.log('Template auto-load without file import, matching Raw/export, topography and BEM inverse PASS');
 }finally{await browser?.close();await server.httpServer.close();}

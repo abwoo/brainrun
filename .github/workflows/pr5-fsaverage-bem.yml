@@ -18,7 +18,7 @@ on:
       - .github/workflows/pr5-fsaverage-bem.yml
   pull_request:
     branches: [main]
-    paths: ['scientific/forward/**', 'app/src/lib/fsaverageBEM.ts', 'app/src/lib/templateExperiment.ts', 'app/src/components/LocalBEMLab.tsx', 'app/tests/template-home-browser.mjs', 'app/src/lib/headModelSelection.ts', 'app/src/lib/physicalFeedback.ts', 'app/src/lib/nativeFeedback.ts', 'app/src/lib/feedbackRecording.ts', 'app/src/components/PhysicsHome.tsx', 'app/src/components/ExperimentLab.tsx', 'licenses/**', '.github/workflows/pr5-fsaverage-bem.yml']
+    paths: ['scientific/forward/**', 'app/src/lib/fsaverageBEM.ts', 'app/src/lib/templateExperiment.ts', 'app/src/components/LocalBEMLab.tsx', 'app/tests/template-home-browser.mjs', 'app/src/lib/headModelSelection.ts', 'app/src/lib/physicalFeedback.ts', 'app/src/lib/physicalProjection.ts', 'app/src/lib/forwardContext.ts', 'app/src/lib/nativeEeg.ts', 'app/src/components/EegAnalysisLab.tsx', 'app/src/lib/nativeFeedback.ts', 'app/src/lib/feedbackRecording.ts', 'app/src/components/PhysicsHome.tsx', 'app/src/components/ExperimentLab.tsx', 'licenses/**', '.github/workflows/pr5-fsaverage-bem.yml']
   workflow_dispatch:
 
 permissions:

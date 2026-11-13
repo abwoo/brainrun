@@ -90,7 +90,7 @@ export default function InverseTab({ recording, fixture,atTimeMs=400 }: InverseT
       if(bestRms<1e-12)return null; // A zero signal cannot identify a source.
       const dataUv = recording.channels.map((_, c) => recording.dataUv[c][bestJ]);
       const lf = recording.forwardModelId===FSAVERAGE_BEM_MODEL_ID?templateLeadField(recording):
-        recording.sourceSnapshot?buildLeadField(fixtureForPhysicalRecording(recording),recording.montage,recording.reference,recording.channels.map(c=>c.label)):
+        (recording.sourceSnapshot||recording.physicalProjection?.headModel==='sphere')?buildLeadField(fixtureForPhysicalRecording(recording),recording.montage,recording.reference,recording.channels.map(c=>c.label)):
         fixture&&recording.forwardModelId===fixture.model_id?buildLeadField(fixture, recording.montage, recording.reference,recording.channels.map(c=>c.label)):null;
       if(!lf)throw new Error('Forward model does not match recording');
       const fit = dipoleFit(lf, dataUv);

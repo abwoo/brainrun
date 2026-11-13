@@ -7,6 +7,7 @@ export interface NetworkBranch {
  run:ExperimentSessionSnapshot;samples:NativeSample[];g:number;
 }
 export interface NetworkComparison {
+ eegProjection?:import('./physicalProjection').PhysicalProjection;
  schemaVersion:1;model:'rust-wasm-wilson-cowan-76';originSnapshotId:string;originJson:string;originRunId:string;
  startMs:number;durationMs:number;node:number;a:NetworkBranch;b:NetworkBranch;
  metrics:{selectedRmsDifference:number;globalMaxDifference:number};
