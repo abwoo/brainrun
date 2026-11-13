@@ -94,6 +94,23 @@ try{
  await page.getByRole('button',{name:'Restore before input',exact:true}).click();
  await page.waitForFunction(node=>window.__brainSim.getSnapshot()?.t_ms===500&&window.__brainSim.getSnapshot()?.e[node]<.15,pair[0]);
  console.log('Local high state / low global mean checkpoint regression PASS');
+ const restoredParameters=JSON.parse(local.before.json).params;
+ const strength=page.getByRole('spinbutton',{name:'Input strength',exact:true});
+ const duration=page.getByRole('spinbutton',{name:'Duration ms',exact:true});
+ await strength.fill('1.25');await strength.press('Enter');
+ await duration.fill('80');await duration.press('Enter');
+ await page.waitForFunction(()=>window.__brainSim.getParams().stim_amplitude===1.25&&window.__brainSim.getParams().stim_duration_ms===80);
+ // Same client restore route used by network branches; do not invoke App's
+ // restore button callback, which would otherwise hide a stale-controls bug.
+ await page.evaluate(()=>window.__brainSim.restoreSnapshot('pulse-baseline'));
+ await page.waitForFunction(p=>{
+  const strength=document.querySelector('input[aria-label="Input strength"]');
+  const duration=document.querySelector('input[aria-label="Duration ms"]');
+  return strength?.value===String(p.stim_amplitude)&&duration?.value===String(p.stim_duration_ms);
+ },restoredParameters);
+ assert.equal(await strength.inputValue(),String(restoredParameters.stim_amplitude));
+ assert.equal(await duration.inputValue(),String(restoredParameters.stim_duration_ms));
+ console.log('External/branch restore synchronizes actual input controls with restored Worker parameters PASS');
  assert.deepEqual(errors,[]);
  console.log('Repeated strong pulses: native clock continues, inputs expire, exact pre-input recovery, same-run chart reset, gentle UI controls and pause status PASS');
 }finally{await browser?.close();await server.httpServer.close();}

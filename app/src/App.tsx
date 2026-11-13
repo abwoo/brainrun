@@ -443,6 +443,7 @@ export default function App() {
   // PR4：同一轮询里读快照信息与模式参数（变化才更新 state）。
   const snapInfoSigRef = useRef('');
   const modeParamsSigRef = useRef('');
+  const engineParamsSigRef = useRef('');
   useEffect(() => {
     if (!data || !simReady) return;
     const poll = () => {
@@ -472,6 +473,17 @@ export default function App() {
       if (infoSig !== snapInfoSigRef.current) {
         snapInfoSigRef.current = infoSig;
         setSnapInfo(info);
+      }
+      // Branch/external restores also update the client mirrors after the
+      // Worker confirms restoration. Keep controls aligned with that state,
+      // not only with restores initiated by this component's buttons.
+      const parameters=sim.getParams(),parameterSignature=JSON.stringify(parameters);
+      if(parameterSignature!==engineParamsSigRef.current){
+        engineParamsSigRef.current=parameterSignature;
+        setKStim(KNOB_MAP.stimulusK(parameters.stim_amplitude));
+        setKDur(KNOB_MAP.durationK(parameters.stim_duration_ms));
+        setKExcInh(KNOB_MAP.c_eiK(parameters.c_ei));
+        setKConn(KNOB_MAP.gK(parameters.g));
       }
       const mp = sim.getModeParams();
       const mpSig = JSON.stringify(mp);
