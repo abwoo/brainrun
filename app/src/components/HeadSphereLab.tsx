@@ -421,8 +421,8 @@ export default function HeadSphereLab({onClose,onOpenReal,liveSource,embedded=fa
       </div>
       <div className="modal-body">
         {onOpenReal&&<button type="button" className="chip chip-small"
-          onClick={onOpenReal} aria-label="打开本地真实 MRI BEM">
-          进阶：真实 MRI/BEM（加载自行获取的模板）
+          onClick={onOpenReal} aria-label={text("打开真实模板 MRI BEM","Open anatomical template MRI BEM")}>
+          {text("进阶：真实 MRI/BEM（自动加载模板）","Advanced: anatomical MRI/BEM (template loads automatically)")}
         </button>}
         <p className="panel-text" style={{color:'#ffb340'}}>经 MNE 计算的四层球形导体：脑组织、脑脊液、颅骨和头皮。是模型级 EEG 正向仿真，不是个体 MRI/BEM，亦未与 TVB 76区皮层配准。</p>
         <label className="panel-text">
