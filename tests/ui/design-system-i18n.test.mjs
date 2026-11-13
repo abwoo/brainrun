@@ -14,7 +14,7 @@ test('all scientific lab select elements use the same native Dropdown',()=>{
   assert.equal(n,(s.match(/<\/Dropdown>/g)||[]).length);
   total+=n;
  }
- assert.equal(total,44);
+ assert.equal(total,45);
 });
 test('shared Dropdown deliberately uses native select and accessible focus behavior',()=>{
  const c=read('app/src/components/ui/Dropdown.tsx'),css=read('app/src/App.css');
@@ -49,9 +49,9 @@ test('workspace layout is visual-only and responds to focus, resize and reset',(
 });
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
- assert.equal(c.counts.total,250);
- assert.equal(c.entries.length,250);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,47);
+ assert.equal(c.counts.total,251);
+ assert.equal(c.entries.length,251);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,48);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
 

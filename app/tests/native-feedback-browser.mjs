@@ -62,5 +62,24 @@ try{
  await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='applied');
  await page.getByRole('button',{name:'停止直播闭环',exact:true}).click();
  await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='stopped');
+
+ await page.getByRole('combobox',{name:'闭环测量信号',exact:true}).selectOption('eeg');
+ await page.getByRole('textbox',{name:'直播闭环阈值',exact:true}).fill('0');
+ await page.getByRole('button',{name:'启动直播闭环',exact:true}).click();
+ await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='configured'&&window.__brainSim.getNativeFeedback()?.state?.config.eeg);
+ await page.evaluate(()=>{window.__brainSim.pulseAt(40,1,100);window.__brainSim.advanceMs(300);});
+ await page.waitForFunction(()=>window.__brainSim.getNativeFeedback()?.phase==='applied'&&window.__brainSim.getNativeFeedback()?.action?.featureUnit==='uV');
+ const mapping=await page.evaluate(()=>window.__brainSim.getNativeFeedback().state.config.eeg);
+ assert.ok(Number.isFinite(mapping.gainUvPerNAm));assert.equal(mapping.lowpassHz,40);assert.equal(mapping.electrode,'Cz');
+ await page.evaluate(()=>window.__brainSim.saveSnapshot());
+ const start=await page.evaluate(()=>window.__brainSim.getSnapshot().t_ms);
+ await page.evaluate(()=>window.__brainSim.advanceMs(400));
+ await page.waitForFunction(t=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===t+400;},start);
+ const eegPath=await page.evaluate(start=>window.__brainSim.getNativeHistory().filter(s=>s.t_ms>=start).map(s=>s.e[40]),start);
+ await page.evaluate(()=>window.__brainSim.restoreSnapshot('manual'));await page.evaluate(()=>window.__brainSim.advanceMs(400));
+ await page.waitForFunction(t=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===t+400;},start);
+ assert.deepEqual(await page.evaluate(start=>window.__brainSim.getNativeHistory().filter(s=>s.t_ms>=start).map(s=>s.e[40]),start),eegPath);
+ await page.getByRole('button',{name:'停止直播闭环',exact:true}).click();
+ console.log('Physical EEG causal feedback: frozen MNE measurement, µV decisions, native E/I and filter-state replay PASS');
  console.log('Actual Worker feedback: 1 ms acquisition, display-rate invariance, model-time action stamps and complete controller snapshot replay PASS');
 }finally{await browser?.close();await server.httpServer.close();}

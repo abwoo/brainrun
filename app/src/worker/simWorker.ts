@@ -227,7 +227,7 @@ function acquireAdvance(ms:number):void {
   const block=Math.min(remaining,200);
   post(advanceAcquiring(sim,block,runId,{
    beforeStep:t=>{for(const action of feedback?.beforeStep(t)??[]){applyInput(action.node,t,action.durationMs,action.amplitude);feedbackReport('applied',action);}},
-   afterStep:(t,e)=>{const action=feedback?.afterStep(t,e);if(action)feedbackReport('detected',action);}
+   afterStep:(t,e,i)=>{const action=feedback?.afterStep(t,e,i);if(action)feedbackReport('detected',action);}
   }));remaining-=block;
   activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
  }
@@ -487,7 +487,8 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
       }
       case 'set_native_feedback': {
         if(!sim)return;
-        const next=msg.config?new NativeFeedback(msg.config,sim.n_nodes(),sim.time_ms()):null;
+        const config=msg.config?.eeg?{...msg.config,eeg:{...msg.config.eeg,baselineE:sim.snapshot_e()[msg.config.node],baselineI:sim.snapshot_i()[msg.config.node]}}:msg.config;
+        const next=config?new NativeFeedback(config,sim.n_nodes(),sim.time_ms()):null;
         feedback=next;acknowledge(msg);feedbackReport(msg.config?'configured':'stopped');return;
       }
       case 'set_snapshot_hz': {
