@@ -190,7 +190,7 @@ export default function ExperimentLab({
     const branch=networkResult[which],first=branch.samples[0],node=networkResult.node;
     const result=runNativeExperiment({fixture,samples:branch.samples,node,
      baselineE:first.e[node],baselineI:first.i[node],positionMm:live.positionMm,
-     markers:branch.markers,noise:null,sfreqHz:250});
+     markers:branch.markers,noise:null,seed:branch.run.provenance.seed??1,sfreqHz:250});
     const session=new ExperimentSession({origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:fixture.model_id,
      registration:'unregistered',seed:branch.run.provenance.seed,parentRunId:branch.run.provenance.runId,clock:'solver-integration-ms'});
     session.recordModelTime(session.runId,result.recording.timesMs.at(-1)??0);

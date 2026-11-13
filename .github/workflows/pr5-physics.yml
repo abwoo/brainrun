@@ -134,6 +134,7 @@ jobs:
         run: |
           node tests/native-acquisition-browser.mjs
           node tests/native-feedback-browser.mjs
+          node tests/network-comparison-browser.mjs
       - name: Shared physical source and observation time
         working-directory: app
         run: node tests/physical-source-browser.mjs
