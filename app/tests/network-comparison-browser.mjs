@@ -38,7 +38,7 @@ try{
  await page.getByRole('button',{name:'Run experiment',exact:true}).click();
  await page.getByTestId('eeg-summary').waitFor();
  const previousRun=await page.locator('[data-analysis-run-id]').getAttribute('data-analysis-run-id');
- await page.getByRole('button',{name:'More',exact:true}).click();
+ await page.getByRole('button',{name:/^More\b/}).click();
  await page.getByRole('button',{name:'Comparisons',exact:true}).click();
  await page.getByRole('button',{name:'Compare A/B from this state',exact:true}).click();
  await page.getByTestId('network-comparison-result').waitFor({timeout:30000});
