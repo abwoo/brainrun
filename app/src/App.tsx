@@ -254,6 +254,7 @@ export default function App() {
   // PR8-A：EEG 模式内联实验台的初始 tab（S8–S11 的“打开实验台”用）与
   // WAVES 模式的 Alpha 记录（S4 跑完 JR 极限环后交来，WavesTab 画真实 PSD）。
   const [eegInitialTab, setEegInitialTab] = useState<EegLabTab>('eeg');
+  const [eegLoadRevision,setEegLoadRevision]=useState(0);
   const [wavesRecording, setWavesRecording] = useState<EegRecording | null>(null);
   // PR7：对照实验用的球形正向模型 fixture（与 EegAnalysisLab 同一来源；
   // 打开对照实验时才加载，null 时源定位对照不可用，其余两节可用）。
@@ -1081,7 +1082,7 @@ export default function App() {
             HEAD EEG
           </button>
           <button type="button" className="chip" disabled={mode === 'eeg'} onClick={() => setShowEegLab(true)}
-            title="EEG 实验含独立柱模型记录和直播快照推导；late ERP 可另生独立试次，地形右侧源另算。并非所有视图同一次实验（P0-4 待完成）。">
+            title={locale==='zh-CN'?"分析当前物理记录、原生网络 EEG 或明确标记的独立实验；各分析保留数据来源、模型与观察时刻。":"Analyze the current physical recording, native network EEG or a labeled independent experiment, preserving source, model and observation time."}>
             {t('shell.eegLab')}
           </button>
           <button type="button" className="chip" onClick={() => setShowDipoleLab(true)}
@@ -1145,6 +1146,7 @@ export default function App() {
 </main>) : mode === 'eeg' ? (
         <main className="main main-eeg">
           <EegAnalysisLab
+            key={eegLoadRevision}
             inline
             initialTab={eegInitialTab}
             onClose={() => setMode('play')}
@@ -1994,6 +1996,8 @@ export default function App() {
               )}
               <ExperimentLab
                 fixture={expFixture}
+                onRestore={syncFromSnapshot}
+                onOpenAnalysis={()=>{setEegLoadRevision(n=>n+1);setShowExperimentLab(false);setMode('eeg');setEegInitialTab('eeg');}}
                 onClose={() => setShowExperimentLab(false)}
                 live={{
                   sim: simRef.current,

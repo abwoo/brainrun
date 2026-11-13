@@ -1,3 +1,6 @@
+import {useI18n} from '../lib/i18n';
+import {compareNetworkBranches,networkComparisonJson,type NetworkComparison} from '../lib/networkComparison';
+import type {SnapshotSummary} from '../lib/simClient';
 import Dropdown from './ui/Dropdown';
 /**
  * PR-15 — 实验沙盒组件：双脑 A/B 对照、时间机器、闭环控制。
@@ -22,7 +25,9 @@ import Dropdown from './ui/Dropdown';
  */
 import { useEffect, useRef, useState } from 'react';
 import type { SphereFixture } from '../lib/sphereForward';
-import { runLiveExperiment } from '../lib/eegRecording';
+import {setLiveRecordingStore} from '../lib/eegRecording';
+import {runNativeExperiment,NATIVE_EEG_ID} from '../lib/nativeEeg';
+import {ExperimentSession} from '../lib/experimentSession';
 import type { SimClient } from '../lib/simClient';
 import type { Vec3Mm } from '../lib/volumeConduction';
 import {
@@ -82,10 +87,13 @@ function fmt(v: number, digits = 4): string {
 export default function ExperimentLab({
   fixture,
   onClose,
+  onRestore,onOpenAnalysis,
   live,
 }: {
   fixture: SphereFixture | null;
   onClose: () => void;
+  onRestore?:(summary:SnapshotSummary)=>void;
+  onOpenAnalysis?:()=>void;
   /**
    * PR8-LINK 直播接线（App 传）：主仿真客户端 + 选中脑区 + 其 TVB 中心。
    * 不传时只有 JR 柱对照一路（独立演示）。
@@ -97,6 +105,7 @@ export default function ExperimentLab({
     positionMm: Vec3Mm | null;
   };
 }) {
+  const {locale}=useI18n();const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
   /* ── A/B 对照 ── */
   const [driveA, setDriveA] = useState('120');
   const [driveB, setDriveB] = useState('300');
@@ -157,54 +166,41 @@ export default function ExperimentLab({
     );
   };
 
-  /* ── PR8-LINK：直播 A ── */
-  const [liveA, setLiveA] = useState<string | null>(null);
-  const [liveAError, setLiveAError] = useState<string | null>(null);
-
-  const handleRunLiveA = () => {
-    setLiveAError(null);
-    try {
-      const sim = live?.sim;
-      if (!sim) throw new Error('直播未就绪（仿真引擎加载中）');
-      if (live?.node === null || live?.node === undefined) {
-        throw new Error('先在主界面选一个脑区，再取直播 A');
-      }
-      if (!fixture || !live?.positionMm) {
-        throw new Error('球形正向模型未加载：Pz 代理不可算（先看上方“先在主界面刺激一次”的 ΔE 部分）');
-      }
-      const win = sim.getLastResponseWindow();
-      const base = sim.getBaseline();
-      if (!win || !base) throw new Error('先在主界面刺激一次（需要最近的响应窗口）');
-      let peak = 0;
-      for (const s of win.snapshots) {
-        const d = s.e[live.node] - base.e[live.node];
-        if (Math.abs(d) > Math.abs(peak)) peak = d;
-      }
-      const samples = sim.getSnapshotHistory();
-      if (samples.length < 2) throw new Error('直播快照历史不足：等仿真跑满 1 秒');
-      const first = samples[0];
-      const { recording } = runLiveExperiment({
-        fixture,
-        samples,
-        node: live.node,
-        baselineE: first.e[live.node],
-        baselineI: first.i[live.node],
-        markers: sim.getMarkers(),
-        positionMm: live.positionMm,
-        noise: null,
-      });
-      const pzIdx = recording.channels.findIndex((c) => c.label === 'Pz');
-      const pzRow = recording.dataUv[pzIdx];
-      const pzPeak = Math.max(...pzRow.map(Math.abs));
-      const pzRms = Math.sqrt(pzRow.reduce((s, v) => s + v * v, 0) / pzRow.length);
-      setLiveA(
-        `直播 A（#${live.node} ${live.label ?? ''}）：响应窗口 ${win.snapshots.length} 条快照，峰值 ΔE ${peak.toFixed(3)}；` +
-          `直播推导 Pz 峰值 ${pzPeak.toFixed(3)} µV，RMS ${pzRms.toFixed(3)} µV。` +
-          `B 列仍是 JR 柱（见上方对照表）：两者模型不同，只并列、不作同口径差值。`,
-      );
-    } catch (e) {
-      setLiveAError(String(e));
-    }
+  const [networkG,setNetworkG]=useState('0.2');
+  const [networkBusy,setNetworkBusy]=useState(false);
+  const [networkResult,setNetworkResult]=useState<NetworkComparison|null>(null);
+  const [networkError,setNetworkError]=useState<string|null>(null);
+  const handleNetworkCompare=async()=>{
+   if(!live?.sim||live.node===null)return;
+   setNetworkBusy(true);setNetworkError(null);
+   try{
+    const result=await compareNetworkBranches(live.sim,live.node,Number(networkG));
+    setNetworkResult(result);
+    const origin=await live.sim.restoreSnapshot(result.originSnapshotId);onRestore?.(origin);
+   }catch(e){setNetworkError(String(e));}finally{setNetworkBusy(false);}
+  };
+  const inspectBranch=async(which:'a'|'b')=>{
+   if(!live?.sim||!networkResult)return;
+   try{const summary=await live.sim.restoreSnapshot(networkResult[which].snapshotId);onRestore?.(summary);}
+   catch(e){setNetworkError(String(e));}
+  };
+  const analyzeBranch=(which:'a'|'b')=>{
+   if(!fixture||!networkResult||!live?.positionMm)return;
+   try{
+    const branch=networkResult[which],first=branch.samples[0],node=networkResult.node;
+    const result=runNativeExperiment({fixture,samples:branch.samples,node,
+     baselineE:first.e[node],baselineI:first.i[node],positionMm:live.positionMm,
+     markers:branch.markers,noise:null,seed:branch.run.provenance.seed??1,sfreqHz:250});
+    const session=new ExperimentSession({origin:'live-derived',solverId:NATIVE_EEG_ID,anatomyId:fixture.model_id,
+     registration:'unregistered',seed:branch.run.provenance.seed,parentRunId:branch.run.provenance.runId,clock:'solver-integration-ms'});
+    session.recordModelTime(session.runId,result.recording.timesMs.at(-1)??0);
+    const recording={...result.recording,provenance:{...session.provenance,upstreamStartMs:result.t0Ms},
+     experiment:{session:session.getSnapshot(),parameters:{comparisonBranch:which,comparisonOriginRunId:networkResult.originRunId,
+      sourceNode:node,montage:result.recording.montage,reference:result.recording.reference,noise:null,seed:result.recording.seed,
+      sfreqHz:250,durationMs:result.recording.timesMs.at(-1)??0,registration:'TVB demo coordinates clamped to sphere; unregistered'}}};
+    setLiveRecordingStore({recording,events:result.events.map(e=>({...e,runId:session.runId})),epochs:null});
+    onOpenAnalysis?.();
+   }catch(e){setNetworkError(String(e));}
   };
 
   /* ── 时间机器 ── */
@@ -296,7 +292,7 @@ export default function ExperimentLab({
       if (live?.node === null || live?.node === undefined) {
         throw new Error('先在主界面选一个脑区，再载入直播快照');
       }
-      const hist = sim.getSnapshotHistory();
+      const hist = sim.getNativeHistory();
       if (hist.length < 2) throw new Error('直播快照历史不足：等仿真跑满 1 秒');
       const node = live.node;
       setLiveTm(hist.map((s) => ({ t_ms: s.t_ms, e: s.e[node], i: s.i[node] })));
@@ -398,7 +394,8 @@ export default function ExperimentLab({
         setClLiveLog(prev=>[...prev,
           't='+message.t_ms+' ms · E='+a.featureValue.toFixed(4)+' · detected='+a.detectedMs+' ms → applied='+message.t_ms+' ms · #'+a.id]);
       }
-      if((message.phase==='applied'&&!message.active)||message.phase==='stopped')setClLiveRunning(false);
+      if(message.phase==='applied'&&!message.active){clLiveRequestedRef.current=false;setClLiveRunning(false);}
+      if(message.phase==='stopped')setClLiveRunning(false);
     });
   },[liveSim]);
 
@@ -450,29 +447,42 @@ export default function ExperimentLab({
         {depthResult && <p style={note}>{depthResult}</p>}
       </div>
 
-      {/* PR8-LINK：直播 A（双脑对照的 A 取直播仿真） */}
-      <div style={panel}>
-        <h3 style={title}>双脑 A/B 对照 · 直播 A</h3>
-        <p style={note}>
-          A 取直播仿真：选中脑区在最近响应窗口里的峰值 ΔE（真实快照）+ 同一份
-          直播推导的 Pz 峰值/RMS（经 runLiveExperiment，与 EEG 台同一条管线）。
-          B 仍是上方 JR 柱对照的 B（驱动可改）；两者模型不同，只并列、不作
-          同口径差值。改 G、换选区后重取，A 的数值跟着变。
-        </p>
+      <div style={panel} data-testid="network-comparison">
+       <h3 style={title}>{text('全脑网络 A/B · 同一完整状态分叉','Whole-network A/B · fork one complete state')}</h3>
+       <p style={note}>{text('暂停主模型，从同一随机状态、延迟历史、输入和控制器状态分叉。A 保留当前 G，B 只改变 G；两条轨迹均记录每 1 ms 的 E/I。完成后主模型停回原点，手动选择查看或分析分支。','Pause the main model and fork identical RNG, delay history, inputs and controller state. A retains G; B changes only G. Both record E/I every 1 ms. The model returns paused to the origin; choose a branch to inspect or analyze.')}</p>
+       <div style={row}>
+        <label style={label}>{text("B 分支：网络耦合强度 G","B: network coupling G")} <input style={input} aria-label={text("B 分支耦合强度 G","B branch G")} type="number" min={0} max={.4} step={.01} value={networkG} disabled={networkBusy} onChange={e=>setNetworkG(e.target.value)}/></label>
+        <button style={button} disabled={!live?.sim||live.node===null||networkBusy} onClick={()=>void handleNetworkCompare()}>{networkBusy?text('计算中…','Computing…'):text('从当前状态比较 A/B','Compare A/B from this state')}</button>
+       </div>
+       {networkError&&<p role="alert" style={note}>{networkError}</p>}
+       {networkResult&&<>
+        <output data-testid="network-comparison-result" data-global-difference={networkResult.metrics.globalMaxDifference} data-origin-run={networkResult.originRunId}>
+         G: {networkResult.a.g} → {networkResult.b.g} · RMS ΔE #{networkResult.node}: {networkResult.metrics.selectedRmsDifference.toFixed(6)} · max ΔE: {networkResult.metrics.globalMaxDifference.toFixed(6)}
+        </output>
+        <svg viewBox="0 0 640 130" role="img" aria-label="Native network A and B trajectories" style={{width:'100%',background:'#08131d'}}>
+         {(['a','b'] as const).map(which=><polyline key={which} fill="none" stroke={which==='a'?'#ffb340':'#4fb6f2'} strokeWidth={1.5}
+          points={networkResult[which].samples.filter((_,i)=>i%4===0).map(s=>((s.t_ms-networkResult.startMs)/networkResult.durationMs*640)+','+(125-s.e[networkResult.node]*120)).join(' ')}/>)}
+        </svg>
+        <p style={note}>{text('橙色 A，蓝色 B。纵轴 E 为无量纲；图形每 4 ms 取点，完整导出保留全部 1 ms 记录。','Orange A, blue B. E is dimensionless; the plot draws every 4 ms, while export retains every 1 ms sample.')}</p>
         <div style={row}>
-          <button style={button} onClick={handleRunLiveA}>取直播 A（最近响应窗口）</button>
+         <button style={button} onClick={()=>void inspectBranch('a')}>{text('查看 A 末状态','Inspect A end state')}</button>
+         <button style={button} onClick={()=>void inspectBranch('b')}>{text('查看 B 末状态','Inspect B end state')}</button>
+         <button style={button} disabled={!fixture||!live?.positionMm} onClick={()=>analyzeBranch('a')}>{text('分析 A 的 EEG','Analyze A EEG')}</button>
+         <button style={button} disabled={!fixture||!live?.positionMm} onClick={()=>analyzeBranch('b')}>{text('分析 B 的 EEG','Analyze B EEG')}</button>
+         <button style={button} onClick={()=>{
+          const url=URL.createObjectURL(new Blob([networkComparisonJson(networkResult)],{type:'application/json'}));
+          const a=document.createElement('a');a.href=url;a.download='brainrun-network-comparison.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+         }}>{text('导出完整对照','Export complete comparison')}</button>
         </div>
-        {liveAError && <p style={note}>{liveAError}</p>}
-        {liveA && <p style={note}>{liveA}</p>}
+        <p style={note}>{text('EEG 使用同一球形模型和显式源映射；TVB 演示坐标未做人类解剖配准。','EEG uses the same sphere and explicit source mapping; TVB demo coordinates are not registered to human anatomy.')}</p>
+       </>}
       </div>
 
       {/* PR8-LINK：直播回放（SimClient 真实快照存储） */}
       <div style={panel}>
         <h3 style={title}>时间机器 · 直播回放</h3>
         <p style={note}>
-          最近约 10 秒的真实直播快照（SimClient 快照历史，60 Hz）：拖动看选中
-          脑区的 E/I 是怎么走的。直播引擎不可倒带——这里只回放已记录的历史，
-          不改仿真状态；想从历史点改参数重跑，用下面的 JR 柱时间机器（独立演示）。
+          {text('这里回放最近 10 秒的原生 1 ms E/I；滑杆只改变观察时刻。上方全脑 A/B 可以恢复完整分支状态并继续实验。','Replay native 1 ms E/I from the last 10 seconds. The slider changes observation time only; the whole-network A/B controls above restore complete branch states for further experiments.')}
         </p>
         <div style={row}>
           <button style={button} onClick={handleLoadLiveTm}>载入最近 10 秒直播快照</button>

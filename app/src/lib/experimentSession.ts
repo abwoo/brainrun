@@ -129,7 +129,7 @@ export class ExperimentSession {
    * Reset/rewind creates a NEW lineage. No 0ms data from another run can
    * appear in the current snapshot, even when an old Worker reply is late.
    */
-  newRun(update: Partial<Omit<SessionInit, 'parentRunId'>> = {}, parent = true): string {
+  newRun(update: Partial<Omit<SessionInit, 'parentRunId'>> = {}, parent: boolean|string = true): string {
     const last = this.current;
     this.current = this.makeProvenance({
       origin: update.origin ?? last.origin,
@@ -138,7 +138,7 @@ export class ExperimentSession {
       registration: update.registration ?? last.registration,
       seed: update.seed === undefined ? last.seed : update.seed,
       clock: update.clock ?? last.clock,
-      parentRunId: parent ? last.runId : null,
+      parentRunId: typeof parent==='string'?parent:parent ? last.runId : null,
     });
     this.lastModelTimeMs = null;
     this.commands = [];

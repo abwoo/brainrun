@@ -26,7 +26,7 @@ The Advanced labs menu keeps additional tools away from the default workbench:
 - EEG recordings, spectra, event-related responses, time-frequency analysis, scalp maps and source estimates.
 - LIF, Hodgkin–Huxley and multicompartment neuronal models.
 - TES/TMS field approximations and sensory-input models.
-- Parameter comparisons, saved-state replay and simulated feedback control.
+- Matched main-network A/B from one complete state, branch EEG, saved-state replay and model-clock feedback.
 - Brain regions, coordinate frames and model documentation.
 - Optional presets on a separate page. They run only when requested and do not cover the main model.
 
