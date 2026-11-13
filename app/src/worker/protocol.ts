@@ -85,6 +85,8 @@ export interface ModeParams {
 
 export interface Snapshot {
   /** Authoritative Worker input state; absent in legacy test snapshots. */
+  /** false after reset/restore until an actual integration step observes P. */
+  p_valid?:boolean;
   active_input_count?:number;
   queued_input_count?:number;
   pulse_checkpoint_ms?:number;

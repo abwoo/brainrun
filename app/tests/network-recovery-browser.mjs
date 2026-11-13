@@ -39,8 +39,8 @@ try{
   const checkpoint=JSON.parse(before.saved.json);
   await page.getByRole('button',{name:'Restore before input',exact:true}).click();
   await page.waitForFunction(old=>window.__brainSim.getSnapshot()?.run_id!==old&&window.__brainSim.getSnapshot()?.t_ms===500,before.run);
-  const recovered=await page.evaluate(()=>{const s=window.__brainSim.getSnapshot();return {e:Array.from(s.e),i:Array.from(s.i),active:s.active_input_count};});
-  assert.deepEqual(recovered.e,checkpoint.e);assert.deepEqual(recovered.i,checkpoint.i);assert.equal(recovered.active,0);
+  const recovered=await page.evaluate(()=>{const s=window.__brainSim.getSnapshot();return {e:Array.from(s.e),i:Array.from(s.i),active:s.active_input_count,pValid:s.p_valid};});
+  assert.deepEqual(recovered.e,checkpoint.e);assert.deepEqual(recovered.i,checkpoint.i);assert.equal(recovered.active,0);assert.equal(recovered.pValid,false,'restoration has no new integration-drive observation');
   await page.evaluate(()=>window.__brainSim.resume());
   await page.waitForFunction(()=>window.__brainSim.getSnapshot()?.t_ms>=600&&!window.__brainSim.getSnapshot()?.paused);
   await page.waitForFunction(()=>window.__brainActivity.getBufferedSamples().length>2);

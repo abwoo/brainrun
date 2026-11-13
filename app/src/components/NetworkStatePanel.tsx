@@ -41,12 +41,12 @@ export default function NetworkStatePanel({sim,selectedId,onRecover}:{sim:SimCli
   running:text('模型正在计算','Solver running'),
  };
  return <section className="plain-explanation" data-testid="network-state" data-state={status} data-time-ms={s?.t_ms??''}
-   data-e={selectedId!==null?s?.e[selectedId]??'':''} data-i={selectedId!==null?s?.i[selectedId]??'':''}
+   data-p={s?.p_valid&&selectedId!==null?s.p[selectedId]:''} data-e={selectedId!==null?s?.e[selectedId]??'':''} data-i={selectedId!==null?s?.i[selectedId]??'':''}
    data-active-inputs={s?.active_input_count??''} data-queued-inputs={s?.queued_input_count??''}>
   <p role="status">{labels[status]}</p>
-  <p>{text('模型时间','Model time')}: {s?(s.t_ms/1000).toFixed(3):'—'} s · E {selectedId!==null?s?.e[selectedId]?.toFixed(6)??'—':'—'} · I {selectedId!==null?s?.i[selectedId]?.toFixed(6)??'—':'—'} · P {selectedId!==null?s?.p[selectedId]?.toFixed(6)??'—':'—'}</p>
+  <p>{text('模型时间','Model time')}: {s?(s.t_ms/1000).toFixed(3):'—'} s · E {selectedId!==null?s?.e[selectedId]?.toFixed(6)??'—':'—'} · I {selectedId!==null?s?.i[selectedId]?.toFixed(6)??'—':'—'} · P {s?.p_valid&&selectedId!==null?s.p[selectedId]?.toFixed(6)??'—':'—'}</p>
   <p>{text('进行中的脉冲／按住','Active pulses / holds')}: {s?.active_input_count??'—'} · {text('待执行手动脉冲','Queued manual pulses')}: {s?.queued_input_count??'—'}</p>
-  <p>{text('P 为实际总外部驱动，包含背景活动和持续偏置。','P is the actual total external drive, including background and sustained bias.')}</p>
+  <p>{text('P 来自上一求解步，包含背景和偏置；重新开始或恢复后，推进模型才会更新。','P is total external drive from the last integration step, including background and bias. After reset/restore it appears only once the model advances.')}</p>
   {(status==='high'||status==='settled')&&<p>{text('稳定值不表示卡住。模型可能停留在一个稳态；重复强刺激会叠加。背景活动模式决定是否有持续起伏。','A steady value does not mean the app froze. The model can remain at an equilibrium; strong repeated inputs can accumulate. The background mode determines ongoing fluctuations.')}</p>}
   <button type="button" className="ui-button" disabled={s?.pulse_checkpoint_ms===undefined} onClick={onRecover}>{text('恢复刺激前','Restore before input')}</button>
  </section>;
