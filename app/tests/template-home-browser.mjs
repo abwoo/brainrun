@@ -85,7 +85,12 @@ try{
  assert.equal(await page.getByRole('textbox',{name:'直播闭环阈值',exact:true}).inputValue(),'0');
  assert.equal(await page.getByRole('button',{name:'停止直播闭环',exact:true}).count(),1);
  assert.deepEqual(await page.evaluate(()=>window.__brainSim.getNativeFeedback().state.config.eeg),restoredOutside.state.config.eeg);
+ await page.evaluate(()=>window.__brainSim.advanceMs(9000));
+ await page.waitForFunction(()=>{const s=window.__brainSim;return s.getSnapshot()?.run_id===s.getExperimentSession().provenance.runId&&s.getSnapshot()?.t_ms===9600;});
+ await page.getByRole('button',{name:'启动直播闭环',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'停止并分析反馈 EEG',exact:true}).isEnabled(),true,'completed controllers retain an analyzable measurement');
  const finalMeasurement=await page.evaluate(()=>window.__brainSim.requestNativeFeedback());
+ assert.equal(finalMeasurement.active,false);assert.equal(finalMeasurement.state.count,5);
  await page.getByRole('button',{name:'English',exact:true}).click();
  console.log('SCREENSHOT_BEM-FEEDBACK='+(await page.getByTestId('feedback-measurement').locator('..').screenshot({type:'jpeg',quality:65})).toString('base64'));
  await page.getByRole('button',{name:'Stop and analyze feedback EEG',exact:true}).click();
