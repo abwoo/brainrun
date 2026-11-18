@@ -3086,7 +3086,7 @@
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 860,
    "element": "button",
-   "visibleName": "恢复",
+   "visibleName": "恢复快照",
    "events": [
     "onClick"
    ],

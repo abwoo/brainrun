@@ -163,6 +163,33 @@ export const LOOP_TIMING_BOUNDS = {
 } as const;
 
 /**
+ * 协议状态文案（2026-11-19 修：停过的协议此前误标“已暂停”）。
+ *
+ * 协议运行/停止与全局暂停是两层状态（见合同 §1.15 协议引擎行）：
+ * 顶栏“暂停/继续”停的是整个仿真，运行/停止只管当前协议。旧文案只看
+ * `protocolRunning`，停过的协议也显示“已暂停”，用户会以为顶栏的
+ * “恢复”（实为恢复脉冲基线快照，`App.tsx handleRestoreSnapshot`）
+ * 能续跑协议——它不能，续跑只能点“运行协议”。所以状态分四态：
+ * - running：协议在跑、全局未暂停 → “运行中”
+ * - paused：协议在跑、全局已暂停（模型时钟冻住）→ “已暂停”
+ * - stopped：协议不在跑、但本协议已跑过（手动停止或 single-pulse
+ *   发完自动停止）→ “已停止”
+ * - not-started：本协议从未跑过 → “未开始”
+ * `everStarted` 由组件在 `runProtocol` 置真、换协议时清零（下拉在
+ * 运行中禁用，所以换协议时协议一定不在跑，清零安全）。
+ */
+export type BenchProtocolStatusKey = 'running' | 'paused' | 'stopped' | 'not-started';
+
+export function protocolStatusKey(
+  running: boolean,
+  paused: boolean,
+  everStarted: boolean,
+): BenchProtocolStatusKey {
+  if (running) return paused ? 'paused' : 'running';
+  return everStarted ? 'stopped' : 'not-started';
+}
+
+/**
  * Phase 4 — 慢 ACK 宽限（模型 ms）：marker 已出现但尚未被 Worker 修正
  * 时，响应不在 +500 ms 期限到时按 provisional 发未确认响应，而是等到
  * 该硬上限；修正后的 marker 在此期间仍可被认到（见 confirmFromMarkers
