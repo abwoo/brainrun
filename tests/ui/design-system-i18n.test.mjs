@@ -32,26 +32,36 @@ test('i18n has stable key coverage and separate saved locale choice',()=>{
  assert.match(i,/document.documentElement.lang = locale/);
  const app=read('app/src/App.tsx');
  assert.match(app,/useI18n\(\)/);
- assert.match(app,/<LanguageSwitch/);
+ // Phase 4：语言切换不在 App 顶栏，改由台子自己渲染；bench.openAdvanced
+ // 键随 #advanced 一起从 i18n 字典删除。
+ assert.doesNotMatch(app,/<LanguageSwitch/);
+ const bench=read('app/src/components/ClosedLoopBench.tsx');
+ assert.match(bench,/<LanguageSwitch/);
+ assert.doesNotMatch(i,/bench\.openAdvanced/);
  const language=read('app/src/components/ui/LanguageSwitch.tsx');
  assert.ok(language.includes("setLocale('en-US')"));
  assert.ok(language.includes("setLocale('zh-CN')"));
 });
-test('workspace layout is visual-only and responds to focus, resize and reset',()=>{
- const app=read('app/src/App.tsx'),css=read('app/src/App.css');
- assert.match(app,/const \[stageWidth, setStageWidth\]/);
- assert.match(app,/data-mode=\{m\}/);
- assert.match(app,/brainrun.stage-share.v1/);
- assert.match(app,/brainrun-focus/);
- assert.match(app,/setStageWidth\(68\); setFocus3D\(false\)/);
- assert.match(css,/--brain-stage-share/);
- assert.match(css,/\.main.brainrun-focus \.panels \{ display: none; \}/);
+test('workspace layout: #advanced stage/focus controls are cut; App is bench/basic only',()=>{
+ const app=read('app/src/App.tsx');
+ // Phase 4：#advanced 工作台布局（stageWidth / data-mode / brainrun-focus /
+ // brainrun.stage-share.v1 / setStageWidth(68)）已删除；App 只剩
+ // bench/basic 两档切换。App.css 里残留的 --brain-stage-share 与
+ // .main.brainrun-focus 规则现已无人引用（死样式），本测试不为其背书。
+ assert.doesNotMatch(app,/const \[stageWidth, setStageWidth\]/);
+ assert.doesNotMatch(app,/data-mode=\{m\}/);
+ assert.doesNotMatch(app,/brainrun\.stage-share\.v1/);
+ assert.doesNotMatch(app,/brainrun-focus/);
+ assert.doesNotMatch(app,/setStageWidth\(68\); setFocus3D\(false\)/);
+ assert.match(app,/useState<'bench' \| 'basic'>/);
 });
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
- assert.equal(c.counts.total,257);
- assert.equal(c.entries.length,257);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,48);
+ // Phase 4 重数：234（257 − App 48 − PhysicsHome 2 + 台子 27），
+ // Dropdown 57（48 + 台子 9）。
+ assert.equal(c.counts.total,234);
+ assert.equal(c.entries.length,234);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,57);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
 

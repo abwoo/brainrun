@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBenchProtocolEngine, LOOP_TIMING_BOUNDS } from '../../app/src/lib/benchProtocol.ts';
+import { createBenchProtocolEngine, findAckMarker, LATE_ACK_GRACE_MS, LOOP_TIMING_BOUNDS } from '../../app/src/lib/benchProtocol.ts';
 
 /** 脑区表：rA1=0、lA1=38、rV1=35、lV1=73（与 regions.json 的 id 一致）。 */
 function fakeRegions() {
@@ -121,7 +121,7 @@ test('响应锚定：marker 修正后 response = marker 时间 + RT，confirmed=
   assert.equal(responses[0].confirmed, true);
 });
 
-test('响应锚定：500 ms 未修正 → provisional + RT，confirmed=false', () => {
+test('响应锚定：marker 已出现但 500 ms 未修正 → 不立即发未确认响应，到 +2000 ms 硬上限才按 provisional 发，confirmed=false', () => {
   const { engine, events } = harness();
   engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
   for (let t = 0; t <= 4000; t += 1000) engine.tick(t);
@@ -130,11 +130,81 @@ test('响应锚定：500 ms 未修正 → provisional + RT，confirmed=false', (
   assert.equal(events.filter((e) => e.kind === 'response').length, 0);
   engine.tick(4499);
   assert.equal(events.filter((e) => e.kind === 'response').length, 0);
+  // Phase 4 宽限：+500 ms 期限到也不发，等慢 ACK 修正。
   engine.tick(4500);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 0);
+  engine.tick(5999);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 0);
+  // 到硬上限 +2000 ms 仍未修正，才按 provisional 发未确认响应。
+  engine.tick(6000);
   const responses = events.filter((e) => e.kind === 'response');
   assert.equal(responses.length, 1);
   assert.equal(responses[0].tMs, 4000 + 380);
   assert.equal(responses[0].confirmed, false);
+  assert.equal(engine.droppedResponses, 0);
+});
+
+test('响应锚定：慢 ACK 在 500 ms 期限后才修正 → 仍锚到修正时间，confirmed=true', () => {
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
+  for (let t = 0; t <= 4000; t += 1000) engine.tick(t);
+  // trial 5（oddball）dispatch 4000；先看到 provisional marker（同一对象）。
+  const marker = { t_ms: 4000, node: 0, kind: 'pulse', amplitude: 2 };
+  engine.confirmFromMarkers([marker]);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 0);
+  // tick 过 500 ms 期限：宽限把它留住，不发未确认响应、不丢弃。
+  engine.tick(4500);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 0);
+  assert.equal(engine.droppedResponses, 0);
+  // ACK 晚到：同一 marker 对象原地修正为 4600（dispatch→ACK = 600 ms，
+  // 超出 100 ms 门限，但如实记录——这是慢 ACK，不是假数据）。
+  marker.t_ms = 4600;
+  engine.confirmFromMarkers([marker]);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].tMs, 4600 + 380);
+  assert.equal(responses[0].trialIndex, 5);
+  assert.equal(responses[0].confirmed, true);
+  assert.equal(engine.getLoopTiming().dispatchToAckMs, 600);
+  assert.equal(engine.getLoopTiming().samples.dispatchToAck, 1);
+});
+
+test('响应锚定：慢 ACK 超过 +2000 ms 硬上限 → 按 provisional 发未确认响应，之后修正不再补发', () => {
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
+  for (let t = 0; t <= 4000; t += 1000) engine.tick(t);
+  const marker = { t_ms: 4000, node: 0, kind: 'pulse', amplitude: 2 };
+  engine.confirmFromMarkers([marker]);
+  engine.tick(6000);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].tMs, 4000 + 380);
+  assert.equal(responses[0].confirmed, false);
+  // 之后 ACK 才到（修正为 6500）：待定项已不在，不补发、不改锚点。
+  marker.t_ms = 6500;
+  engine.confirmFromMarkers([marker]);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 1);
+  assert.equal(engine.droppedResponses, 0);
+});
+
+test('findAckMarker：只认修正过的 marker，provisional 与窗外都不认', () => {
+  const markers = [
+    { t_ms: 4000, node: 0, kind: 'pulse', amplitude: 2 }, // provisional（未修正）
+    { t_ms: 4017, node: 0, kind: 'pulse', amplitude: 2 }, // 已修正
+    { t_ms: 4100, node: 1, kind: 'pulse', amplitude: 2 }, // 别的脑区
+  ];
+  // dispatch 4000：provisional 本身不算确认，返回已修正的那一个。
+  assert.equal(findAckMarker(markers, 0, 4000)?.t_ms, 4017);
+  // 没有修正过的 marker 时返回 undefined。
+  assert.equal(findAckMarker(markers.slice(0, 1), 0, 4000), undefined);
+  // 脑区不同不认。
+  assert.equal(findAckMarker(markers, 2, 4000), undefined);
+  // 窗外（>500 ms）的修正 marker 不认。
+  assert.equal(findAckMarker([{ t_ms: 4600, node: 0, kind: 'pulse', amplitude: 2 }], 0, 4000), undefined);
+  // 窗内下沿（−20 ms 内）认。
+  assert.equal(findAckMarker([{ t_ms: 3985, node: 0, kind: 'pulse', amplitude: 2 }], 0, 4000)?.t_ms, 3985);
+  // 宽限常量如实存在（慢 ACK 宽限的硬上限）。
+  assert.equal(LATE_ACK_GRACE_MS, 2000);
 });
 
 test('响应锚定：超过 500 ms 仍无 marker → 丢弃并计数 droppedResponses', () => {
@@ -390,11 +460,15 @@ test('回路时延 dispatch→ACK：未修正的 marker 不计，修正后才计
   engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
   for (let t = 0; t <= 4000; t += 1000) engine.tick(t);
   // trial 5（oddball）dispatch 4000；marker 在但尚未 ACK 修正。
-  engine.confirmFromMarkers([{ t_ms: 4000, node: 0, kind: 'pulse', amplitude: 2 }]);
+  // 注意：这里传同一个 marker 对象（与真实 SimClient 一致：ACK 是原地改
+  // t_ms，不是换一个新对象）；传新字面量测不到引用匹配。
+  const marker = { t_ms: 4000, node: 0, kind: 'pulse', amplitude: 2 };
+  engine.confirmFromMarkers([marker]);
   assert.equal(engine.getLoopTiming().dispatchToAckMs, null);
   assert.equal(engine.getLoopTiming().samples.dispatchToAck, 0);
   // ACK 修正为 4017：dispatch→ACK = 17 ms（一个快照间隔），在门限内。
-  engine.confirmFromMarkers([{ t_ms: 4017, node: 0, kind: 'pulse', amplitude: 2 }]);
+  marker.t_ms = 4017;
+  engine.confirmFromMarkers([marker]);
   const timing = engine.getLoopTiming();
   assert.equal(timing.dispatchToAckMs, 17);
   assert.equal(timing.samples.dispatchToAck, 1);

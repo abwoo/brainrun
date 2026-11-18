@@ -1,8 +1,6 @@
 import NetworkStatePanel from './NetworkStatePanel';
 import {getHeadModelSelection,subscribeHeadModelSelection,setHeadModelSelection} from '../lib/headModelSelection';
 import LocalBEMLab from './LocalBEMLab';
-import {prepareTemplateAnalysis} from '../lib/templateExperiment';
-import {preparePhysicalAnalysis,physicalFixtureReady,subscribePhysicalSource} from '../lib/physicalExperiment';
 import { useSyncExternalStore,useState, type ReactNode } from 'react';
 import { useI18n } from '../lib/i18n';
 import type { BrainData } from '../lib/brainData';
@@ -14,42 +12,28 @@ import LanguageSwitch from './ui/LanguageSwitch';
 import Dropdown from './ui/Dropdown';
 import { ControlField, RangeControl } from './ui/ControlField';
 
-export type AdvancedDestination = 'signals' | 'cellular' | 'stimulation' | 'comparison' | 'atlas' | 'presets' | 'model';
 export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,ready,error,
  strength,durationMs,onStrength,onDuration,onPulse,onReset,onPause,paused,background,onBackground,
- response,onAdvanced,onRecover}:{
+ response,onRecover}:{
  networkView:ReactNode; data:BrainData|null; selectedId:number|null; onSelect:(id:number)=>void;
  sim:SimClient|null; ready:boolean; error:string|null; strength:number; durationMs:number;
  onStrength:(v:number)=>void;onDuration:(v:number)=>void;onPulse:()=>void;onReset:()=>void;
  onPause:()=>void;paused:boolean;background:BackgroundMode;onBackground:(mode:BackgroundMode)=>void;
  onRecover:()=>void;
- response:ResponseSummary|null;onAdvanced:(target:AdvancedDestination)=>void;
+ response:ResponseSummary|null;
 }) {
- const physicalReady=useSyncExternalStore(subscribePhysicalSource,physicalFixtureReady);
  const {locale}=useI18n();
  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
  const [model,setModel]=useState<'electric'|'network'>('electric');
  const headModel=useSyncExternalStore(subscribeHeadModelSelection,getHeadModelSelection);
  const setHeadModel=setHeadModelSelection;
- const [templateReady,setTemplateReady]=useState(false);
- const [advanced,setAdvanced]=useState(false);
  const [help,setHelp]=useState(false);
- const choices:Array<{key:AdvancedDestination;zh:string;en:string;hintZh:string;hintEn:string}>=[
-  {key:'signals',zh:'信号分析',en:'Signal analysis',hintZh:'查看脑电波形、频谱与事件响应',hintEn:'Inspect recordings, spectra and event responses'},
-  {key:'cellular',zh:'单个神经元',en:'Single neurons',hintZh:'改变电流，观察细胞放电',hintEn:'Change current and inspect neuronal spikes'},
-  {key:'stimulation',zh:'刺激与电场',en:'Stimulation fields',hintZh:'探索电极和线圈的电场模型',hintEn:'Explore electrode and coil field models'},
-  {key:'comparison',zh:'对照与回放',en:'Compare and replay',hintZh:'比较参数变化，检查保存的状态',hintEn:'Compare parameters and inspect saved states'},
-  {key:'atlas',zh:'脑区与坐标',en:'Regions and coordinates',hintZh:'浏览模型使用的脑区与连接',hintEn:'Browse regions and connections'},
-  {key:'presets',zh:'辅助预设',en:'Optional presets',hintZh:'按需载入示例，不自动运行',hintEn:'Choose an example only when needed'},
-  {key:'model',zh:'模型说明',en:'About the models',hintZh:'数据来源、公式与适用范围',hintEn:'Data sources, equations and boundaries'},
- ];
  return <div className="physics-home" data-testid="physics-home">
   <header className="physics-header">
    <a className="physics-brand" href="#" aria-label="BrainRun">BrainRun<span>{text('交互物理仿真','Interactive physics')}</span></a>
    <div className="physics-header-actions">
     <LanguageSwitch/>
     <button className="ui-button" type="button" aria-expanded={help} onClick={()=>setHelp(v=>!v)}>{text('操作帮助','How to use')}</button>
-    <button className="ui-button" type="button" aria-expanded={advanced} onClick={()=>setAdvanced(v=>!v)}>{text('高级实验','Advanced labs')} <span aria-hidden="true">{advanced?'−':'+'}</span></button>
    </div>
   </header>
   {help&&<section className="physics-help" role="region" aria-label={text('操作帮助','How to use')}>
@@ -57,14 +41,6 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
    <p>{model==='electric'?text('拖动橙色电流源，或调整右侧的位置和强度。头皮上的测量点和下方数字会一起更新。拖动空白处旋转视角。','Drag the orange current source, or change its position and strength with the controls. Sensor readings update immediately. Drag empty space to rotate the view.'):
     text('点击大脑选择位置，再按“施加刺激”。调整强度和持续时间，比较活动曲线。单纯选择和旋转不会施加刺激。','Select a location on the brain, then apply an input. Adjust its strength and duration and compare the trace. Selecting and rotating do not stimulate the model.')}</p>
   </section>}
-  {advanced&&<nav className="physics-advanced" aria-label={text('高级实验分类','Advanced lab categories')}>
-   {choices.map(item=><button type="button" className="advanced-card" key={item.key} disabled={item.key==='signals'&&model==='electric'&&!(headModel==='sphere'?physicalReady:templateReady)} onClick={()=>{
-    if(item.key==='signals'&&model==='electric'){if(headModel==='bem')prepareTemplateAnalysis();else preparePhysicalAnalysis();}
-    onAdvanced(item.key);
-   }}>
-    <strong>{text(item.zh,item.en)}</strong><span>{text(item.hintZh,item.hintEn)}</span>
-   </button>)}
-  </nav>}
   <main className="physics-main">
    <div className="physics-intro">
     <div><p className="eyebrow">{text('由你操作，即时计算','Your controls. Live calculations.')}</p>
@@ -82,7 +58,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <option value="bem">{text('真实模板 BEM：选择皮层位置','Anatomical template BEM: choose a cortical location')}</option>
      </Dropdown>
     </details>
-    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}} onReady={setTemplateReady} onAnalysis={()=>onAdvanced('signals')}/>}
+    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}}/>}
    </>:
     <div className="manual-network" data-testid="manual-network">
      <section className="manual-network-view">

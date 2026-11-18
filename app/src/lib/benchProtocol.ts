@@ -43,6 +43,15 @@
  * 超过 500 ms 仍无 marker → 丢弃该次响应并计数
  * （`droppedResponses` 只读）。
  *
+ * Phase 4 — 慢 ACK（修正晚于 +500 ms，headless 下实测可达约 600 ms）：
+ * 首次看到 provisional marker 时记下它的对象引用（`PendingResponse.marker`）；
+ * SimClient 的 marker 对象在数组里是同一引用，ACK 到达时原地改 t_ms，
+ * 所以后续 `confirmFromMarkers` 凭引用认出自己的 marker、锚到修正时间，
+ * 不会套住邻试次的 marker；markerSeen 的待定响应宽限到
+ * `+LATE_ACK_GRACE_MS`（2000 ms）才按 provisional 发未确认响应，
+ * 无 marker 的仍在 +500 ms 丢弃。另见 `findAckMarker`（手动刺激的 ACK
+ * 匹配，同样只认修正过的 marker）。
+ *
  * `provisionalTms` 是发刺激那次 `tick()` 的模型时间（即 marker
  * 被创建时的快照时间），不是试次的计划时间：`pulseAt` 调用的
  * marker 以调用时的快照时间创建。Phase 3 之前 `tick()` 被延迟时
@@ -150,6 +159,38 @@ export const LOOP_TIMING_BOUNDS = {
   observationLagMaxAbsMs: 50,
 } as const;
 
+/**
+ * Phase 4 — 慢 ACK 宽限（模型 ms）：marker 已出现但尚未被 Worker 修正
+ * 时，响应不在 +500 ms 期限到时按 provisional 发未确认响应，而是等到
+ * 该硬上限；修正后的 marker 在此期间仍可被认到（见 confirmFromMarkers
+ * 的引用匹配）。2000 ms 覆盖 headless 下实测的最慢 ACK（P3：约 579–672 ms），
+ * 留有余量；超过它仍未修正，才按 provisional 发未确认响应。
+ */
+export const LATE_ACK_GRACE_MS = 2000;
+
+/**
+ * Phase 4 — 手动刺激的 ACK 匹配（stimLog 用）：只认 Worker 修正过的 marker。
+ * marker 创建时 t_ms == dispatch 时的客户端快照时间；Worker ACK 后 t_ms
+ * 被原地改成 Worker 受理时间。provisional marker（t_ms 仍等于 dispatchTms）
+ * 不能算确认——否则点击后第一次轮询就“确认”，ackTms 还是点击时间，
+ * 与“ACK 时间以 Worker 为准”矛盾。例外：ACK 恰好修正到 dispatchTms
+ * 本身时无法区分，条目保持未确认（极少见：dispatch 快照至多滞后约 16 ms）。
+ */
+export function findAckMarker(
+  markers: readonly StimulusMarker[],
+  node: number,
+  dispatchTms: number,
+): StimulusMarker | undefined {
+  return markers.find(
+    (m) =>
+      m.kind === 'pulse' &&
+      m.node === node &&
+      m.t_ms !== dispatchTms &&
+      m.t_ms >= dispatchTms - 20 &&
+      m.t_ms <= dispatchTms + 500,
+  );
+}
+
 export interface BenchProtocolEngine {
   start(protocol: BenchProtocolId, params: BenchProtocolParams[BenchProtocolId], startTms: number): void;
   tick(tMs: number): void;
@@ -194,6 +235,13 @@ interface PendingResponse {
   trialIndex: number;
   /** 已在 markers 里看到同节点事件，但 t_ms 尚未被 ACK 修正（仍等于 provisional）。 */
   markerSeen: boolean;
+  /**
+   * Phase 4 — 本试次自己的 marker 对象（首次在 markers 里看到时记下）。
+   * SimClient 的 marker 对象在数组里是同一引用，ACK 到达时原地改 t_ms；
+   * 拿引用认 marker，慢 ACK 修正后仍能锚到它，不用靠时间窗口猜。
+   * marker 离开 50 条数组后清掉（见 confirmFromMarkers）。
+   */
+  marker?: StimulusMarker;
 }
 
 export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtocolEngine {
@@ -267,20 +315,24 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     return { due, latestDue };
   };
 
-  /** 500 ms 模型时间后仍未被 ACK 修正的待定响应：有 marker 则按 provisional 发未确认响应，无 marker 则丢弃计数。 */
+  /** Phase 4 — 逾期处理：无 marker → +500 ms 后丢弃计数；有 marker 但
+   * 尚未修正 → 宽限到 +LATE_ACK_GRACE_MS（见该常量注释），修正后的 marker
+   * 仍可在 confirmFromMarkers 里凭引用认到；到硬上限仍未修正，才按
+   * provisional 发未确认响应。 */
   const resolveOverduePending = (tMs: number): void => {
     for (let j = pending.length - 1; j >= 0; j--) {
       const p = pending[j];
-      if (p.provisionalTms + 500 <= tMs) {
-        pending.splice(j, 1);
-        if (p.markerSeen) {
+      if (p.markerSeen) {
+        if (p.provisionalTms + LATE_ACK_GRACE_MS <= tMs) {
+          pending.splice(j, 1);
           deps.onEvent({
             kind: 'response', tMs: p.provisionalTms + p.rtMs, trialIndex: p.trialIndex,
             condition: 'oddball', node: p.node, rtMs: p.rtMs, confirmed: false,
           });
-        } else {
-          droppedResponses++;
         }
+      } else if (p.provisionalTms + 500 <= tMs) {
+        pending.splice(j, 1);
+        droppedResponses++;
       }
     }
   };
@@ -434,6 +486,36 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       const used = new Set<StimulusMarker>();
       for (let j = pending.length - 1; j >= 0; j--) {
         const p = pending[j];
+        // Phase 4 — 引用匹配优先：本试次自己的 marker 对象已记下时（首次
+        // 看到 provisional marker 时存的引用），直接看它在不在数组里、在
+        // 不在已被 ACK 修正。SimClient 的 marker 对象在数组里是同一引用，
+        // ACK 到达时原地改 t_ms，所以慢 ACK（超过 +500 ms 才修正）仍能锚
+        // 到修正时间，不用靠时间窗口猜，也不会套住邻试次的 marker。
+        if (p.marker) {
+          used.add(p.marker);
+          if (!markers.includes(p.marker)) {
+            // marker 已离开 50 条数组、修正再也不会来：清掉引用，等宽限
+            // 到期按 provisional 发未确认响应（见 resolveOverduePending）。
+            p.marker = undefined;
+            continue;
+          }
+          if (p.marker.t_ms !== p.provisionalTms) {
+            // Worker ACK 已修正刺激时间（可能很慢）：响应锚定到修正后的时间。
+            loopTiming.dispatchToAckMs = p.marker.t_ms - p.provisionalTms;
+            loopTiming.samples.dispatchToAck++;
+            pending.splice(j, 1);
+            deps.onEvent({
+              kind: 'response', tMs: p.marker.t_ms + p.rtMs, trialIndex: p.trialIndex,
+              condition: 'oddball', node: p.node, rtMs: p.rtMs, confirmed: true,
+            });
+          } else {
+            // 仍是 dispatch 时的 provisional 值：继续等修正（宽限见 tick）。
+            p.markerSeen = true;
+          }
+          continue;
+        }
+        // 首次看到：窗口匹配（原有行为）。窗口内已修正的 marker 立即锚定；
+        // 仍是 provisional 的记下引用、等 ACK（见上）。
         const marker = markers.find(
           (m) =>
             !used.has(m) &&
@@ -455,8 +537,10 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
             condition: 'oddball', node: p.node, rtMs: p.rtMs, confirmed: true,
           });
         } else {
-          // marker 在，但时间仍是 dispatch 时的 provisional 值：等 500 ms
-          // 期限到时再按 provisional 发未确认响应（见 tick）。
+          // marker 在，但时间仍是 dispatch 时的 provisional 值：记下引用、
+          // 等 ACK 修正；宽限到期仍未修正才按 provisional 发未确认响应
+          // （见 tick → resolveOverduePending）。
+          p.marker = marker;
           p.markerSeen = true;
         }
       }

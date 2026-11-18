@@ -11,6 +11,10 @@
 > PR8 增补（2026-11-12，总协调集成）：PR-16 模式与场景（§1.12）、
 > 方法学数值缺口与 TES/TMS（§1.13）。两路原报的编号顺序，总协调重排为
 > §1.12 / §1.13。
+> 闭环实验台 Phase 4 增补（2026-11-18，分支 `feat/closed-loop-bench`）：砍旧入口 +
+> 单舞台简化，见 §1.17；§1.12（模式/场景）、§1.6/§1.7/§1.8（EEG 实验台入口）、
+> §1.9/§1.10/§1.11（细胞/刺激/对照实验台入口）的 UI 登记按 §1.17 更新，后端（lib / Worker /
+> Rust）一律未动。
 > **适用范围：** brainrun 2.0 PR-04+05+06（物理核心）及后续 PR5–PR8 全程。
 > **规则来源：** 用户 2026-11-11 22:53 定——前端（React/Three.js 界面、`app/src/lib/*.ts`、Worker 协议）与后端（Rust/WASM 引擎、Python 对照、`scientific/forward` 的 MNE 模型）共用同一份契约；改任一侧时同步改契约与另一侧，并用测试卡住漂移。
 > **测试节奏新规（2026-11-11 22:57 用户定）：** 每轮 PR 只保留该轮必需的方法学测试 + 构建通过 + 新功能冒烟；全面回归、浏览器交互全套、前端布局全面扫查、性能、五维验收、十个演示全部推迟到 PR8 合并之后做一次最终大测试。本契约的漂移测试（`tests/pr5/contract.test.mjs`）属于方法学测试（单位与坐标正确性），按新规保留。布局正确性要求见 §9——新界面按契约做对、不留已知遮挡，全面扫查留到最后。
@@ -586,6 +590,42 @@ P0 加入时未同步更新；本次补齐，测试断言只增不减，不是�
 
 方法学测试：`tests/bench/bench-protocol.test.mjs`（去重 + 三时延 + 门限）、`tests/pr6/native-feedback.test.mjs`（抑制 + restore 校验 + 不双发）。
 
+### 1.17 闭环实验台 Phase 4（砍旧入口 + 单舞台简化，2026-11-18，分支 `feat/closed-loop-bench`）
+
+只砍入口与重复状态，不改物理、不改 lib、不重缩放数字、不放宽任何测试容差、不新增 Worker 消息。
+`App.tsx` 只剩两个工作区：`'bench'`（默认，闭环实验台）与 `'basic'`（`#basic`，旧首页 `PhysicsHome`，暂留作回退）；
+`#advanced` 路由与四个模式（PLAY/WAVES/EEG/EXPLORE）、15 个一键场景、六个独立实验台的入口全部删除。
+`lib/scenarios.ts`（模式/场景定义与 `runScenarioCompute`）按“lib 不动”保留，无 UI 入口；
+`CellularLab / DipoleLab / EegAnalysisLab / EegWaveTab / ExperimentLab / ScenarioLauncher / StimLab / ExplorePanel`
+八个组件文件暂留（删除后无任何文件 import 它们，但 `tests/pr5/contract.test.mjs`、`tests/pr8/methods-link.test.mjs`、
+`tests/p0-1/control-flow.test.mjs`、`tests/ui/design-system-i18n.test.mjs` 仍按源码读它们；文件删除与这些测试的
+更新留给后续一步，不在本批悄悄做）。`HeadSphereLab / LocalBEMLab` 仍被暂留的 `#basic` 回退页内嵌使用，故文件与入口都留着。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 入口 | 唯一入口 = 台子（`workspace 'bench'`）。`#basic` 回退页保留，但其“高级实验”导航卡片全部删除（七个目的地都指向已不存在的 `#advanced`，留着就是死按钮）；`LocalBEMLab` 的“分析当前模板实验”按钮随 `onAnalysis` 入口一起删除（同一原因）。台子顶栏的“高级实验”按钮删除；“返回物理模型”保留（`#basic` 仍可达） | `App.tsx`（2179 → 约 340 行：只留 SimClient 接线 + bench/basic 两个分支）；`PhysicsHome.tsx`（删 `AdvancedDestination` 与高级导航）；`ClosedLoopBench.tsx`（删 `onOpenAdvanced` prop） | —（无后端改动） |
+| 主滑杆 §1.2 | c_ei / G 两档滑杆随 `#advanced` 的 PARAMETERS 面板一起删除（引擎 clamp 与 `KNOB_MAP` 未动）；刺激强度 / 持续时间两档保留，进台子（刺激器）与 `#basic` | `App.tsx` 只留 `kStim / kDur` | `KNOB_MAP` / `DEFAULT_PARAMS` / WASM clamp 未动 |
+| 权重 / 偏置 §1.4 | 权重编辑、持续偏置、回放、快照保存/恢复按钮、随机种子输入随 `#advanced` 删除；`BrainScene` 的 `biasList` 入口保留，接空数组（无偏置可传，不是空壳——偏置能力仍在 `lib/simClient` 与 Worker 里，UI 上暂无入口，见 §5.3 新增缺口行） | `App.tsx`（删 `weightEdits / biasMap / replay / snapInfo` 状态与对应 handler） | `set_weight / set_bias / snapshot` 消息与 Rust 实现未动 |
+| 六个分析页 → 两个视图 | 旧六 tab（EEG 波形 / 频谱 / ERP / 时频 / 地形 / 源定位）不再是独立页，改为测试电脑的两个视图：(a) 实时波形视图（原波形 canvas + 通道下拉 + 记录读数 + 导出，位置不动）；(b) 记录分析视图（ERP / 时频 / 地形 / 源定位 / 频谱五个子 tab，复用 `ErpTab / TfrTab / TopoTab / InverseTab / WavesTab` 原组件，不重建）。两个视图读同一份台子记录（`benchRecording.recording`，无记录时退到 `acquisition.recording`）+ 同一份事件表 + 同一份 epochs，同一 runId；`EegAnalysisLab` 壳（独立柱模型运行实验、直播推导、参考/导联/噪声配置）随入口删除 | `ClosedLoopBench.tsx` 测试电脑区：视图切换 + `analysisTab` 状态；`epochs` = 手动切分覆盖 ?? `benchRecording.epochs`（组装时已按 pulse 事件切好）；新组装记录时覆盖清零 | `benchRecording.ts` `assembleBenchRecording`（epochs 本就随记录算出）；`signalProcessing.ts` `epochRecording`；`lateResponse.ts` `epochOddballExperiment` |
+| ERP 条件来源 | 台子记录的 pulse 事件此前全是 `unclassified`（native 事件无条件；协议的 standard/oddball 条件贴在 extra 事件上，组装去重时被丢掉），ERP 切分永远拿不到条件。修法只在 `ClosedLoopBench.assembleBench` 里：被去重的协议脉冲事件只丢时间（Worker ACK 时间权威），条件贴到 500 ms 内与之对应的 native 脉冲事件上（只改未分类事件的条件，不改时间、不改 runId、不改数值）。单脉冲 / 手动脉冲仍是 unclassified，ERP 如实报“需要保留的 standard 和 oddball 试次” | `ClosedLoopBench.tsx` `assembleBench` 的条件合并（附注释）；`ErpTab` 不改 | `benchProtocol.ts`（oddball 事件本就带 standard/oddball 条件）；`benchRecording.ts` 未动 |
+| late 机制 ERP | `ErpTab` 的“运行 oddball（late 机制）”按钮在台子里被拒绝：`onEpochsChange` 收到 `'independent-late'` 时抛错（文案写明“台子只用一份共享记录”），`ErpTab` 自身的 try/catch 把它显示为错误行。late 实验是独立模型实验，不进台子记录；台子 oddball 协议的 ERP 直接从共享记录切分（窗内峰 ≈0 是诚实结果，见 §1.8） | `ClosedLoopBench.tsx` `handleBenchEpochsChange` | `lateResponse.ts` `runOddballExperiment` 未动 |
+| 六框图 → 流动指示 | 六框大格子删除（`.bench-loop` / `.bench-grid` / `.bench-box` / `.bench-trace` 样式同步删除）。回路改成流动指示：当前信号在哪一环（最新一条追踪事件的 hop + label + 模型时间）+ 最近 5 跳（hop · label · tMs · 确认态，最新一跳高亮）+ 六个角色的小字实时读数（一行：大脑 q、脑电帽预设/通道、放大器 Hz 与输出 µV、测试电脑样本/事件/runId、实验电脑协议与运行态、刺激器末条命令/就绪）。`benchTrace.ts` 函数未动，只改呈现；清空按钮保留 | `ClosedLoopBench.tsx` 的 `.bench-flow` 区；`App.css` 的 `.bench-flow*` / `.bench-roles` | `benchTrace.ts` 未动 |
+| 单舞台 | 主角 = 3D 头（含帽电极绿点）+ 实时波形，占满视野。布局：控制条（协议下拉、帽预设下拉、运行/停止、闭环延迟小读数、放大器设置浮层按钮）→ 流动指示 → 单舞台（左 3D 头 + 舞台工具：背景活动、头模型；右测试电脑波形/分析）→ 两个折叠设置（实验电脑协议参数 + 模拟受试者、刺激器目标/幅度/时长/命令日志）。放大器全部控件（采样率、参考、带通、增益、读数、重新采集）进一个小浮层，不常驻面板。直接操作不变：点脑区选区、拖动旋转、滚轮缩放（`BrainScene` 未动）；不新增任何无后端的操作 | `ClosedLoopBench.tsx`（`.bench-strip` / `.bench-stage` / `.bench-details` / `.bench-popover`）；`App.css` 同步新增，删旧 `.bench-loop*` / `.bench-grid*` / `.bench-box` / `.bench-trace-head` | `BrainScene.tsx` 未动；`benchSettings.ts`（设置持久化）未动 |
+| 闭环延迟读数 | 仍是控制条上的一行小读数（`data-testid="bench-loop-timing"` 不变），只在闭环协议运行中显示数值，其余时间 `—`；不另开面板 | `ClosedLoopBench.tsx` 的 `.bench-strip-timing` | `benchProtocol.ts` `getLoopTiming()` 未动 |
+| 保留 | 台子设置持久化（`benchSettings.ts`）、帽预设 + 3D 头电极可视化、协议引擎行为、触发/响应记录（同一 runId）、导出 JSON/CSV、页脚诚实幅度注（51 倍缺口）全部保留 | 同左 | 未动 |
+
+Superseded（本节取代，不再作为入口登记；后端参数与数值仍以原节为准）：
+§1.2 的四个主滑杆 UI 登记改为两档（见上表）；§1.4 的权重/偏置/回放/快照 UI 登记改为“UI 上暂无入口，后端保留”；
+§1.5(a)(b)(c) 的 `DipoleLab / HeadSphereLab / LocalBEMLab` UI 登记改为“App 入口已删；HeadSphereLab / LocalBEMLab 仅嵌在 `#basic` 回退页”；
+§1.6 的 `EegAnalysisLab` 壳与六 tab 登记改为上表“六个分析页 → 两个视图”；§1.7/§1.8 的 tab UI 登记同上（参数与默认值未变）；
+§1.9/§1.10/§1.11 的 `CellularLab / StimLab / ExperimentLab` UI 登记改为“App 入口已删，后端保留”；
+§1.12 全节（四个模式、渐进式展示、15 个场景、模型信息弹窗）改为“入口已删，`lib/scenarios.ts` 保留、无 UI 入口”；
+§1.14 的“六实验台接主仿真”登记改为“六实验台入口已删，接线逻辑（L9 等）随入口失效，见测试移动说明”；
+§1.15 的“`#advanced` 不变；旧入口一字不动”改为“`#advanced` 已删，见本节”。
+
+测试移动（2026-11-18 实测，见 P4 报告）：全 node 套件 326/353（基线 338/353），新增失败 12 个，全部是已删入口的源码级断言，无数值漂移、无方法学回归：
+`tests/pr5/contract.test.mjs` 新增 6 个——「四滑杆」（App 已无 ParamControls 的 min/max）、「权重/偏置 clamp」（权重/偏置滑杆已删）、「PR7 细胞级/刺激/实验」（CellularLab/StimLab/ExperimentLab 不再挂载）、「PR8-LINK §4.1」（六台接线随入口失效）；`tests/p0-1/control-flow.test.mjs` 新增 4 个——「P0-1 surface」（控件面 207 < 210 阈值，App 砍掉约 50 个控件；ClosedLoopBench.tsx 不在该测试的扫描文件列表内）、「P0-1B 控件登记」（登记总数 257 ≠ 实际 207）、「C01」（EXPLORE 模式已删）、「C04」（ScenarioLauncher 与「场景摘要尚未自动载入实验台」文案已删）；`tests/ui/design-system-i18n.test.mjs` 新增 2 个——「i18n key coverage」（App 不再含 `<LanguageSwitch`，bench 自己渲染）、「workspace layout」（stageWidth/data-mode/brainrun-focus 已删）。其余 15 个失败与基线完全相同。`tests/bench/`（57）+ `tests/pr6/native-feedback.test.mjs`（10）= 67/67，与基线一致；`modes-scenarios`、`methods-numfix` 等 lib 测试不受影响。登记文件 `docs/p0-1b-control-register.json`（257 条）尚未按新控件面（207 条）重生成，属后续审计工作，不在本批改动内。
+
 ## 2. 坐标系
 
 | 坐标系（`CoordinateSpace`，`app/src/lib/coordinates.ts`） | 含义 | 状态 |
@@ -742,6 +782,7 @@ DipoleLab / HeadSphereLab / LocalBEMLab 的全部控件：偶极矩、方向、�
 | U3 | `advance_ms` / `reset_paused`（确定性步进） | Worker 已处理；`SimClient` 有方法 | 仅调试桥 / PR4 测试用，UI 无入口（有意为之：确定性步进是测试工具，不是产品功能） |
 | U4 | OU 参数（τ/σ）、正弦幅/频、drive_const、noise_amp、speed、θ_e、其余 A-set 参数 | Rust `Params` | 固定常量，无 UI 控件（有意为之：PR4 实测否决了 σ=0.15/0.20，不开放调节）；任何开放都须先过安全扫描再改契约 |
 | U5 | Jansen–Rit 局部皮层柱（独立验证路线） | `app/src/lib/jansenRitColumn.ts` + `scientific/forward/jansen_rit_reference.py` | **已暴露（2026-11-11，U5 已消项）：** `LocalBEMLab` 源模型切换（Wilson–Cowan / Jansen–Rit），两路线锁步运行、并排显示 q(t) 与电极电位；`docs/pr5-jansen-rit.md` 已落盘。漂移测试覆盖 JR 参数与 UI 入口 |
+| U6 | 权重编辑 / 持续偏置 / 回放 / 快照保存 / 随机种子（Phase 4 砍入口后） | Worker（`set_weight` / `reset_weight` / `set_bias` / `clear_bias` / `set_seed` / 快照消息）+ `SimClient` 对应方法 | **2026-11-18 Phase 4（§1.17）：** 入口随 `#advanced` 删除，UI 上暂无入口（有实现无入口，不是空壳）；`BrainScene` 的 `biasList` 入口保留、现接空数组。恢复任一入口前须先在契约 §1.4 重新登记控件与范围 |
 
 ### 5.4 已核实的“不是空壳”的易误判点
 
