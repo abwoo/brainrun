@@ -57,10 +57,10 @@ test('workspace layout: #advanced stage/focus controls are cut; App is bench/bas
 });
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
- // Phase 4 重数：234（257 − App 48 − PhysicsHome 2 + 台子 27），
+ // Phase 4 重数：235（257 − App 48 − PhysicsHome 2 + 台子 27 + 模板分析返回按钮 1），
  // Dropdown 57（48 + 台子 9）。
- assert.equal(c.counts.total,234);
- assert.equal(c.entries.length,234);
+ assert.equal(c.counts.total,235);
+ assert.equal(c.entries.length,235);
  assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,57);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });

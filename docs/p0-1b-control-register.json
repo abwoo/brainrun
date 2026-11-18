@@ -1,9 +1,9 @@
 {
   "auditVersion": "manual-physics-workbench-v1",
   "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
-  "disclaimer": "234 source-classified controls; source inventory is not runtime proof.",
+  "disclaimer": "235 source-classified controls; source inventory is not runtime proof.",
   "counts": {
-    "total": 234,
+    "total": 235,
     "bySource": {
       "ActivityChart": 1,
       "CellularLab": 18,
@@ -21,7 +21,7 @@
       "LocalBEMLab": 15,
       "NetworkStatePanel": 1,
       "ParamControl": 4,
-      "PhysicsHome": 10,
+      "PhysicsHome": 11,
       "ScenarioLauncher": 5,
       "StimLab": 29,
       "TfrTab": 6,
@@ -36,7 +36,7 @@
       "INDEPENDENT": 75,
       "LIVE": 20,
       "MIXED": 15,
-      "NAV": 15,
+      "NAV": 16,
       "SELECTION": 4,
       "VISUAL": 12
     }
@@ -2760,7 +2760,21 @@
     {
       "controlId": "PhysicsHome:button:1",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 36,
+      "line": 45,
+      "element": "button",
+      "visibleName": "Back to physical models",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation only: returns from the inline template-dipole EEG analysis view to the #basic template home; does not change simulation, recording, or stimulus state.",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:2",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 55,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2772,23 +2786,23 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "PhysicsHome:button:2",
-      "path": "app/src/components/PhysicsHome.tsx",
-      "line": 50,
-      "element": "button",
-      "visibleName": "Manual workbench control",
-      "events": [
-        "onClick"
-      ],
-      "category": "NAV",
-      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-      "evidence": "static-handler-bound (not runtime-proven)",
-      "explicitFollowUp": false
-    },
-    {
       "controlId": "PhysicsHome:button:3",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 51,
+      "line": 69,
+      "element": "button",
+      "visibleName": "Manual workbench control",
+      "events": [
+        "onClick"
+      ],
+      "category": "NAV",
+      "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+      "evidence": "static-handler-bound (not runtime-proven)",
+      "explicitFollowUp": false
+    },
+    {
+      "controlId": "PhysicsHome:button:4",
+      "path": "app/src/components/PhysicsHome.tsx",
+      "line": 70,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2801,7 +2815,7 @@
     },
     {
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 56,
+      "line": 75,
       "element": "Dropdown",
       "visibleName": "Head model",
       "events": [
@@ -2811,12 +2825,12 @@
       "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
-      "controlId": "PhysicsHome:Dropdown:4"
+      "controlId": "PhysicsHome:Dropdown:5"
     },
     {
-      "controlId": "PhysicsHome:Dropdown:5",
+      "controlId": "PhysicsHome:Dropdown:6",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 73,
+      "line": 92,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2838,13 +2852,13 @@
       "modelBoundary": "Changes actual amplitude to 0.5 and duration to 20 ms; does not stimulate or claim universal stability",
       "evidence": "static-handler-bound (not runtime-proven)",
       "explicitFollowUp": false,
-      "controlId": "PhysicsHome:button:6",
-      "line": 82
+      "controlId": "PhysicsHome:button:7",
+      "line": 101
     },
     {
-      "controlId": "PhysicsHome:button:7",
+      "controlId": "PhysicsHome:button:8",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 83,
+      "line": 102,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2856,9 +2870,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "PhysicsHome:Dropdown:8",
+      "controlId": "PhysicsHome:Dropdown:9",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 93,
+      "line": 112,
       "element": "Dropdown",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2870,9 +2884,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "PhysicsHome:button:9",
+      "controlId": "PhysicsHome:button:10",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 100,
+      "line": 119,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [
@@ -2884,9 +2898,9 @@
       "explicitFollowUp": false
     },
     {
-      "controlId": "PhysicsHome:button:10",
+      "controlId": "PhysicsHome:button:11",
       "path": "app/src/components/PhysicsHome.tsx",
-      "line": 101,
+      "line": 120,
       "element": "button",
       "visibleName": "Manual workbench control",
       "events": [

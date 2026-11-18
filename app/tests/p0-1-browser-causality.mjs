@@ -1,8 +1,23 @@
 /**
- * Real browser P0-1 causal smoke for PR #10:
- * C01 EXPLORE list selection → App → 3D stage → REGION panel, no stimulus;
- * C02/C03 mapped neural current buttons → immediate LIF/HH solver traces.
- * Requires production dist + generated brain assets/wasm (PR5 workflow).
+ * Real browser P0-1 causal smoke for PR #10 (rewritten for Phase 4):
+ * C01 selection must not stimulate; an explicit stimulus must produce a
+ * real solver peak. The old EXPLORE list / PLAY mode / REGION panel /
+ * cellular-lab UI is gone with the #advanced workspace; selection now goes
+ * through the #basic network tab's region combobox and stimulation through
+ * its explicit "施加一次刺激" button. Requires production dist + generated
+ * brain assets/wasm (PR5 workflow).
+ *
+ * DROPPED (deliberate coverage change, Phase 4 cut — not a silent
+ * weakening): the C02/C03 cellular section (button '细胞实验' → dialog
+ * '细胞级实验', '用该电流跑 LIF' / '用该电流跑 HH', Na/K conductance
+ * plots, HH-slider invalidation). CellularLab.tsx remains as an unmounted
+ * file with no importer rendering it, so the LIF/HH current mapping has no
+ * browser UI anywhere after the cut. The solver mapping itself is still
+ * covered at node level by tests/pr7/cellular.test.mjs and
+ * tests/pr7/test_cellular.py. Likewise the EXPLORE searchbox, the '更多'
+ * button and the REGION panel facts have no equivalent in the new UI; the
+ * shared-selection contract they exercised is covered here through the
+ * region combobox + chart-wrap selection attribute.
  */
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
@@ -24,78 +39,44 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
-  await page.goto(url+'#advanced', { waitUntil: 'domcontentloaded' });
+  await page.goto(url+'#basic', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('tab', { name: '脑区与传播', exact: true }).click();
   await page.waitForFunction(() => window.__brainSim?.isReady?.() === true,
     null, { timeout: 60000 });
 
-  const stage = page.locator('section.stage');
-  const beforeRegion = await stage.getAttribute('data-selected-region-id');
+  const chart = page.locator('.chart-wrap');
+  const beforeRegion = await chart.getAttribute('data-selected-region-id');
   assert.equal(beforeRegion, 'none', 'fresh launch must not pretend a region is already selected');
   const pulsesBefore = await page.evaluate(() =>
     window.__brainSim.getMarkers().filter(m => m.kind === 'pulse').length);
 
-  await page.locator('button[data-mode="explore"]').click();
-  await page.getByRole('searchbox', { name: '按名称或编号搜索脑区' }).fill('40');
-  const regionButton = page.getByRole('button', { name: /^#40\s/ });
-  await regionButton.click();
+  // C01: selecting a region in the network tab must not silently stimulate it.
+  await page.getByRole('combobox', { name: '选择脑区', exact: true }).selectOption('40');
   await page.waitForFunction(() =>
-    document.querySelector('section.stage')?.getAttribute('data-selected-region-id') === '40',
+    document.querySelector('.chart-wrap')?.getAttribute('data-selected-region-id') === '40',
     null, { timeout: 5000 });
-  assert.equal(await regionButton.getAttribute('aria-pressed'), 'true');
   const pulsesAfter = await page.evaluate(() =>
     window.__brainSim.getMarkers().filter(m => m.kind === 'pulse').length);
   assert.equal(pulsesAfter, pulsesBefore,
-    'selecting a region in EXPLORE must not silently stimulate it');
+    'selecting a region must not silently stimulate it');
 
-  await page.locator('button[data-mode="play"]').click();
-  await page.getByRole('button', { name: /^更多/ }).click();
-  const regionTexts = await page.locator('.region-panel .region-facts dd').allTextContents();
-  assert.ok(regionTexts.some(t => t.includes('#40 / 76')),
-    'EXPLORE selection must be reflected in shared REGION data, not private list state');
-
-  await page.getByRole('button', { name: '细胞实验', exact: true }).click();
-  const lab = page.getByRole('dialog', { name: '细胞级实验' });
-  await lab.waitFor({ timeout: 30000 });
-  const mappedLif = lab.getByRole('button', { name: '用该电流跑 LIF', exact: true });
-  await page.waitForFunction(() => {
-    const b = [...document.querySelectorAll('button')]
-      .find(x => x.textContent?.trim() === '用该电流跑 LIF');
-    return b !== undefined && !b.disabled;
-  }, null, { timeout: 10000 });
-  assert.equal(await lab.getByRole('img', { name: '膜电位' }).count(), 0,
-    'before mapped run no cell voltage plot should exist');
-  await mappedLif.click();
-  await lab.getByRole('img', { name: '膜电位' }).waitFor({ timeout: 10000 });
-  assert.match(await lab.textContent(), /脉冲 [0-9]+ pA（100–300 ms）/,
-    'LIF current mapping must run solver now, not just alter the slider');
-
-  const mappedHh = lab.getByRole('button', { name: '用该电流跑 HH', exact: true });
-  await mappedHh.click();
-  await lab.getByRole('img', { name: 'Na 电导 gNa' }).waitFor({ timeout: 10000 });
-  await lab.getByRole('img', { name: 'K 电导 gK' }).waitFor({ timeout: 10000 });
-  assert.match(await lab.textContent(), /阶跃 [0-9.]+ uA\/cm\^2（10–60 ms）/,
-    'HH mapping must run solver immediately');
-  // P0-1B: old numerical curves MUST disappear when an input slider changes.
-  // Otherwise an interactive slider misleadingly displays results from
-  // parameters that are no longer selected.
-  const hhSlider = lab.locator('#hh-amp');
-  await hhSlider.focus();
-  await hhSlider.press('Home');
-  await hhSlider.press('ArrowUp'); // native range keyboard change triggers React onChange
+  // Explicit stimulus: the button is the only way to stimulate now
+  // (3D click selects without pulsing, pointerStimulates={false}).
+  await page.evaluate(() => window.__brainSim.resetPeakTracking());
+  await page.getByRole('button', { name: '施加一次刺激', exact: true }).click();
   await page.waitForFunction(() =>
-    [...document.querySelectorAll('[role="dialog"]')].some(d =>
-      d.getAttribute('aria-label') === '细胞级实验' &&
-      d.querySelectorAll('svg[aria-label="Na 电导 gNa"]').length === 0),
-    null,{timeout:10000});
-  assert.equal(await lab.getByRole('img',{name:'Na 电导 gNa'}).count(),0,
-    'editing HH current must invalidate the now-stale trace');
-  await lab.getByRole('button',{name:'运行仿真',exact:true}).click();
-  await lab.getByRole('img',{name:'Na 电导 gNa'}).waitFor({timeout:10000});
+    window.__brainSim.getMarkers().some(m => m.kind === 'pulse' && m.node === 40),
+    null, { timeout: 10000 });
+  await page.waitForFunction(() =>
+    window.__brainSim.getPeakE()?.[40] > 0.05,
+    null, { timeout: 30000 });
+  const actualPeak = await page.evaluate(() => window.__brainSim.getPeakE()[40]);
+  assert.ok(actualPeak > 0.05, `explicit stimulus must change E from solver: ${actualPeak}`);
   assert.ok(errors.length === 0, 'browser page errors: ' + errors.join('; '));
 
   await mkdir('../tests/p0-1/shots', { recursive: true });
   await page.screenshot({ path: '../tests/p0-1/shots/control-causality.png', fullPage: true });
-  console.log('P0-1 browser C01/C02/C03 PASS: shared selection and immediate cell solver runs');
+  console.log('P0-1 browser C01 PASS: shared selection without stimulus; explicit stimulus produces a real solver peak');
 } finally {
   if (browser) await browser.close();
   await server.httpServer.close();

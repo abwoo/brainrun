@@ -84,9 +84,9 @@ function scan() {
 
 test('P0-1 surface: all native JSX controls have a bound interaction handler', () => {
   const rows = scan();
-  // Phase 4 实测 234（旧 257 − App 砍掉的 48 − PhysicsHome 砍掉的 2 + 台子 27）；
+  // Phase 4 实测 235（旧 257 − App 砍掉的 48 − PhysicsHome 砍掉的 2 + 台子 27 + 模板分析返回按钮 1）；
   // 下限即实测值，入口再删须同步改这里与台账，不得悄悄放宽。
-  assert.ok(rows.length >= 234, `Unexpectedly small control surface: ${rows.length}`);
+  assert.ok(rows.length >= 235, `Unexpectedly small control surface: ${rows.length}`);
   for (const c of rows) {
     const handler = c.name === 'button' ? 'onClick' : 'onChange';
     assert.ok(c.attrs.includes(handler),
@@ -179,7 +179,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 234, 'Phase 4 recount: 257 - App 48 - PhysicsHome 2 + bench 27');
+  assert.equal(actual.length, 235, 'Phase 4 recount: 257 - App 48 - PhysicsHome 2 + bench 27 + template-analysis back button 1');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

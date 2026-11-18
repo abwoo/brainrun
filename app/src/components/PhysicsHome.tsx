@@ -1,6 +1,7 @@
 import NetworkStatePanel from './NetworkStatePanel';
 import {getHeadModelSelection,subscribeHeadModelSelection,setHeadModelSelection} from '../lib/headModelSelection';
 import LocalBEMLab from './LocalBEMLab';
+import EegAnalysisLab from './EegAnalysisLab';
 import { useSyncExternalStore,useState, type ReactNode } from 'react';
 import { useI18n } from '../lib/i18n';
 import type { BrainData } from '../lib/brainData';
@@ -28,6 +29,24 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
  const headModel=useSyncExternalStore(subscribeHeadModelSelection,getHeadModelSelection);
  const setHeadModel=setHeadModelSelection;
  const [help,setHelp]=useState(false);
+ // Template-dipole analysis entry (restored after P4): LocalBEMLab's
+ // "Analyze this template experiment" opens the EEG lab inline, replacing
+ // the home exactly as the old #advanced signals flow did; the back button
+ // below returns to the template home. The bench has no equivalent for
+ // this template-dipole experiment flow, so the entry lives here in #basic.
+ const [analysisOpen,setAnalysisOpen]=useState(false);
+ const selected=selectedId!==null&&data?data.regions[selectedId]:null;
+ if(analysisOpen)return <div className="physics-home" data-testid="physics-home">
+  <header className="physics-header">
+   <a className="physics-brand" href="#" aria-label="BrainRun">BrainRun<span>{text('交互物理仿真','Interactive physics')}</span></a>
+   <div className="physics-header-actions"><LanguageSwitch/></div>
+  </header>
+  <main className="physics-main">
+   <button type="button" className="ui-button" onClick={()=>setAnalysisOpen(false)}>{text('返回物理模型','Back to physical models')}</button>
+   <EegAnalysisLab inline initialTab="eeg" onClose={()=>setAnalysisOpen(false)}
+    liveSource={{sim,node:selectedId,regionLabel:selected?.label??null,positionMm:selected?selected.centre:null}}/>
+  </main>
+ </div>;
  return <div className="physics-home" data-testid="physics-home">
   <header className="physics-header">
    <a className="physics-brand" href="#" aria-label="BrainRun">BrainRun<span>{text('交互物理仿真','Interactive physics')}</span></a>
@@ -58,7 +77,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <option value="bem">{text('真实模板 BEM：选择皮层位置','Anatomical template BEM: choose a cortical location')}</option>
      </Dropdown>
     </details>
-    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}}/>}
+    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}} onAnalysis={()=>setAnalysisOpen(true)}/>}
    </>:
     <div className="manual-network" data-testid="manual-network">
      <section className="manual-network-view">

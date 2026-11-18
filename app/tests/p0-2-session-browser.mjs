@@ -1,6 +1,19 @@
 /**
  * P0-2 actual Worker/wasm acceptance clock and session lineage in Chromium.
  * Uses the same production bundle and TVB demo assets as the existing PR5 E2E.
+ *
+ * Rewritten for Phase 4: the sim boots on the bench (default route, no
+ * hash); the old #advanced workspace is gone. All session-API assertions
+ * are unchanged.
+ *
+ * DROPPED (deliberate coverage change, Phase 4 cut — not a silent
+ * weakening): the final UI check (button '更多' + [data-live-run-id]
+ * matching the session runId). The '更多' button and the data-live-run-id
+ * attribute no longer exist anywhere in the UI after the cut, and the bench
+ * only ever shows a truncated 8-character runId (which App sets once at
+ * sim-ready, so it also goes stale across resetPaused). The session
+ * lineage itself — provenance, accepted/applied commands, reset isolation
+ * with a new runId — is fully asserted above through the Worker API.
  */
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -12,7 +25,7 @@ try {
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage({viewport:{width:1600,height:900}});
  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(url+'#advanced', {waitUntil:'domcontentloaded'});
+ await page.goto(url, {waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>window.__brainSim?.isReady?.()===true && window.__brainSim.getSnapshot()?.t_ms>=0,null,{timeout:60000});
  const get=()=>page.evaluate(()=>window.__brainSim.getExperimentSession());
  const first=await get();
@@ -64,9 +77,6 @@ try {
  assert.equal(result.lastModelTimeMs,12);
  assert.deepEqual(result.snapshotTimesMs.filter(t=>t>12),[]);
  assert.ok(result.commands.every(c=>c.runId===result.provenance.runId));
- await page.getByRole('button',{name:/^更多/}).click();
- await page.waitForFunction(id=>document.querySelector('[data-live-run-id]')?.getAttribute('data-live-run-id')===id,
-   result.provenance.runId,{timeout:15000});
  assert.deepEqual(errors,[]);
  console.log('P0-2 LIVE runId + accepted/applied Worker time and reset isolation PASS');
 } finally {
