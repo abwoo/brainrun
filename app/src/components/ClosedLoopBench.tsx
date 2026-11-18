@@ -1299,7 +1299,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
                 </Dropdown>
               </ControlField>
               <RangeControl label={text('触发阈值', 'Trigger threshold')} unit=""
-                value={clThreshold} min={0} max={1} step={0.05}
+                value={clThreshold} min={0} max={1} step={0.001}
                 disabled={!engineReady || protocolRunning} onChange={setClThreshold} />
               <RangeControl label={text('幅度', 'Amplitude')} unit=""
                 value={clAmplitude} min={0.5} max={2} step={0.1}
