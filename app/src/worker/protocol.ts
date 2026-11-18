@@ -133,7 +133,7 @@ export type WorkerOutMessage =
       phase: 'accepted' | 'applied' }
   | import('../lib/nativeAcquisition').NativeChunk
   | Snapshot
-  | {type:'native_feedback';run_id:string;requestId?:string;phase:'configured'|'detected'|'applied'|'stopped'|'restored'|'observed';t_ms:number;active:boolean;state:import('../lib/nativeFeedback').NativeFeedbackSnapshot|null;action?:import('../lib/nativeFeedback').FeedbackAction}
+  | {type:'native_feedback';run_id:string;requestId?:string;phase:'configured'|'detected'|'applied'|'stopped'|'restored'|'observed'|'suppressed';t_ms:number;active:boolean;state:import('../lib/nativeFeedback').NativeFeedbackSnapshot|null;action?:import('../lib/nativeFeedback').FeedbackAction}
   | { type: 'mode_applied'; params: ModeParams }
   | { type: 'snapshot_saved'; id: string; t_ms: number; json: string; run_id?: string }
   | { type: 'snapshot_restored'; id: string; t_ms: number; run_id?: string }

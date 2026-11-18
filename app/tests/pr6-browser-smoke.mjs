@@ -1,5 +1,5 @@
 /**
- * PR6 浏览器冒烟（B1 搭架，B2 补频谱/ERP tab；轻量冒烟，不做全量交互测试）。
+ * PR6 浏览器冒烟（bench 版；2026-11-18 P4 后重写，旧 EEG 实验页已砍）。
  *
  * 跑法：node app/tests/pr6-browser-smoke.mjs
  * 前置：`npm run build` 已跑过（dist 须含最新代码 + 球形 fixture；
@@ -11,12 +11,33 @@
  * 2. 预览服务器：先检查 127.0.0.1:4173 是否已在服务（curl 式探活），
  *    在就复用；死了就起 `vite preview --port 4173`（只装浏览器二进
  *    制，绝不用 `--with-deps` 装 Playwright 系统依赖）。
- * 3. 打开 EEG 实验 → 运行一次实验 → 断言波形数值真的变化
- *    （Pz 折线 y 值有范围；三种参考各不相同；换种子 + 开噪声后波形变）。
- * 4. 1920×1080 与 978px 各看一眼：对话框不出视口、无横向溢出。
- * 5. B2 新 tab 冒烟（集成时补，2026-11-12）：有记录后点开“频谱”tab
+ * 3. 打开台子（默认入口，无需再点 'EEG 分析'）→ 等自动采集出一份
+ *    记录 → 断言数值真的变化（WavesTab 的 Welch PSD 折线 y 值有范围；
+ *    平均 / Cz / M1 三种参考各不相同；种子控件可填）。
+ * 4. 1920×1080 与 978px 各看一眼：台子不出视口宽、无横向溢出。
+ * 5. B2 新 tab 冒烟：跑一次 oddball 协议攒出试次后点开“频谱”tab
  *    （PSD/频段功率/预设真实渲染）与“ERP”tab（切分试次后 ERP 波形 +
  *    条件对照表真实渲染），两 tab 均无页面报错。
+ *
+ * 旧断言 → 台子映射（无等价物的已删，见文件末尾 DROPPED）：
+ * - 'EEG 分析' 按钮 + 'EEG 分析实验' 对话框 → 台子本身就是默认入口
+ *   （data-testid="closed-loop-bench"），无对话框。
+ * - 'mne-four-layer-sphere-ras-v1' 模型 id 文本 → 无等价物（台子不显示
+ *   模型 id），已删。
+ * - 'eeg-empty' → 无等价物；等价等待是波形视图出现 “样本数 N>0”。
+ * - '运行实验' → 台子自动采集（10 s 原生历史窗）；协议运行是
+ *   '运行协议'（ERP 一节用 oddball 协议攒试次）。
+ * - 'eeg-waveform' 里 Pz polyline y 值范围 → WavesTab 的 Welch PSD
+ *   polyline y 值范围（同一口径：像素 y-range > 1）。
+ * - 'eeg-summary' 的 '19 通道' / '平均参考' → 回路行 '64 通道'
+ *   （默认帽预设 10-10-64）与放大器读数 '参考: 平均'。
+ * - 参考 'infinity' / 'electrode' + '参考电极 Cz' → 放大器 popover 里
+ *   单个 '参考' combobox：average / cz / m1（三档各不相同，沿用旧口径）。
+ * - '噪声种子' + 开噪声后波形变 → 无等价物（台子无噪声开关；记录种子
+ *   恒为 1；'种子' 是受试者反应时种子，只改 RT 序列，不改波形），已删；
+ *   只保留种子控件可填为 2 的断言，种子对 RT 的实际作用由 ERP 一节的
+ *   response 事件覆盖。
+ * - 对话框宽高断言 → 台子是整页滚动页，只断言宽不出视口 + 无横向溢出。
  */
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -85,82 +106,164 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(BASE+'#advanced', { waitUntil: 'domcontentloaded' });
+  // 台子是默认入口（任何非 #basic 的 hash 都进台子）；不用再点 'EEG 分析'。
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
 
-  await page.getByRole('button', { name: 'EEG 分析', exact: true }).click({ timeout: 60000 });
-  const dialog = page.getByRole('dialog', { name: 'EEG 分析实验' });
-  await dialog.waitFor({ timeout: 30000 });
-  // 正向模型加载完成（页脚露出模型 id）。
-  await dialog.getByText('mne-four-layer-sphere-ras-v1', { exact: false })
-    .waitFor({ timeout: 30000 });
-  await dialog.getByTestId('eeg-empty').waitFor();
+  await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  const readPz = () => dialog.locator('svg[data-channel="Pz"] polyline').getAttribute('points');
+  // 等自动采集出一份记录（波形视图读数 “样本数 N>0”；旧 eeg-empty 的等价等待）。
+  // 本地无头 Chromium 很慢（SwiftShader ~1fps），放宽到 180 s。
+  const waveStage = page.locator('.bench-stage-side');
+  await waveStage.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
+  await page.locator('canvas.bench-wave').waitFor({ timeout: 30000 });
+  // 旧 eeg-summary 的等价物：回路行默认帽预设 10-10-64（64 通道）。
+  const roles = await page.locator('.bench-roles').textContent();
+  assert.ok(roles?.includes('10-10-64'), `roles line must show default cap preset 10-10-64, got ${roles}`);
+  assert.ok(roles?.includes('64 通道'), `roles line must show 64 channels, got ${roles}`);
+  console.log('recording present:', await waveStage.locator('.bench-readout').first().textContent());
+
+  // 放大器 popover：参考 combobox + 读数（旧 '参考方式' / '平均参考' 的等价物）。
+  // 注意：getByLabel('参考') 会同时命中 ControlField 的 group 与 select，
+  // 必须用 combobox 角色定位；popover 盖住舞台，操作完要关掉再点别的。
+  const ampToggle = page.getByRole('button', { name: /放大器设置/ });
+  const openAmp = async () => {
+    if (!(await page.locator('.bench-popover').count())) await ampToggle.click();
+    await page.locator('.bench-popover').waitFor({ timeout: 15000 });
+  };
+  const closeAmp = async () => {
+    if (await page.locator('.bench-popover').count()) await ampToggle.click();
+    await page.locator('.bench-popover').waitFor({ state: 'detached', timeout: 15000 });
+  };
+  const refSel = page.getByRole('combobox', { name: '参考', exact: true });
+  const ampReadout = page.locator('.bench-popover .bench-readout');
+  await openAmp();
+  assert.equal(await refSel.inputValue(), 'average', 'default reference must be average');
+  assert.ok((await ampReadout.textContent())?.includes('参考: 平均'),
+    `amplifier readout must show average reference, got ${await ampReadout.textContent()}`);
+  await closeAmp();
+
+  // PSD 折线（旧 Pz polyline 的等价物；WavesTab 的 Welch PSD polyline）。
+  const readPsd = () => page.locator('svg[aria-label*="Welch PSD"] polyline').getAttribute('points');
   const yRange = (points) => {
     const ys = points.split(' ').map((p) => Number(p.split(',')[1]));
     return Math.max(...ys) - Math.min(...ys);
   };
+  const openWavesTab = async () => {
+    await page.getByRole('button', { name: '记录分析', exact: true }).click();
+    await page.getByRole('tab', { name: '频谱', exact: true }).click();
+    await page.getByText('频段 / PSD（WAVES）').waitFor({ timeout: 60000 });
+    await page.getByText('Alpha 探索', { exact: false }).waitFor({ timeout: 60000 });
+  };
+  // 新参考切过去后等 PSD 折线真的变了再读（重采是同步的，但无头下重渲染慢）。
+  const waitPsdChange = async (prev) => {
+    const deadline = Date.now() + 60000;
+    for (;;) {
+      const cur = await readPsd();
+      if (cur && cur !== prev) return cur;
+      if (Date.now() > deadline) throw new Error('PSD polyline did not change after reference switch');
+      await page.waitForTimeout(1000);
+    }
+  };
 
-  // 运行一次实验（默认 10 秒 WC、平均参考、无噪声）。
-  await dialog.getByRole('button', { name: '运行实验', exact: true }).click();
-  await dialog.getByTestId('eeg-waveform').waitFor({ timeout: 30000 });
-  const pathAvg = await readPz();
-  assert.ok(pathAvg && pathAvg.length > 100, 'Pz waveform must render after run');
-  assert.ok(yRange(pathAvg) > 1, `Pz waveform values must vary (y range ${yRange(pathAvg)})`);
-  const summary = await dialog.getByTestId('eeg-summary').textContent();
-  assert.ok(summary?.includes('19 通道'), `summary must show 19 channels, got ${summary}`);
-  assert.ok(summary?.includes('平均参考'), `summary must show average reference, got ${summary}`);
-  console.log('run 1 (average, no noise): Pz y-range =', yRange(pathAvg).toFixed(1));
+  // 运行 1（默认平均参考）：PSD 折线画出来且 y 值有范围。
+  await openWavesTab();
+  const psdAvg = await readPsd();
+  assert.ok(psdAvg && psdAvg.length > 100, 'PSD polyline must render');
+  assert.ok(yRange(psdAvg) > 1, `PSD values must vary (y range ${yRange(psdAvg)})`);
+  console.log('run 1 (average): PSD y-range =', yRange(psdAvg).toFixed(1));
 
-  // R4：三种参考的波形数值各不相同（浏览器内实测）。
-  await dialog.getByLabel('参考方式').selectOption('infinity');
-  const pathInf = await readPz();
-  assert.notEqual(pathInf, pathAvg, 'infinity reference must change waveform values');
-  await dialog.getByLabel('参考方式').selectOption('electrode');
-  await dialog.getByLabel('参考电极').selectOption('Cz');
-  const pathEl = await readPz();
-  assert.notEqual(pathEl, pathAvg, 'electrode reference must change waveform values');
-  assert.notEqual(pathEl, pathInf, 'electrode vs infinity must differ');
-  console.log('reference switch: average/infinity/electrode waveforms all differ');
+  // R4：三种参考的 PSD 数值各不相同（浏览器内实测；台子无 infinity 参考，
+  // 三档是 average / cz / m1——见 DROPPED）。
+  await openAmp();
+  await refSel.selectOption('cz');
+  await page.getByRole('button', { name: '重新采集', exact: true }).click();
+  assert.ok((await ampReadout.textContent())?.includes('参考: Cz'),
+    `amplifier readout must show Cz reference, got ${await ampReadout.textContent()}`);
+  await closeAmp();
+  await openWavesTab();
+  const psdCz = await waitPsdChange(psdAvg);
+  assert.ok(yRange(psdCz) > 1, 'Cz-reference PSD must vary');
+  assert.notEqual(psdCz, psdAvg, 'Cz reference must change PSD values');
+  console.log('reference switch: average/Cz PSDs differ');
 
-  // 换种子 + 开噪声后波形变（噪声真的进了记录）。
-  await dialog.locator('.eeg-noise-toggle input[type="checkbox"]').check();
-  await dialog.getByLabel('噪声种子').fill('2');
-  await dialog.getByRole('button', { name: '运行实验', exact: true }).click();
-  await dialog.getByText('种子 2', { exact: false }).waitFor({ timeout: 30000 });
-  const pathSeed2 = await readPz();
-  assert.notEqual(pathSeed2, pathEl, 'seed 2 + noise must change waveform values');
-  assert.ok(yRange(pathSeed2) > 1, 'noisy waveform must vary');
-  console.log('run 2 (seed 2 + noise): Pz y-range =', yRange(pathSeed2).toFixed(1));
+  await openAmp();
+  assert.ok(await refSel.locator('option[value="m1"]').isEnabled(),
+    'M1 reference option must be enabled with the default 10-10-64 preset');
+  await refSel.selectOption('m1');
+  await page.getByRole('button', { name: '重新采集', exact: true }).click();
+  assert.ok((await ampReadout.textContent())?.includes('参考: M1'),
+    `amplifier readout must show M1 reference, got ${await ampReadout.textContent()}`);
+  await closeAmp();
+  await openWavesTab();
+  const psdM1 = await waitPsdChange(psdCz);
+  assert.ok(yRange(psdM1) > 1, 'M1-reference PSD must vary');
+  assert.notEqual(psdM1, psdAvg, 'M1 reference must change PSD values');
+  assert.notEqual(psdM1, psdCz, 'M1 vs Cz must differ');
+  console.log('reference switch: average/Cz/M1 PSDs all differ');
 
-  // 5. B2 新 tab 冒烟：有记录后点开“频谱”与“ERP”，真实渲染、无页面报错。
-  // 频谱 tab：同一份记录的 PSD/频段功率/预设（Alpha 探索）都画出来。
-  await dialog.getByRole('tab', { name: '频谱', exact: true }).click();
-  await dialog.getByText('频段 / PSD（WAVES）').waitFor({ timeout: 30000 });
-  await dialog.getByText('Alpha 探索', { exact: false }).waitFor({ timeout: 30000 });
-  console.log('waves tab renders: PSD + band powers + presets');
-  // ERP tab：切分试次（MNE 口径）按钮可用（事件表非空），点后 ERP 波形 +
-  // 条件对照表（峰值/潜伏期/窗均值）真实渲染。
-  await dialog.getByRole('tab', { name: 'ERP', exact: true }).click();
-  await dialog.getByText('事件相关电位（ERP）', { exact: false }).waitFor({ timeout: 30000 });
-  const epochBtn = dialog.getByRole('button', { name: '切分试次（MNE 口径）', exact: true });
+  // 种子控件（实验电脑 details 里的“种子” RangeControl）：填 2 即生效。
+  // 旧断言“换种子 + 开噪声后波形变”无等价物（见 DROPPED），只断言控件本身。
+  const expDetails = page.locator('details[aria-label="实验电脑"]');
+  if (!(await expDetails.evaluate((el) => el.open))) {
+    await expDetails.locator('summary').click();
+  }
+  const seedNum = page.locator('input.range-number[aria-label="种子 "]');
+  await seedNum.fill('2');
+  await seedNum.press('Enter');
+  assert.equal(await seedNum.inputValue(), '2', 'seed input must take 2');
+  console.log('seed control accepts 2 (subject RT seed; does not touch the waveform)');
+
+  // 5. B2 新 tab 冒烟：跑 oddball 协议攒出 standard + oddball 试次，
+  // 立刻重组记录（协议仍在跑：10 s 窗口里始终有新鲜脉冲），再看 ERP。
+  await page.getByRole('combobox', { name: '协议', exact: true }).selectOption('oddball');
+  await page.getByRole('button', { name: '运行协议', exact: true }).click();
+  const trialRe = /试次数[:：]?\s*(\d+)/;
+  const trialDeadline = Date.now() + 240000;
+  let trials = 0;
+  for (;;) {
+    const txt = await expDetails.locator('.bench-readout').first().textContent();
+    const m = txt?.match(trialRe);
+    trials = m ? Number(m[1]) : 0;
+    if (trials >= 10) break; // 试次 5 与 10 是 oddball：10 次保证 2 个 oddball + 8 个 standard
+    if (Date.now() > trialDeadline) throw new Error(`oddball protocol produced only ${trials} trials in 240 s`);
+    await page.waitForTimeout(2000);
+  }
+  console.log('oddball trials fired:', trials);
+  // 先重组记录再停协议：停协议不重组记录，晚点窗口就滑过这批脉冲。
+  await page.getByRole('button', { name: '实时 EEG 波形', exact: true }).click();
+  await page.getByRole('button', { name: '更新记录', exact: true }).click();
+  await page.getByRole('button', { name: '停止协议', exact: true }).click();
+  // 记录事件表：脉冲与受试者响应都在（种子 2 的受试者答过 oddball）。
+  await page.getByRole('button', { name: '记录分析', exact: true }).click();
+  await page.getByTestId('bench-recording-events').waitFor({ timeout: 60000 });
+  const eventsNote = await page.locator('[data-testid="bench-recording-events"] p').textContent();
+  const pulseM = eventsNote?.match(/pulse\s+(\d+)/);
+  assert.ok(pulseM && Number(pulseM[1]) >= 5, `recording must hold >=5 pulse events, got ${eventsNote}`);
+  const respM = eventsNote?.match(/response\s+(\d+)/);
+  assert.ok(respM && Number(respM[1]) >= 1, `recording must hold >=1 subject response, got ${eventsNote}`);
+  console.log('recording events:', eventsNote);
+  // 频谱 tab 已在上面验过；这里只验 ERP tab。
+  await page.getByRole('tab', { name: 'ERP', exact: true }).click();
+  await page.getByText('事件相关电位（ERP）', { exact: false }).waitFor({ timeout: 60000 });
+  const epochBtn = page.getByRole('button', { name: '切分试次（MNE 口径）', exact: true });
   assert.ok(await epochBtn.isEnabled(), 'epoch button must be enabled once events exist');
   await epochBtn.click();
-  await dialog.getByText('已切分：', { exact: false }).waitFor({ timeout: 30000 });
-  await dialog.getByText('ERP 波形（µV）').waitFor({ timeout: 30000 });
-  await dialog.getByText('300–500 ms 均值（µV）').waitFor({ timeout: 30000 });
+  await page.getByText('已切分：', { exact: false }).waitFor({ timeout: 60000 });
+  await page.getByText('ERP 波形（µV）').waitFor({ timeout: 60000 });
+  await page.getByText('300–500 ms 均值（µV）').waitFor({ timeout: 60000 });
   console.log('erp tab renders: epochs + ERP waveform + condition table');
 
-  // 布局冒烟：1920×1080 与 978px 下对话框不出视口、无横向溢出。
+  // 布局冒烟：1920×1080 与 978px 下台子宽不出视口、无横向溢出
+  //（台子是整页滚动页，无对话框，故不做高 fit 断言）。
   for (const [w, h] of [[1920, 1080], [978, 800]]) {
     await page.setViewportSize({ width: w, height: h });
-    await page.waitForTimeout(300);
-    const box = await dialog.boundingBox();
-    assert.ok(box && box.width <= w && box.height <= h,
-      `dialog must fit ${w}x${h}, got ${box?.width}x${box?.height}`);
+    await page.waitForTimeout(500);
+    const box = await page.getByTestId('closed-loop-bench').boundingBox();
+    assert.ok(box && box.width <= w,
+      `bench must fit ${w}px width, got ${box?.width}`);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 0, `${w}px viewport has horizontal overflow ${overflow}px`);
-    console.log(`layout ok at ${w}x${h}: dialog ${Math.round(box.width)}x${Math.round(box.height)}`);
+    console.log(`layout ok at ${w}x${h}: bench ${Math.round(box.width)}px wide, overflow ${overflow}px`);
   }
 
   assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
@@ -169,3 +272,14 @@ try {
   await browser?.close();
   if (serverProc) serverProc.kill();
 }
+
+// DROPPED（旧断言，无台子等价物；不许为测试加产品 UI）：
+// - 'mne-four-layer-sphere-ras-v1' 文本：台子加载同一份球形 fixture，但
+//   界面不显示模型 id。
+// - 'eeg-empty' testid：台子没有空态 testid；等价等待是“样本数 N>0”。
+// - '运行实验' 按钮：台子没有这个按钮；采集是自动的，协议运行是“运行协议”。
+// - 参考 'infinity'：台子参考只有 average / cz / m1，无 infinity 档。
+// - '噪声种子' 填 2 + 开噪声后波形变 + '种子 2' 文本：台子无噪声开关；
+//   记录种子恒为 1（runNativeExperiment 写死）；'种子' 是受试者反应时种子，
+//   只改 RT 序列，不改波形。种子控件可填的断言保留，波形变化的断言删除。
+// - 对话框宽高 fit 断言：台子无对话框，是整页滚动页。

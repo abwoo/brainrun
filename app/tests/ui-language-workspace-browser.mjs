@@ -10,7 +10,7 @@ try {
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage({viewport:{width:1440,height:1050}});
  page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(url,{waitUntil:'domcontentloaded'});
+ await page.goto(url+'#basic',{waitUntil:'domcontentloaded'});
  // The Linux runner has no CJK system fonts; provide the same fallback that
  // Chinese users' operating systems normally supply, without a production CDN.
  let fontCss=await readFile('node_modules/@fontsource/noto-sans-sc/400.css','utf8');
@@ -104,59 +104,21 @@ try {
  await page.getByRole('button',{name:'English',exact:true}).click();
  assert.equal(await page.evaluate(()=>window.__brainSim.getExperimentSession().provenance.runId),liveRun);
  await collect('manual-network');
- await page.getByRole('button',{name:'Advanced labs',exact:true}).click();
- assert.equal(await page.getByRole('dialog').count(),0,'advanced menu expands in flow, never over the model');
- await collect('advanced-menu');
- await page.getByRole('button',{name:/^Signal analysis/}).click();
- await page.waitForURL(/#advanced/);
- await collect('signals-empty');
- await page.getByRole('button',{name:'Run experiment',exact:true}).click();
- await page.getByTestId('eeg-summary').waitFor({timeout:30000});
- await collect('signals-raw');
- for(const tab of ['Spectrum','ERP','Time-frequency','Topography','Source localization']){
-  await page.getByRole('tab',{name:tab,exact:true}).click();await collect('signals-'+tab);
- }
- await page.getByRole('tab',{name:'ERP',exact:true}).click();
- await page.getByRole('button',{name:/Run oddball/}).click();
- await page.waitForFunction(()=>{
-  const id=document.querySelector('[data-eeg-run-id]')?.getAttribute('data-eeg-run-id');
-  return id&&id===document.querySelector('[data-epoch-run-id]')?.getAttribute('data-epoch-run-id');
- });
- await collect('oddball-results');
- await page.getByRole('tab',{name:'EEG',exact:true}).click();
- const promised=page.waitForEvent('download');await page.getByRole('button',{name:'Export JSON',exact:true}).click();
- const download=await promised,stream=await download.createReadStream();let body='';
- for await(const chunk of stream)body+=chunk.toString();
- const bundle=JSON.parse(body);assert.equal(bundle.provenance.runId,bundle.epochs.provenance.runId);assert.ok(bundle.events.every(e=>e.runId===bundle.provenance.runId));
- await page.locator('button[data-mode="play"]').click();
- for(const label of ['Cellular lab','Stimulation lab','Comparisons','DIPOLE LAB','HEAD EEG','Model info']){
-  await page.getByRole('button',{name:label,exact:true}).click();await collect(label);
-  if(label==='Cellular lab'){
-   await page.getByRole('button',{name:'Run simulation',exact:true}).click();await collect('cell-result');
-   await page.getByRole('button',{name:'Hodgkin–Huxley',exact:true}).click();
-   await page.getByRole('button',{name:'Run simulation',exact:true}).click();await collect('hh-result');
-  }
-  if(label==='Stimulation lab'){
-   for(const level of ['B','C','D']){await page.getByRole('combobox',{name:'Stimulation level',exact:true}).selectOption(level);await collect('stim-'+level);}
-  }
-  // The persistent language control must work inside an open scientific lab.
-  await page.getByRole('button',{name:'中文',exact:true}).click();
-  assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
-  await page.getByRole('button',{name:'English',exact:true}).click();
-  await page.keyboard.press('Escape');
- }
- await page.locator('button[data-mode="explore"]').click();await collect('atlas');
- await page.getByRole('button',{name:'Quick experiments',exact:true}).click();
- assert.equal(await page.getByRole('dialog').count(),0,'presets must be a separate page, not a modal');
- await page.locator('.scenario-inline').waitFor();await collect('presets');
- await page.getByRole('button',{name:'Back to physical models',exact:true}).click();
- await page.getByTestId('physics-home').waitFor();
- assert.equal(await page.getByRole('spinbutton',{name:'Source strength nA·m'}).inputValue(),'20','returning from advanced labs preserves the manual source');
- assert.equal(await page.locator('html').getAttribute('lang'),'en-US');
- await page.reload({waitUntil:'domcontentloaded'});await page.getByTestId('physics-home').waitFor();
- assert.equal(await page.locator('html').getAttribute('lang'),'en-US');
+ // DROPPED (deliberate coverage change, Phase 4 cut — not a silent
+ // weakening): everything from the 'Advanced labs' button onward — the
+ // Signal analysis workspace (#advanced, Run experiment, eeg-summary,
+ // Spectrum/ERP/Time-frequency/Topography/Source localization tabs, oddball,
+ // Export JSON), the PLAY-mode labs (Cellular lab, Stimulation lab,
+ // Comparisons, DIPOLE LAB, HEAD EEG, Model info), the EXPLORE atlas and
+ // Quick experiments / 'Back to physical models' — no longer exists in the
+ // UI after the P4 cut (#advanced now renders the bench; the four modes,
+ // the 15 scenarios and the six standalone labs are gone). Their
+ // translation coverage therefore has no surface to check any more. What
+ // remains is the #basic language coverage above (manual-electric +
+ // manual-network, both collected with zero misses), which is what the
+ // assertions below now verify.
  console.log('MISSING_MESSAGES='+JSON.stringify([...misses]));
  assert.deepEqual(errors,[],'JavaScript errors');
  assert.deepEqual([...misses],[],'All displayed messages and accessibility text must have complete translations');
- console.log('Manual physics → actual forward values; explicit network input → Worker ACK; full-page languages and nonblocking presets PASS');
+ console.log('Manual physics → actual forward values; explicit network input → Worker ACK; #basic full-page languages PASS');
 } finally {await browser?.close();await server.httpServer.close();}

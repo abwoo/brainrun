@@ -44,6 +44,18 @@ jobs:
           python scientific/forward/generate_sphere_model.py
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.002 --output app/public/forward-assets/sphere-skull-0.002.json
           python scientific/forward/generate_sphere_model.py --skull-conductivity 0.008 --output app/public/forward-assets/sphere-skull-0.008.json
+      - name: Setup Rust toolchain and WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install WASM packager
+        run: cargo install wasm-pack
+      - name: Compile original BrainRun WASM engine for browser
+        run: bash scripts/build-wasm.sh
+      - name: Fetch and verify existing TVB demo assets
+        run: |
+          python scripts/prepare-brain-data/fetch.py
+          python scripts/prepare-brain-data/prepare.py
       - name: PR6 Python methodology tests
         run: python -m unittest discover -s tests/pr6 -p 'test_*.py' -v
       - name: PR6 TypeScript methodology tests

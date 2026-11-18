@@ -70,6 +70,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (rel) => readFileSync(join(root, rel), 'utf8');
 
 const protocolTs = src('app/src/worker/protocol.ts');
+const nativeAcquisitionTs = src('app/src/lib/nativeAcquisition.ts');
 const simWorkerTs = src('app/src/worker/simWorker.ts');
 const simClientTs = src('app/src/lib/simClient.ts');
 const appTsx = src('app/src/App.tsx');
@@ -135,12 +136,24 @@ test('四滑杆：KNOB_MAP 端点 = UI 数字框范围 = 引擎 clamp', () => {
     near(KNOB_MAP.c_eiK(KNOB_MAP.c_ei(k)), k);
     near(KNOB_MAP.gK(KNOB_MAP.g(k)), k);
   }
-  // UI 数字框 min/max（App.tsx ParamControl）。
-  for (const [mn, mx] of [['min={0.5}', 'max={2.0}'], ['min={20}', 'max={500}'],
-    ['min={3}', 'max={8}'], ['min={0}', 'max={0.4}']]) {
-    assert.ok(appTsx.includes(mn), `App.tsx 缺 ${mn}`);
-    assert.ok(appTsx.includes(mx), `App.tsx 缺 ${mx}`);
-  }
+  // UI 数字框 min/max：Phase 4 后只剩刺激强度与持续时间两档进台子，
+  // 由台子（ClosedLoopBench.tsx 的 RangeControl，主刺激区）渲染，不再经
+  // App.tsx；两档范围仍与 KNOB_MAP 端点一致。
+  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
+  assert.ok(benchTsx.includes('value={strength} min={0.5} max={2}'),
+    '台子主刺激强度范围须为 0.5–2.0');
+  assert.ok(benchTsx.includes('value={durationMs} min={20} max={500}'),
+    '台子主刺激持续时间范围须为 20–500 ms');
+  // c_ei / G 的滑杆随 #advanced 一起砍掉：台子与 App 均无这两档的 UI
+  // 入口（KNOB_MAP 与引擎 clamp 在上文仍断言，未动）。只按 c_ei 的
+  // 3–8 与 G 的 0.4 上限断言缺失，不按 min={0} 断言（台子闭环阈值
+  // 本身就是 min={0}，与 G 无关）。
+  assert.ok(!benchTsx.includes('min={3}') && !benchTsx.includes('max={8}'),
+    '台子不应再有 c_ei 滑杆');
+  assert.ok(!benchTsx.includes('max={0.4}'), '台子不应再有 G 滑杆');
+  assert.ok(!appTsx.includes('min={3}') && !appTsx.includes('max={8}'),
+    'App 不应再有 c_ei 滑杆');
+  assert.ok(!appTsx.includes('max={0.4}'), 'App 不应再有 G 滑杆');
   // 引擎 clamp：四者如今与 UI 完全相等。PR6 R1 已裁决为 (a)：WASM
   // set_stim_amplitude 从 0–4.0 收紧到 0.5–2.0，与 UI 一致（此前
   // 引擎比 UI 宽是契约残留 R1）。收紧的依据：全仓 grep 无任何
@@ -221,9 +234,17 @@ test('权重/偏置 clamp 前后端一致，偏置开启默认值在范围内', 
   assert.ok(brainCoreRs.includes('pub const BIAS_MAX: f64 = 1.0;'));
   near(BIAS_DEFAULT_ON, 0.5);
   assert.ok(BIAS_DEFAULT_ON > BIAS_MIN && BIAS_DEFAULT_ON < BIAS_MAX);
-  // UI 滑杆用常量，不手写数字。
-  assert.ok(appTsx.includes('min={WEIGHT_MIN}') && appTsx.includes('max={WEIGHT_MAX}'));
-  assert.ok(appTsx.includes('min={BIAS_MIN}') && appTsx.includes('max={BIAS_MAX}'));
+  // Phase 4：权重/偏置的 UI 入口随 #advanced 删除（契约 §5.3 U6 已登记
+  // “入口随 #advanced 删除，UI 上暂无入口（有实现无入口，不是空壳）”）；
+  // 后端 clamp 与常量未动，只断言后端一致，不再要求 UI 入口。
+  const contract = src('docs/frontend-backend-contract.md');
+  assert.ok(contract.includes('U6 | 权重编辑'), '契约 §5.3 U6 须登记权重/偏置入口已删');
+  assert.ok(contract.includes('入口随 `#advanced` 删除'), '契约 §5.3 U6 须写明入口删除原因');
+  assert.ok(!appTsx.includes('WEIGHT_MIN') && !appTsx.includes('BIAS_MIN'),
+    'App 不应再有权重/偏置 UI 入口');
+  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
+  assert.ok(!benchTsx.includes('WEIGHT_MIN') && !benchTsx.includes('BIAS_MIN'),
+    '台子不应有权重/偏置 UI 入口');
 });
 
 test('锁定/按住/响应/快照频率常量前后一致', () => {
@@ -343,27 +364,33 @@ test('局部皮层柱：TS 默认 = Python 对照，换算因子一致', () => {
   assert.ok(columnPy.includes('"drive":1.4'));
 });
 
-test('Worker 协议：21 种入站消息与 Worker 处理分支一一对应', () => {
+test('Worker 协议：23 种入站消息与 Worker 处理分支一一对应', () => {
   const inStart = protocolTs.indexOf('export type WorkerInMessage');
   const inEnd = protocolTs.indexOf('/** Background mode', inStart);
   const inBlock = protocolTs.slice(inStart, inEnd);
   const declared = [...inBlock.matchAll(/\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
-  assert.equal(declared.length, 21, `入站消息应为 21 种，实得 ${declared.length}`);
-  assert.equal(new Set(declared).size, 21, '入站消息类型不得重复');
+  assert.equal(declared.length, 23, `入站消息应为 23 种，实得 ${declared.length}`);
+  assert.equal(new Set(declared).size, 23, '入站消息类型不得重复');
   const cases = [...simWorkerTs.matchAll(/case '([^']+)':/g)].map((m) => m[1]);
   assert.deepEqual([...cases].sort(), [...declared].sort());
-  // 出站 6 种：5 种字面 post + snapshot 是 WorkerOutMessage 里的裸接口引用。
+  // 出站 9 种：7 种字面 + snapshot 与 native_samples 是 WorkerOutMessage 里的接口引用
+  //（Snapshot 裸接口、NativeChunk 导入接口；NativeChunk 的 type 字面量在 nativeAcquisition.ts 里）。
   const outStart = protocolTs.indexOf('export type WorkerOutMessage');
   const outBlock = protocolTs.slice(outStart);
   const outDeclared = [...outBlock.matchAll(/\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
   if (/\n\s*\| Snapshot\b/.test(outBlock)) outDeclared.push('snapshot');
+  if (outBlock.includes('NativeChunk')) outDeclared.push('native_samples');
+  assert.ok(nativeAcquisitionTs.includes("type:'native_samples'"),
+    'NativeChunk 的 type 字面量应为 native_samples');
   assert.deepEqual([...outDeclared].sort(),
-    ['error', 'mode_applied', 'ready', 'snapshot', 'snapshot_restored', 'snapshot_saved'].sort());
+    ['command_ack', 'error', 'mode_applied', 'native_feedback', 'native_samples',
+      'ready', 'snapshot', 'snapshot_restored', 'snapshot_saved'].sort());
   const posted = [...simWorkerTs.matchAll(/post\(\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
-  for (const t of ['ready', 'mode_applied', 'snapshot_saved', 'snapshot_restored', 'error']) {
+  for (const t of ['ready', 'command_ack', 'native_feedback', 'mode_applied', 'snapshot_saved', 'snapshot_restored', 'error']) {
     assert.ok(posted.includes(t), `Worker 从未 post ${t}`);
   }
   assert.ok(simWorkerTs.includes("type: 'snapshot',"), 'snapshot 经 snapshot() 变量 post');
+  assert.ok(simWorkerTs.includes('post(advanceAcquiring('), 'native_samples 经 advanceAcquiring 变量 post');
 });
 
 test('客户端：每种入站消息都有 SimClient 发送点（无孤儿消息）', () => {
@@ -552,8 +579,6 @@ test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六
     'EEG tab 参考切换须经壳的 reReferenceRecording');
   // App：顶栏有 “EEG 分析” chip，并挂载 EegAnalysisLab。
   assert.ok(appTsx.includes('EEG 分析'), 'App 缺 “EEG 分析” 入口 chip');
-  assert.ok(appTsx.includes('<EegAnalysisLab'), 'App 未挂载 EegAnalysisLab');
-  assert.ok(appTsx.includes("import EegAnalysisLab from './components/EegAnalysisLab'"));
   // 壳：import 全部六个 tab（WavesTab / ErpTab / TfrTab / TopoTab / InverseTab
   // 由 B2/B3 并行写；此处只断言壳按设计稿 §1.3 挂载，不碰其实现）。
   const lab = src('app/src/components/EegAnalysisLab.tsx');
@@ -580,6 +605,17 @@ test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六
     'app/src/components/HeadSphereLab.tsx', 'app/src/components/LocalBEMLab.tsx']) {
     assert.ok(!src(labFile).includes('<option value="electrode">'), `${labFile} 不应有 electrode 选项`);
   }
+});
+
+test('R4（Phase 4）：EEG 分析入口随 #advanced 删除，分析 tab 与 electrode 参考改由台子挂载', () => {
+  // 从原 R4 测试里单拆出来：原测试在 chip 断言处失败（基线遗留），
+  // P4 的断言放里面永远跑不到；单拆后这组断言在 CI 里真实执行。
+  assert.ok(!appTsx.includes('<EegAnalysisLab'), 'P4 后 App 不应再挂载 EegAnalysisLab');
+  assert.ok(!appTsx.includes("import EegAnalysisLab from './components/EegAnalysisLab'"));
+  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
+  assert.ok(benchTsx.includes('<ErpTab'), '台子应挂载 ErpTab');
+  assert.ok(benchTsx.includes('<TopoTab'), '台子应挂载 TopoTab');
+  assert.ok(benchTsx.includes("mode: 'electrode'"), '台子应有 electrode 参考模式（R4 入口的新位置）');
 });
 
 test('PR6 时频/地形/逆解（B3）：TS 默认 = Python 对照 = UI 初始值；契约 §1.7 已登记', () => {
@@ -716,7 +752,7 @@ test('PR6 WAVES/ERP（B2）：晚期机制默认 = Python 对照 = fixture；Pz 
   assert.ok(contract.includes('PR8-NUMFIX'), '契约 §1.8 应登记 ErpTab late 按钮的例外与理由');
 });
 
-test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记；App 已挂载', () => {
+test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记；App 入口已删（Phase 4）', () => {
   const cellPy = src('reference/python-model/cellular_reference.py');
   const pyConst = (name) => {
     // 数值字面量可能含下划线千分位（如 1_000_000），先去掉再转数字。
@@ -744,17 +780,19 @@ test('PR7 细胞级（A）：TS 默认 = Python 对照；契约 §1.9 已登记�
   assert.equal(DEFAULT_HH_PARAMS.gNaMSperCm2, pyConst('HH_GNA_MS_PER_CM2'));
   assert.equal(WC_BASELINE_E, pyConst('WC_BASELINE_E'));
   assert.equal(DEFAULT_DIPOLE_N_CELLS, pyConst('DIPOLE_N_CELLS'));
-  // 3. 契约 §1.9 已登记；App 挂载 CellularLab（宽 modal）。
+  // 3. 契约 §1.9 已登记；Phase 4：CellularLab 的 App 入口随 #advanced
+  // 删除，细胞级模型（lib/cellular.ts）未动，默认值与 Python 对照仍由
+  // 本节上文断言。
   const contract = src('docs/frontend-backend-contract.md');
   assert.ok(contract.includes('### 1.9 PR7 PR-13 细胞级 / 多尺度（A，2026-11-12）'));
   assert.ok(contract.includes("CELLULAR_ID = 'local-cellular-multiscale-v1'"));
-  assert.ok(appTsx.includes("import CellularLab from './components/CellularLab';"));
-  assert.ok(appTsx.includes('<CellularLab'), 'App 应挂载 CellularLab');
-  // PR8-LINK：CellularLab 带 live props（liveE/liveP/onApplyBias），不再是空挂载。
-  assert.ok(appTsx.includes('细胞实验'), 'App 应有细胞实验入口');
+  assert.ok(!appTsx.includes("import CellularLab from './components/CellularLab';"),
+    'P4 后 App 不应再 import CellularLab');
+  assert.ok(!appTsx.includes('<CellularLab'), 'P4 后 App 不应再挂载 CellularLab');
+  assert.ok(!appTsx.includes('细胞实验'), 'P4 后 App 不应再有细胞实验入口');
 });
 
-test('PR7 刺激（B）：模型 ID 与线圈/电极默认前后一致；契约 §1.10 已登记；App 已挂载', () => {
+test('PR7 刺激（B）：模型 ID 与线圈/电极默认前后一致；契约 §1.10 已登记；App 入口已删（Phase 4）', () => {
   const stimPy = src('scientific/forward/stimulation_reference.py');
   // 1. 模型 ID 与常量（TS 导出值）。
   assert.equal(STIMULATION_ID, 'brain-stimulation-lab-pr14-v1');
@@ -779,18 +817,20 @@ test('PR7 刺激（B）：模型 ID 与线圈/电极默认前后一致；契约 
     DEFAULT_TES_ELECTRODES.reduce((s, e) => s + e.currentMA, 0), 0,
     'TES 默认电极电流总和须为 0',
   );
-  // 3. 契约 §1.10 已登记；App 挂载 StimLab。
+  // 3. 契约 §1.10 已登记；Phase 4：StimLab 的 App 入口随 #advanced 删除，
+  // 刺激模型（lib/stimulation.ts 等）未动，默认值与 Python 对照仍由本节
+  // 上文断言；刺激功能由台子的刺激区（目标脑区 + 幅度/时长 + 发送刺激）接管。
   const contract = src('docs/frontend-backend-contract.md');
   assert.ok(contract.includes('### 1.10 PR7 PR-14 脑刺激实验室（B，2026-11-12）'));
   assert.ok(contract.includes("TES_MODEL_ID = 'tes-uniform-infinite-point-source-v1'"));
   assert.ok(contract.includes("TMS_MODEL_ID = 'tms-circular-coil-uniform-conductor-v1'"));
-  assert.ok(appTsx.includes("import StimLab from './components/StimLab';"));
-  assert.ok(appTsx.includes('<StimLab'), 'App 应挂载 StimLab');
-  // PR8-LINK：StimLab 带 live props（selectedRegion/regions/onPulse）。
-  assert.ok(appTsx.includes('刺激实验'), 'App 应有刺激实验入口');
+  assert.ok(!appTsx.includes("import StimLab from './components/StimLab';"),
+    'P4 后 App 不应再 import StimLab');
+  assert.ok(!appTsx.includes('<StimLab'), 'P4 后 App 不应再挂载 StimLab');
+  assert.ok(!appTsx.includes('刺激实验'), 'P4 后 App 不应再有刺激实验入口');
 });
 
-test('PR7 实验（C）：步长/节拍/PID/深度默认前后一致；契约 §1.11 已登记；App 已挂载', () => {
+test('PR7 实验（C）：步长/节拍/PID/深度默认前后一致；契约 §1.11 已登记；App 入口已删（Phase 4）', () => {
   const expPy = src('reference/python-model/experiments_pr7.py');
   const depthPy = src('scientific/eeg/depth_reference.py');
   const pyConst = (text, name) => {
@@ -813,19 +853,21 @@ test('PR7 实验（C）：步长/节拍/PID/深度默认前后一致；契约 §
   assert.equal(DEFAULT_FEATURE_FREQ_HZ, 10);
   assert.equal(DEPTH_WEIGHT_DEFAULT, 0.8);
   assert.equal(DEPTH_WEIGHT_DEFAULT, pyConst(depthPy, 'DEPTH_DEFAULT'));
-  // 2. 契约 §1.11 已登记（含深度加权诚实边界）；App 挂载 ExperimentLab。
+  // 2. 契约 §1.11 已登记（含深度加权诚实边界）；Phase 4：ExperimentLab
+  // 的 App 入口随 #advanced 删除，实验模型默认值与 Python 对照仍由本节
+  // 上文断言；闭环/对照实验功能由台子的协议引擎（benchProtocol）接管。
   const contract = src('docs/frontend-backend-contract.md');
   assert.ok(contract.includes('### 1.11 PR7 PR-15 双脑 / 时间机器 / 闭环 + 深度加权（C，2026-11-12）'));
   assert.ok(contract.includes('DEPTH_WEIGHT_DEFAULT'));
   assert.ok(contract.includes('没有一种方法同时修好深浅两端'));
-  assert.ok(appTsx.includes("import ExperimentLab from './components/ExperimentLab';"));
-  assert.ok(appTsx.includes('<ExperimentLab'), 'App 应挂载 ExperimentLab');
-  assert.ok(appTsx.includes('fixture={expFixture}'), 'App 应把 fixture 传进 ExperimentLab');
-  // PR8-LINK：ExperimentLab 带 live prop（直播 A/回放/闭环）。
-  assert.ok(appTsx.includes('对照实验'), 'App 应有对照实验入口');
+  assert.ok(!appTsx.includes("import ExperimentLab from './components/ExperimentLab';"),
+    'P4 后 App 不应再 import ExperimentLab');
+  assert.ok(!appTsx.includes('<ExperimentLab'), 'P4 后 App 不应再挂载 ExperimentLab');
+  assert.ok(!appTsx.includes('fixture={expFixture}'), 'P4 后 App 不应再把 fixture 传进 ExperimentLab');
+  assert.ok(!appTsx.includes('对照实验'), 'P4 后 App 不应再有对照实验入口');
 });
 
-test('PR8-LINK §4.1 统一仿真状态：六台接线前后一致；契约 §1.14 已登记', () => {
+test('PR8-LINK §4.1 统一仿真状态：App→台子接线前后一致；契约 §1.14 已登记', () => {
   const contract = src('docs/frontend-backend-contract.md');
   const eegTs = src('app/src/lib/eegRecording.ts');
   const cellTsx = src('app/src/components/CellularLab.tsx');
@@ -844,14 +886,22 @@ test('PR8-LINK §4.1 统一仿真状态：六台接线前后一致；契约 §1.
   assert.ok(eegTs.includes('export function deriveLiveMoments'));
   assert.ok(eegTs.includes('export function clampSourcePositionMm'));
   assert.ok(eegTs.includes('export function sensoryTargetNodes'));
-  // 3. App 把直播接线传进六台（只加 props，不改布局结构）。
-  assert.ok(appTsx.includes('liveSource={{'), 'App 应把 liveSource 传进 EEG 台');
-  assert.ok(appTsx.includes('liveE={selectedE}'), 'App 应把 live E 传进细胞台');
-  assert.ok(appTsx.includes('onApplyBias={handleBiasChange}'), 'App 应把反向应用传进细胞台');
-  assert.ok(appTsx.includes('liveMomentNAm'), 'App 应算直播偶极矩传进 HEAD/DIPOLE');
-  assert.ok(appTsx.includes('selectedRegion={selected'), 'App 应把选中脑区传进刺激台');
-  assert.ok(appTsx.includes('onPulse={(node, amp, dur)'), 'App 应把 pulseAt 传进刺激台');
-  assert.ok(appTsx.includes('live={{'), 'App 应把 live 传进对照台');
+  // 3. App 把直播接线传进台子（Phase 4：六台入口删除，唯一入口是台子；
+  // 只加 props，不改布局结构——台子是单舞台，App 只做接线）。
+  assert.ok(appTsx.includes('<ClosedLoopBench'), 'App 应挂载台子');
+  assert.ok(!appTsx.includes('<CellularLab') && !appTsx.includes('<StimLab')
+    && !appTsx.includes('<ExperimentLab') && !appTsx.includes('<EegAnalysisLab')
+    && !appTsx.includes('<HeadSphereLab') && !appTsx.includes('<DipoleLab'),
+    'P4 后 App 不应再挂载六台中的任何一台');
+  assert.ok(appTsx.includes('selectedId={selectedId} onSelect={setSelectedId}'),
+    'App 应把选区接进台子');
+  assert.ok(appTsx.includes('onStrength={'), 'App 应把刺激强度接进台子');
+  assert.ok(appTsx.includes('onDuration={'), 'App 应把持续时间接进台子');
+  assert.ok(appTsx.includes('liveMomentNAm={liveMomentNAm}'), 'App 应把直播偶极矩传进台子');
+  assert.ok(appTsx.includes('onPulse={() =>'), 'App 应把刺激传进台子');
+  assert.ok(appTsx.includes('networkView={'), 'App 应把 BrainScene 网络视图传进台子');
+  assert.ok(appTsx.includes('background={bgMode} onBackground={handleBackgroundMode}'),
+    'App 应把背景模式接进台子');
   // 4. 接不通的部分标“独立演示”（源码级存在性）。
   assert.ok(src('app/src/components/HeadSphereLab.tsx').includes('独立演示'));
   assert.ok(src('app/src/components/DipoleLab.tsx').includes('独立演示'));

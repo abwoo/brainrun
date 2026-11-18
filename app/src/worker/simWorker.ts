@@ -201,7 +201,7 @@ function snapshot(): Snapshot | null {
   };
 }
 
-function feedbackReport(phase:'configured'|'detected'|'applied'|'stopped'|'restored'|'observed',action?:FeedbackAction,requestId?:string):void {
+function feedbackReport(phase:'configured'|'detected'|'applied'|'stopped'|'restored'|'observed'|'suppressed',action?:FeedbackAction,requestId?:string):void {
  if(sim)post({type:'native_feedback',requestId,run_id:runId,phase,t_ms:sim.time_ms(),active:feedback?.active??false,state:feedback?.snapshot()??null,...(action?{action}:{})});
 }
 function applyInput(node:number,start_ms:number,duration_ms:number,amplitude:number):void {
@@ -233,7 +233,14 @@ function acquireAdvance(ms:number):void {
   const block=Math.min(remaining,200),before=sim.time_ms();
   post(advanceAcquiring(sim,block,runId,{
    beforeStep:t=>{for(const action of feedback?.beforeStep(t)??[]){applyInput(action.node,t,action.durationMs,action.amplitude);feedbackReport('applied',action);}},
-   afterStep:(t,e,i)=>{const action=feedback?.afterStep(t,e,i);if(action)feedbackReport('detected',action);}
+   afterStep:(t,e,i)=>{
+    // Phase 3 — 冷却抑制不再静默：afterStep 返回 null 时看 suppressedCount
+    // 是否涨了，涨了就上报 'suppressed'（state 里带抑制计数与最后一次抑制）。
+    const suppressedBefore=feedback?.suppressedCount??0;
+    const action=feedback?.afterStep(t,e,i);
+    if(action)feedbackReport('detected',action);
+    else if(feedback&&feedback.suppressedCount>suppressedBefore)feedbackReport('suppressed');
+   }
   }));if(sim.time_ms()>before)driveObserved=true;remaining-=block;
   activeInputs=activeInputs.filter(p=>p.start_ms+p.duration_ms>sim!.time_ms());
  }

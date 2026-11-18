@@ -23,6 +23,15 @@ export interface NativeFeedbackSnapshot {
  lowpassUv?:number;
  config:NativeFeedbackConfig;startedMs:number;nextEvalMs:number;count:number;lastTriggerMs:number|null;
  samples:Array<{tMs:number;value:number}>;pending:FeedbackAction[];
+ /** Phase 3 — 冷却期内规则触发但被抑制的次数；抑制不再静默（见 afterStep）。 */
+ suppressedCount:number;lastSuppressedMs:number|null;lastSuppressedValue:number|null;
+ /** Phase 3 — 已施加过的动作 id；beforeStep 绝不重发其中任一 id（防 restore 后双发）。 */
+ appliedIds:number[];
+}
+/** Phase 3 — 冷却剩余（模型 ms）：lastTriggerMs + cooldownMs − 当前模型时间，0 = 不在冷却期。 */
+export function cooldownRemainingMs(state:NativeFeedbackSnapshot,tMs:number):number {
+ if(state.lastTriggerMs===null)return 0;
+ return Math.max(0,state.lastTriggerMs+state.config.cooldownMs-tMs);
 }
 export function validateFeedbackConfig(c:NativeFeedbackConfig,nNodes:number):void {
  if(!c||!Number.isInteger(c.node)||c.node<0||c.node>=nNodes||!['instant','rms'].includes(c.feature)||
@@ -54,13 +63,28 @@ export class NativeFeedback {
   if(!Number.isInteger(startedMs)||startedMs<0)throw new RangeError('Invalid controller start time');
   this.state={config:JSON.parse(JSON.stringify(config)) as NativeFeedbackConfig,...(config.eeg?{lowpassUv:0}:{}),startedMs,
    nextEvalMs:startedMs+(config.feature==='rms'?Math.ceil(config.windowMs/config.periodMs)*config.periodMs:config.periodMs),
-   count:0,lastTriggerMs:null,samples:[],pending:[]};
+   count:0,lastTriggerMs:null,samples:[],pending:[],suppressedCount:0,lastSuppressedMs:null,lastSuppressedValue:null,appliedIds:[]};
  }
  get active():boolean {return this.state.count<this.state.config.maxTriggers||this.state.pending.length>0;}
+ /** Phase 3 — 自上次构造/restore 以来被冷却抑制的次数（Worker 用它发现新抑制并上报，不做 JSON 深拷贝）。 */
+ get suppressedCount():number {return this.state.suppressedCount;}
  snapshot():NativeFeedbackSnapshot {return JSON.parse(JSON.stringify(this.state)) as NativeFeedbackSnapshot;}
  static restore(data:NativeFeedbackSnapshot,nNodes:number):NativeFeedback {
   const restored=new NativeFeedback(data.config,nNodes,data.startedMs);
-  if((data.config.eeg&&!Number.isFinite(data.lowpassUv))||!Number.isInteger(data.nextEvalMs)||data.nextEvalMs<data.startedMs||!Number.isInteger(data.count)||data.count<0||data.count>data.config.maxTriggers||
+  // Phase 3 之前存的快照没有新字段：缺失时按“未抑制、未施加”补默认，不拒绝旧快照。
+  const suppressedCount=(data as Partial<NativeFeedbackSnapshot>).suppressedCount ?? 0;
+  const lastSuppressedMs=(data as Partial<NativeFeedbackSnapshot>).lastSuppressedMs ?? null;
+  const lastSuppressedValue=(data as Partial<NativeFeedbackSnapshot>).lastSuppressedValue ?? null;
+  const appliedIds=(data as Partial<NativeFeedbackSnapshot>).appliedIds ?? [];
+  const suppressedValueOk=(v:number|null):boolean=>v===null||(Number.isFinite(v)&&(data.config.eeg!==undefined||(v>=0&&v<=1)));
+  if(!Number.isInteger(suppressedCount)||suppressedCount<0||
+   (lastSuppressedMs!==null&&(!Number.isInteger(lastSuppressedMs)||lastSuppressedMs<data.startedMs))||
+   !suppressedValueOk(lastSuppressedValue)||
+   (suppressedCount===0)!==(lastSuppressedMs===null)||(suppressedCount===0)!==(lastSuppressedValue===null)||
+   !Array.isArray(appliedIds)||appliedIds.some((id,i)=>!Number.isInteger(id)||id<1||id>data.count||appliedIds.indexOf(id)!==i)||
+   data.pending.some(a=>appliedIds.includes(a.id))||
+   data.pending.some((a,i)=>data.pending.findIndex(b=>b.id===a.id)!==i)||
+   (data.config.eeg&&!Number.isFinite(data.lowpassUv))||!Number.isInteger(data.nextEvalMs)||data.nextEvalMs<data.startedMs||!Number.isInteger(data.count)||data.count<0||data.count>data.config.maxTriggers||
    (data.lastTriggerMs!==null&&(!Number.isInteger(data.lastTriggerMs)||data.lastTriggerMs<data.startedMs))||
    !Array.isArray(data.samples)||data.samples.length>data.config.windowMs+1||
    data.samples.some((s,i)=>!Number.isInteger(s.tMs)||!Number.isFinite(s.value)||(!data.config.eeg&&(s.value<0||s.value>1))||(i>0&&s.tMs<=data.samples[i-1].tMs))||
@@ -68,11 +92,15 @@ export class NativeFeedback {
     !Number.isInteger(a.detectedMs)||!Number.isInteger(a.applyMs)||a.applyMs!==a.detectedMs+data.config.delayMs+1||
     a.node!==data.config.node||a.amplitude!==data.config.amplitude||a.durationMs!==data.config.durationMs||!Number.isFinite(a.featureValue)))
    throw new Error('Invalid native feedback snapshot');
-  restored.state=JSON.parse(JSON.stringify(data)) as NativeFeedbackSnapshot;return restored;
+  restored.state={...JSON.parse(JSON.stringify(data)) as NativeFeedbackSnapshot,suppressedCount,lastSuppressedMs,lastSuppressedValue,appliedIds:[...appliedIds]};return restored;
  }
  beforeStep(tMs:number):FeedbackAction[] {
   const due=this.state.pending.filter(a=>a.applyMs<=tMs);
-  this.state.pending=this.state.pending.filter(a=>a.applyMs>tMs);return due;
+  this.state.pending=this.state.pending.filter(a=>a.applyMs>tMs);
+  // 已施加过的 id 即使仍在 pending 里（不一致的快照）也不重发，直接丢弃。
+  const fresh=due.filter(a=>!this.state.appliedIds.includes(a.id));
+  for(const a of fresh)this.state.appliedIds.push(a.id);
+  return fresh;
  }
  afterStep(tMs:number,e:Float64Array,i?:Float64Array):FeedbackAction|null {
   const s=this.state,c=s.config;
@@ -90,7 +118,13 @@ export class NativeFeedback {
   s.nextEvalMs+=c.periodMs;
   if(c.feature==='rms'&&s.samples.length<c.windowMs)return null;
   const featureValue=c.feature==='instant'?(c.eeg?Math.abs(value):value):Math.sqrt(s.samples.reduce((sum,v)=>sum+v.value*v.value,0)/s.samples.length);
-  if(featureValue<=c.threshold||(s.lastTriggerMs!==null&&tMs-s.lastTriggerMs<c.cooldownMs))return null;
+  if(featureValue<=c.threshold)return null;
+  if(s.lastTriggerMs!==null&&tMs-s.lastTriggerMs<c.cooldownMs){
+   // Phase 3 — 冷却期内的触发不再静默丢弃：计数并记下时间与特征值，
+   // Worker 凭 suppressedCount 的变化上报 'suppressed'，客户端写进回路追踪。
+   s.suppressedCount++;s.lastSuppressedMs=tMs;s.lastSuppressedValue=featureValue;
+   return null;
+  }
   s.count++;s.lastTriggerMs=tMs;
   const action:FeedbackAction={id:s.count,detectedMs:tMs,applyMs:tMs+c.delayMs+1,featureValue,featureUnit:c.eeg?'uV':'E_fraction',
    node:c.node,amplitude:c.amplitude,durationMs:c.durationMs};

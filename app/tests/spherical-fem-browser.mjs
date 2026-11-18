@@ -7,7 +7,7 @@ let browser;
 try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
- await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.goto(server.resolvedUrls.local[0]+'#basic',{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'English',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('[data-testid="physical-field"]')?.dataset.modelId);
  await page.getByText('More settings and model details',{exact:true}).click();

@@ -11,6 +11,10 @@
 > PR8 增补（2026-11-12，总协调集成）：PR-16 模式与场景（§1.12）、
 > 方法学数值缺口与 TES/TMS（§1.13）。两路原报的编号顺序，总协调重排为
 > §1.12 / §1.13。
+> 闭环实验台 Phase 4 增补（2026-11-18，分支 `feat/closed-loop-bench`）：砍旧入口 +
+> 单舞台简化，见 §1.17；§1.12（模式/场景）、§1.6/§1.7/§1.8（EEG 实验台入口）、
+> §1.9/§1.10/§1.11（细胞/刺激/对照实验台入口）的 UI 登记按 §1.17 更新，后端（lib / Worker /
+> Rust）一律未动。
 > **适用范围：** brainrun 2.0 PR-04+05+06（物理核心）及后续 PR5–PR8 全程。
 > **规则来源：** 用户 2026-11-11 22:53 定——前端（React/Three.js 界面、`app/src/lib/*.ts`、Worker 协议）与后端（Rust/WASM 引擎、Python 对照、`scientific/forward` 的 MNE 模型）共用同一份契约；改任一侧时同步改契约与另一侧，并用测试卡住漂移。
 > **测试节奏新规（2026-11-11 22:57 用户定）：** 每轮 PR 只保留该轮必需的方法学测试 + 构建通过 + 新功能冒烟；全面回归、浏览器交互全套、前端布局全面扫查、性能、五维验收、十个演示全部推迟到 PR8 合并之后做一次最终大测试。本契约的漂移测试（`tests/pr5/contract.test.mjs`）属于方法学测试（单位与坐标正确性），按新规保留。布局正确性要求见 §9——新界面按契约做对、不留已知遮挡，全面扫查留到最后。
@@ -545,6 +549,95 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 ---
 
 
+### 1.15 闭环实验台 Phase 1（台子壳，2026-11-18，分支 `feat/closed-loop-bench`）
+
+台子是新的首页入口（`app/src/components/ClosedLoopBench.tsx`，workspace `'bench'` 为默认；`#basic` 回旧首页，
+`#advanced` 不变；旧入口一字不动）。六框回路：大脑 → 脑电帽 → 放大器 → 测试电脑 → 实验电脑 → 刺激器 → 大脑；
+一个 Worker 时钟、一份共享记录。Phase 1 不新增 Worker 消息，全部走现有消息（`stimulus` / `set_native_feedback` /
+`native_samples` / `native_feedback` / `command_ack`）；不改物理、不重缩放数字。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 脑电帽预设 | 5 个：10-20·19 通道 / 10-10·32 / 10-10·64 / 10-5·128 / 10-5·256（32/64 取自 10-10 的 94 导，128/256 取自 10-5 的 343 导；10-20 只有 19 导，给不出 32）。子集规则：以 Cz 为种子的最远点采样（按传感器 3D 位置欧氏距离，平局按 fixture 顺序），返回标签按 fixture 导联顺序排；count 超过可用标签抛 `RangeError`，不静默截断 | `ClosedLoopBench.tsx` 脑电帽盒（一个预设下拉，一个状态） | `benchCap.ts` `selectBenchCapChannels`；导联数 19/94/343 见 §1.6（MNE 生成 fixture 实测） |
+| 放大器配置 | `AmplifierConfig`：`sampleRateHz: 250 \| 500`（取自 Worker 1 ms 积分态经 `runNativeExperiment`，不是 60 Hz 快照插值）、`reference: average \| Cz \| M1`（乳突 = 单侧 M1 电极参考，如实标注“乳突 M1（单侧）”，不是联通乳突；M1 只在 10-10/10-05 导联里有，10-20·19 时该选项禁用并注明）、`bandpass: {lowHz, highHz} \| null`（默认 {0.5, 40} Hz）、`gain: 0.5–5`（默认 1，只记在 `acquisition` 元数据里，**不乘进 `dataUv`**） | 放大器盒：采样率下拉、参考下拉、带通开关 + 低/高滑杆、增益滑杆、输出读数（选中通道实时 µV、RMS、采样率、滤波状态） | `benchRecording.ts`；采样/参考/带通走 `runNativeExperiment` + `reReferenceRecording` + `signalProcessing.ts` 的 `bandpassFilter` |
+| 带通滤波 | 窗函数 sinc FIR（Hamming），做法 = 低通(highHz) − 低通(lowHz)，与 `filterAndDecimate` 同式；默认 129 tap（奇数），中心化（零相位），与输入等长输出，边缘零填充（调用方忽略首尾 64 ms）；`lowHz > 0`、`highHz > lowHz`、`highHz < sfreqHz/2`、`taps` 奇数 ≥ 15，否则抛错 | 放大器盒的带通开关与低/高滑杆（低 0.1–10 Hz、高 10–125 Hz，低 < 高否则不许应用） | `signalProcessing.ts` `bandpassFilter` / `validateBandpassParams`；测试：node 行为测试 + Python 行为对照（`tests/bench/`） |
+| 协议引擎 | 客户端调度器，按快照 `t_ms`（模型时钟）触发，不用墙钟 `setTimeout` 定刺激时间。single-pulse：发一次即完成；oddball：ISI 默认 1000 ms，每第 5 个试次为 oddball（与 `runOddballExperiment` 同口径），standard 幅度 1.0 / oddball 2.0；flicker：周期 `1000/frequencyHz` ms，视觉节点（lV1/rV1），频率 1–30 Hz（默认 10），幅度直接 0.5–2.0（默认 1.0）；closed-loop：`NativeFeedbackConfig` 直通 `configureNativeFeedback`。**`durationMs` 与 `pulseDurationMs` 是两个量**：`durationMs` = 整轮运行时长（不传 = 跑到 `stop()`），`pulseDurationMs` = 每次刺激的脉冲时长（默认 100 ms；不传时回退到 `durationMs`，旧调用兼容）。台子传 `pulseDurationMs`（UI 的“刺激时长”）且不传 `durationMs`，协议跑到手动停止；此前曾把 100 ms 刺激时长误传进 `durationMs`，oddball 每轮只跑 100 ms、1 个试次即 `completed`（2026-11-18 修，见 `benchProtocol.ts` 头注） | 实验电脑盒：协议下拉 + 各协议参数 + 运行/停止（与全局 `paused` 是两层状态，不混成一个按钮） | `benchProtocol.ts` `createBenchProtocolEngine`；刺激走 `sim.pulseAt`（幅度钳制 [-2, 2]、时长 [20, 500] ms，见 §1.14）；响应锚定见下 |
+| 响应锚定 | `pulseAt()` 返回 `void`、不给 `command_id`，所以 ACK 匹配用“节点 + 最近 tMs”：引擎发刺激时记 provisional 时间（**发刺激那次 `tick()` 的模型时间，即 marker 创建时的快照时间，不是试次的计划时间**——`tick()` 被延迟时一次可发出多个试次、它们的 marker 都是同一个 tick 时间；按计划时间匹配会套住上一个试次 ACK 后的 marker，2026-11-18 预览实测 trial 5 的响应锚到了 trial 4 的 marker 上），`confirmFromMarkers` 在 markers 里找同节点、且 `t_ms ∈ [provisionalTms − 20, provisionalTms + 500]` 的 marker；ACK 修正后响应时间 = `marker.t_ms + RT`（`confirmed: true`）；未修正则 provisional + RT（`confirmed: false`，trace 里标明未确认）；超 500 ms 无 marker 丢弃并计数 | 回路追踪面板：`confirmed` 标记 + 图例（Worker 确认 vs 客户端观测） | `benchProtocol.ts`；`StimulusMarker`（`simClient.ts`，ACK 修正后改写 `t_ms`） |
+| 模拟受试者 | 只对 oddball 试次按键（`key: 'Space'`），RT = 320–440 ms（seeded 均匀，复用 `eegRecording.ts` 导出的 `mulberry32`）；同种子同 RT 序列；无漏报、无虚报（Phase 1 假设，文档写明，不是生理结论） | 实验电脑盒的模拟受试者面板（种子、RT 范围、按键记录：试次 / 刺激 tMs / 响应 tMs / RT / Space） | `benchSubject.ts` `createSimulatedSubject` |
+| 事件扩展 | `EegEvent.type` 增加 `'response'`；`driveUnit` 增加 `'ms'`（response 事件的 `drive` = RT，单位 ms）。只改类型定义，不改任何现有构造处 | 事件表（测试电脑盒） | `eegData.ts`（加法扩展） |
+| 一份记录 | `runNativeExperiment` 的 Raw（250/500 Hz，原生 1 ms）+ 触发/响应事件 + epochs（只围绕 `type: 'pulse'` 事件切，−200/800 ms，基线 [−200, 0]，与 ERP 口径一致；response 事件只进事件表、不做切分锚点）；`extraEvents` 的 `tMs` 是绝对 Worker ms，组装时换算成相对时间（`tMs − t0Ms`），全部盖同一个 `runId`（与 `native.recording` 不一致时抛错）；写入单槽 `LiveRecordingStoreValue`，与 EEG 实验台共用一份记录 | 测试电脑盒：记录面板（runId、模型时间、样本数、事件数、试次数、导出 JSON/CSV——复用 `recordingToJson` / `recordingToCsv`）+ 记录事件列表（最近 12 条：类型 / 相对 tMs / 条件 / runId，只读展示，无新增控件、无新增 Worker 消息） | `benchRecording.ts` `assembleBenchRecording` / `benchRecordingToStoreValue`；`recording.experiment.parameters` 记 {protocol, amplifier, cap, headModel}，`provenance.upstreamStartMs = t0Ms` |
+| 回路追踪 | append-only 日志，cap 200（超了丢最旧），`seq` 单调递增；每条 `{seq, tMs, hop, kind, label, value, confirmed}`，hop ∈ amplifier / test-computer / experiment-computer / stimulator / brain；`confirmed: true` = Worker 确认的时间（ACK `t_ms`、`FeedbackAction` 的 `detectedMs`/`applyMs`），`false` = 客户端观测时取的最新快照 `t_ms`；trigger 这一跳必须可见：实验电脑发 trigger → 放大器事件流 → 记入记录，带 sample index = `round((tMs − t0Ms) × sfreqHz / 1000)` | 回路追踪面板（全宽，底部）：列表 + 图例 + 清空按钮 | `benchTrace.ts` `createBenchTrace` |
+| 设置存活 | Phase 2（2026-11-18）：全部台子设置（帽预设、采样率、参考、带通开关 + 低/高草稿与应用值、增益、选中通道、协议 + 各协议参数、受试者种子 + RT 范围、刺激目标覆盖）住在模块级外部 store `benchSettings.ts`（`get/set/subscribeBenchSettings`，同 `headModelSelection.ts` 的 `useSyncExternalStore` 模式），默认值与 Phase 1 的 `useState` 初始值逐项一致。工作区切换会卸载 `ClosedLoopBench`，设置不再随卸载重置；运行态（采集、记录、协议运行、试次/响应、命令日志、回路追踪）仍留在组件本地，切换即丢弃，须重新开始——不是静默续跑 | 全部控件不变，无新增消息、无新增控件 | `benchSettings.ts`；测试 `tests/bench/bench-settings.test.mjs` |
+| 外周传感器 | 只留接口：ECG / 呼吸在界面上标“Phase 1 未接入”，不放任何控件（不许出现死按钮） | 信号检测盒的静态文字区 | —（无后端） |
+
+方法学测试：`tests/bench/`（cap / subject / protocol / trace / recording / band-pass node 测试 + Python 带通行为对照）；
+契约测试：`tests/pr5/contract.test.mjs`（Worker 协议一节：入站 23 种、出站 9 种——此前表与测试只登记 21/6，
+`get/set_native_feedback`、`command_ack`、`native_samples`、`native_feedback` 四条消息早已在代码与 Worker 里存在，
+P0 加入时未同步更新；本次补齐，测试断言只增不减，不是放宽）。
+
+### 1.16 闭环实验台 Phase 3（Worker 时钟时序 + 回路时延 + 冷却可见 + 去重，2026-11-18，分支 `feat/closed-loop-bench`）
+
+不新增 Worker 消息种类（入站仍 23 种、出站仍 9 种），只在 `native_feedback` 增加一个 phase（见 §3.2）。不改物理、不重缩放数字、不放宽任何测试容差。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| Worker 时钟驱动 | 协议引擎的 `tick()` 与 `confirmFromMarkers()` 不再由 250 ms 前端定时器驱动，改由每条 Worker 快照驱动：`ClosedLoopBench` 里 `snap` prop（App.tsx 经 `sim.subscribe` 推进，约 60 Hz）变化即一次 `engine.tick(snap.t_ms)` + `confirmFromMarkers(sim.getMarkers())`。React 批量更新可能合并快照（两次 effect 之间跳过一个快照），去重保证这时不突发。250 ms 定时器只剩观测/记账（读数同步、手动刺激 ACK 匹配、新 marker 记入放大器事件流、采集重试），不调用 `engine.tick`、不发任何刺激——前端只显示，永不决定时序 | `ClosedLoopBench.tsx` 快照 effect + 250 ms 轮询注释 | `benchProtocol.ts`（`tick` 仍是模型时间的纯函数） |
+| 去重 | 一次 tick 内到期的试次只发最新一个（计划时间 = 最新到期的那一个，`provisionalTms` = 该 tick 的模型时间），其余记为跳过：`skippedTrials` 计数 + `trial-skipped` 事件（`skippedCount`、发出的那个试次的 `trialIndex`），永不突发连发。oddball 与 flicker 同口径；single-pulse（`start()` 里发一次）与 closed-loop（`tick` 不做事）不受影响。响应锚定不变（仍按 dispatch 时间匹配，见 §1.15） | 回路追踪：`trial-skipped` 事件（`confirmed: false`，客户端调度观测） | `benchProtocol.ts` `countDue` / `recordSkipped`；测试 `tests/bench/bench-protocol.test.mjs`（迟到 tick、快照断流） |
+| 回路时延 | 三个指标，全部模型 ms，引擎 `getLoopTiming()` 读出（最新值 + 各自样本数；未测到为 null / 0；新开一轮清零）：(a) trigger→command = applied `applyMs − detectedMs`，按 action id 配对实测，应恒等于 `delayMs + 1`（不假设，测试按动作对断言；detected 漏掉时用 applied 自带的 `detectedMs`）；(b) dispatch→ACK = ACK 修正后的 `marker.t_ms − provisionalTms`，在 `confirmFromMarkers` 匹配到修正 marker 时计一次；(c) observation lag = 收到 applied 事件时客户端最新快照 `tMs − applyMs`，可为负（快照还没走到施加时刻是诚实的）。门限 `LOOP_TIMING_BOUNDS`：dispatch→ACK ≤ 100 ms、\|observation lag\| ≤ 50 ms，由 60 Hz 快照间隔 ≈16.7 ms 推导（前者 ≈6 个间隔，后者 ≈3 个间隔）；trigger→command 不设区间门，必须精确等于 `delayMs + 1` | 控制条读数（P3 已落地，`ClosedLoopBench.tsx` 的 `bench-loop-timing` 行：闭环运行中显示 trigger→command 与 observation lag，dispatch→ACK 只在开环分发路径上测到故不进这一行；本地 preview 实测见 P3 收尾报告）：`engineRef.current?.getLoopTiming()`，组件每快照重渲染故读数新鲜；另见 `BenchLoopTiming` | `benchProtocol.ts` `BenchLoopTiming` / `LOOP_TIMING_BOUNDS` / `getLoopTiming()`；`BenchProtocolEvent` 新增 `actionId` / `detectedMs` / `applyMs` / `observedAtTms` 字段；测试同上 |
+| 冷却抑制可见 | 冷却期内的触发不再静默：`NativeFeedback` 记 `suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue` 进快照；Worker 在 `afterStep` 返回 null 且 `suppressedCount` 涨了时上报 `native_feedback`（phase `'suppressed'`，无 action，state 带抑制记录）；组件经 `emitFeedbackEvent` 转成 `feedback-suppressed` 协议事件，写进回路追踪（`confirmed: true`，Worker 时间） | 回路追踪：`feedback-suppressed` 事件（`#N · 特征值 x.xx`）；控制条读数：最新 `native_feedback` 消息的 `state.suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue`（`sim.getNativeFeedback()?.state`） | `nativeFeedback.ts`（`afterStep` 拆阈值/冷却两路 null）；`simWorker.ts`（`acquireAdvance` 的 afterStep 钩子）；`protocol.ts`（phase 并集 + `'suppressed'`）；`benchProtocol.ts`（`feedback-suppressed` 事件种） |
+| 冷却剩余 | `cooldownRemainingMs(state, tMs) = max(0, lastTriggerMs + cooldownMs − tMs)`，`lastTriggerMs` 为 null 时 0。控制条读数：`cooldownRemainingMs(sim.getNativeFeedback()?.state, snap.t_ms)`（P3 已落地，同 `bench-loop-timing` 行） | 控制条读数（P3 已落地） | `nativeFeedback.ts` `cooldownRemainingMs` |
+| restore 不双发 | `NativeFeedbackSnapshot` 新增 `appliedIds: number[]`（已施加过的动作 id）；`beforeStep` 绝不重发其中任一 id（不一致的快照里重回 pending 的已施加 id 直接丢弃）；`restore()` 校验：pending id 唯一、不与 `appliedIds` 相交、`appliedIds` 唯一且都在 `[1, count]` 内、抑制记录自洽（`suppressedCount === 0 ⟺ lastSuppressedMs/lastSuppressedValue 为 null`）。Phase 3 之前存的快照没有新字段：缺失时按“未抑制、未施加”补默认，不拒绝旧快照 | — | `nativeFeedback.ts`（`beforeStep` / `restore`）；测试 `tests/pr6/native-feedback.test.mjs`（抑制、校验、双发） |
+
+方法学测试：`tests/bench/bench-protocol.test.mjs`（去重 + 三时延 + 门限）、`tests/pr6/native-feedback.test.mjs`（抑制 + restore 校验 + 不双发）。
+
+### 1.17 闭环实验台 Phase 4（砍旧入口 + 单舞台简化，2026-11-18，分支 `feat/closed-loop-bench`）
+
+只砍入口与重复状态，不改物理、不改 lib、不重缩放数字、不放宽任何测试容差、不新增 Worker 消息。
+`App.tsx` 只剩两个工作区：`'bench'`（默认，闭环实验台）与 `'basic'`（`#basic`，旧首页 `PhysicsHome`，暂留作回退）；
+`#advanced` 路由与四个模式（PLAY/WAVES/EEG/EXPLORE）、15 个一键场景、六个独立实验台的入口全部删除。
+`lib/scenarios.ts`（模式/场景定义与 `runScenarioCompute`）按“lib 不动”保留，无 UI 入口；
+`CellularLab / DipoleLab / EegAnalysisLab / EegWaveTab / ExperimentLab / ScenarioLauncher / StimLab / ExplorePanel`
+八个组件文件暂留（删除后无任何文件 import 它们，但 `tests/pr5/contract.test.mjs`、`tests/pr8/methods-link.test.mjs`、
+`tests/p0-1/control-flow.test.mjs`、`tests/ui/design-system-i18n.test.mjs` 仍按源码读它们；文件删除与这些测试的
+更新留给后续一步，不在本批悄悄做）。`HeadSphereLab / LocalBEMLab` 仍被暂留的 `#basic` 回退页内嵌使用，故文件与入口都留着。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 入口 | 唯一入口 = 台子（`workspace 'bench'`）。`#basic` 回退页保留，但其“高级实验”导航卡片全部删除（七个目的地都指向已不存在的 `#advanced`，留着就是死按钮）；`LocalBEMLab` 的“分析当前模板实验”按钮原随 `onAnalysis` 入口一起删除，后恢复为 `#basic` 内联入口（`PhysicsHome` 的 `analysisOpen` → 内联 `EegAnalysisLab`，返回按钮回模板首页；台子没有模板偶极子实验的等价入口，故保留在 `#basic`，不声称台子覆盖该流程）。台子顶栏的“高级实验”按钮删除；“返回物理模型”保留（`#basic` 仍可达）。2026-11-18 用户选 Option A（见 §1.18）：`#basic` 的高级实验导航恢复两个入口（信号分析、对照与回放），其余五个目的地仍不恢复 | `App.tsx`（2179 → 约 340 行：只留 SimClient 接线 + bench/basic 两个分支）；`PhysicsHome.tsx`（删 `AdvancedDestination` 与高级导航）；`ClosedLoopBench.tsx`（删 `onOpenAdvanced` prop） | —（无后端改动） |
+| 主滑杆 §1.2 | c_ei / G 两档滑杆随 `#advanced` 的 PARAMETERS 面板一起删除（引擎 clamp 与 `KNOB_MAP` 未动）；刺激强度 / 持续时间两档保留，进台子（刺激器）与 `#basic` | `App.tsx` 只留 `kStim / kDur` | `KNOB_MAP` / `DEFAULT_PARAMS` / WASM clamp 未动 |
+| 权重 / 偏置 §1.4 | 权重编辑、持续偏置、回放、快照保存/恢复按钮、随机种子输入随 `#advanced` 删除；`BrainScene` 的 `biasList` 入口保留，接空数组（无偏置可传，不是空壳——偏置能力仍在 `lib/simClient` 与 Worker 里，UI 上暂无入口，见 §5.3 新增缺口行） | `App.tsx`（删 `weightEdits / biasMap / replay / snapInfo` 状态与对应 handler） | `set_weight / set_bias / snapshot` 消息与 Rust 实现未动 |
+| 六个分析页 → 两个视图 | 旧六 tab（EEG 波形 / 频谱 / ERP / 时频 / 地形 / 源定位）不再是独立页，改为测试电脑的两个视图：(a) 实时波形视图（原波形 canvas + 通道下拉 + 记录读数 + 导出，位置不动）；(b) 记录分析视图（ERP / 时频 / 地形 / 源定位 / 频谱五个子 tab，复用 `ErpTab / TfrTab / TopoTab / InverseTab / WavesTab` 原组件，不重建）。两个视图读同一份台子记录（`benchRecording.recording`，无记录时退到 `acquisition.recording`）+ 同一份事件表 + 同一份 epochs，同一 runId；`EegAnalysisLab` 壳（独立柱模型运行实验、直播推导、参考/导联/噪声配置）随入口删除 | `ClosedLoopBench.tsx` 测试电脑区：视图切换 + `analysisTab` 状态；`epochs` = 手动切分覆盖 ?? `benchRecording.epochs`（组装时已按 pulse 事件切好）；新组装记录时覆盖清零 | `benchRecording.ts` `assembleBenchRecording`（epochs 本就随记录算出）；`signalProcessing.ts` `epochRecording`；`lateResponse.ts` `epochOddballExperiment` |
+| ERP 条件来源 | 台子记录的 pulse 事件此前全是 `unclassified`（native 事件无条件；协议的 standard/oddball 条件贴在 extra 事件上，组装去重时被丢掉），ERP 切分永远拿不到条件。修法只在 `ClosedLoopBench.assembleBench` 里：被去重的协议脉冲事件只丢时间（Worker ACK 时间权威），条件贴到 500 ms 内与之对应的 native 脉冲事件上（只改未分类事件的条件，不改时间、不改 runId、不改数值）。单脉冲 / 手动脉冲仍是 unclassified，ERP 如实报“需要保留的 standard 和 oddball 试次” | `ClosedLoopBench.tsx` `assembleBench` 的条件合并（附注释）；`ErpTab` 不改 | `benchProtocol.ts`（oddball 事件本就带 standard/oddball 条件）；`benchRecording.ts` 未动 |
+| late 机制 ERP | `ErpTab` 的“运行 oddball（late 机制）”按钮在台子里被拒绝：`onEpochsChange` 收到 `'independent-late'` 时抛错（文案写明“台子只用一份共享记录”），`ErpTab` 自身的 try/catch 把它显示为错误行。late 实验是独立模型实验，不进台子记录；台子 oddball 协议的 ERP 直接从共享记录切分（窗内峰 ≈0 是诚实结果，见 §1.8） | `ClosedLoopBench.tsx` `handleBenchEpochsChange` | `lateResponse.ts` `runOddballExperiment` 未动 |
+| 六框图 → 流动指示 | 六框大格子删除（`.bench-loop` / `.bench-grid` / `.bench-box` / `.bench-trace` 样式同步删除）。回路改成流动指示：当前信号在哪一环（最新一条追踪事件的 hop + label + 模型时间）+ 最近 5 跳（hop · label · tMs · 确认态，最新一跳高亮）+ 六个角色的小字实时读数（一行：大脑 q、脑电帽预设/通道、放大器 Hz 与输出 µV、测试电脑样本/事件/runId、实验电脑协议与运行态、刺激器末条命令/就绪）。`benchTrace.ts` 函数未动，只改呈现；清空按钮保留 | `ClosedLoopBench.tsx` 的 `.bench-flow` 区；`App.css` 的 `.bench-flow*` / `.bench-roles` | `benchTrace.ts` 未动 |
+| 单舞台 | 主角 = 3D 头（含帽电极绿点）+ 实时波形，占满视野。布局：控制条（协议下拉、帽预设下拉、运行/停止、闭环延迟小读数、放大器设置浮层按钮）→ 流动指示 → 单舞台（左 3D 头 + 舞台工具：背景活动、头模型；右测试电脑波形/分析）→ 两个折叠设置（实验电脑协议参数 + 模拟受试者、刺激器目标/幅度/时长/命令日志）。放大器全部控件（采样率、参考、带通、增益、读数、重新采集）进一个小浮层，不常驻面板。直接操作不变：点脑区选区、拖动旋转、滚轮缩放（`BrainScene` 未动）；不新增任何无后端的操作 | `ClosedLoopBench.tsx`（`.bench-strip` / `.bench-stage` / `.bench-details` / `.bench-popover`）；`App.css` 同步新增，删旧 `.bench-loop*` / `.bench-grid*` / `.bench-box` / `.bench-trace-head` | `BrainScene.tsx` 未动；`benchSettings.ts`（设置持久化）未动 |
+| 闭环延迟读数 | 仍是控制条上的一行小读数（`data-testid="bench-loop-timing"` 不变），只在闭环协议运行中显示数值，其余时间 `—`；不另开面板 | `ClosedLoopBench.tsx` 的 `.bench-strip-timing` | `benchProtocol.ts` `getLoopTiming()` 未动 |
+| 保留 | 台子设置持久化（`benchSettings.ts`）、帽预设 + 3D 头电极可视化、协议引擎行为、触发/响应记录（同一 runId）、导出 JSON/CSV、页脚诚实幅度注（51 倍缺口）全部保留 | 同左 | 未动 |
+
+Superseded（本节取代，不再作为入口登记；后端参数与数值仍以原节为准）：
+§1.2 的四个主滑杆 UI 登记改为两档（见上表）；§1.4 的权重/偏置/回放/快照 UI 登记改为“UI 上暂无入口，后端保留”；
+§1.5(a)(b)(c) 的 `DipoleLab / HeadSphereLab / LocalBEMLab` UI 登记改为“App 入口已删；HeadSphereLab / LocalBEMLab 仅嵌在 `#basic` 回退页”；
+§1.6 的 `EegAnalysisLab` 壳与六 tab 登记改为上表“六个分析页 → 两个视图”；§1.7/§1.8 的 tab UI 登记同上（参数与默认值未变）；
+§1.9/§1.10/§1.11 的 `CellularLab / StimLab / ExperimentLab` UI 登记改为“App 入口已删，后端保留”；
+§1.12 全节（四个模式、渐进式展示、15 个场景、模型信息弹窗）改为“入口已删，`lib/scenarios.ts` 保留、无 UI 入口”；
+§1.14 的“六实验台接主仿真”登记改为“六实验台入口已删，接线逻辑（L9 等）随入口失效，见测试移动说明”；
+§1.15 的“`#advanced` 不变；旧入口一字不动”改为“`#advanced` 已删，见本节”。
+
+测试移动（2026-11-18 实测，见 P4 报告）：全 node 套件 326/353（基线 338/353），新增失败 12 个，全部是已删入口的源码级断言，无数值漂移、无方法学回归：
+`tests/pr5/contract.test.mjs` 新增 6 个——「四滑杆」（App 已无 ParamControls 的 min/max）、「权重/偏置 clamp」（权重/偏置滑杆已删）、「PR7 细胞级/刺激/实验」（CellularLab/StimLab/ExperimentLab 不再挂载）、「PR8-LINK §4.1」（六台接线随入口失效）；`tests/p0-1/control-flow.test.mjs` 新增 4 个——「P0-1 surface」（控件面 207 < 210 阈值，App 砍掉约 50 个控件；ClosedLoopBench.tsx 不在该测试的扫描文件列表内）、「P0-1B 控件登记」（登记总数 257 ≠ 实际 207）、「C01」（EXPLORE 模式已删）、「C04」（ScenarioLauncher 与「场景摘要尚未自动载入实验台」文案已删）；`tests/ui/design-system-i18n.test.mjs` 新增 2 个——「i18n key coverage」（App 不再含 `<LanguageSwitch`，bench 自己渲染）、「workspace layout」（stageWidth/data-mode/brainrun-focus 已删）。其余 15 个失败与基线完全相同。`tests/bench/`（57）+ `tests/pr6/native-feedback.test.mjs`（10）= 67/67，与基线一致；`modes-scenarios`、`methods-numfix` 等 lib 测试不受影响。登记文件 `docs/p0-1b-control-register.json`（257 条）尚未按新控件面（207 条）重生成，属后续审计工作，不在本批改动内。
+
+### 1.18 闭环实验台 Option A：`#basic` 恢复高级实验两个入口（2026-11-18，用户定）
+
+只恢复入口，不改物理、不改 lib、不重缩放数字、不放宽任何测试容差、不新增 Worker 消息；台子仍是唯一默认入口，`#basic` 仍是回退页。恢复的两个入口都内联在 `PhysicsHome` 里，不重建 `#advanced` 路由、不恢复其余五个目的地（单个神经元、刺激与电场、脑区与坐标、辅助预设、模型说明）。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 信号分析 | `#basic` 头栏“高级实验”开关 → “信号分析”卡片。电流模型下先按所选头部模型准备记录（BEM 调 `prepareTemplateAnalysis()`，球形调 `preparePhysicalAnalysis()`），再内联打开 `EegAnalysisLab`（与 D 恢复的模板分析入口同一挂载方式）；网络模型下直接打开，不准备记录。返回按钮回 `#basic` 首页 | `PhysicsHome.tsx`（`analysisOpen` 分支复用；`LocalBEMLab` 补 `onReady` 供信号卡片的就绪门禁，与 P4 前口径一致） | `templateExperiment.ts` / `physicalExperiment.ts` 未动 |
+| 对照与回放 | “对照与回放”卡片内联打开 `ExperimentLab`，球形正向模型 fixture 打开时才懒加载一次（`forward-assets/sphere-model.json` + `validateSphereFixture`，失败只禁源定位对照，其余照常，与 P4 前口径一致）；`live` 接线与 P4 前 `App` 挂载一致（`sim` + 选中脑区 + TVB 中心）；`onRestore` 接 `App.syncFromSnapshot`，`onOpenAnalysis` 关对照分支、开内联 EEG 分析（读 `setLiveRecordingStore` 的反馈记录） | `PhysicsHome.tsx`（`experimentActive` / `experimentOpen` 双状态）；`App.tsx` 只加 `onRestore` 一个 prop | `ExperimentLab.tsx` / `nativeFeedback.ts` / Worker 未动 |
+| 分析视图内 More → Comparisons | P4 删掉的旧顶栏 More/Less 开关 + Comparisons 入口只在 `EegAnalysisLab` 内联视图里恢复（`PhysicsHome` 的 `analysisOpen` 分支，返回按钮旁；P4 前口径：`shell.more` / `shell.less` + `shell.experiments`）。点 Comparisons 关分析分支、开对照分支（`setAnalysisOpen(false); setExperimentActive(true); setExperimentOpen(true)`），与 P4 前“打开 ExperimentLab”一致；只此一个入口，不新增其他工具项。`network-comparison-browser.mjs` 全程走此入口（含 `Analyze B EEG` 回分析视图的既有 `onOpenAnalysis` 接线） | `PhysicsHome.tsx`（`labMore` 状态 + 两个按钮）；`App.tsx` / 台子未动 | —（无后端改动） |
+| 关闭语义 | 实验台自己的“关闭”只卸掉实验台（`experimentOpen=false`），不关分支：卸载时 `ExperimentLab` 的清理调用 `configureNativeFeedback(null)`，Worker 报 `stopped`；分支与“返回物理模型”按钮保留，可点返回首页。重开时实验台从 `getNativeFeedback()` 读 Worker  live 状态（快照恢复后为 `restored` 相位带完整 config），不是默认值 | `PhysicsHome.tsx` `closeLabs` / `onClose` | Worker `set_native_feedback`（null → `stopped`）与快照恢复（`restored`）未动 |
+| 控件登记 | 控件面 235 → 237（新增切换按钮 + 选择卡片两个源码控件，`PhysicsHome` 11 → 13，NAV 16 → 18），再 237 → 239（分析视图内 More/Less 开关 + Comparisons 入口两个源码控件，`PhysicsHome` 13 → 15，NAV 18 → 20）；`docs/p0-1b-control-register.json` 与两处计数断言（`tests/p0-1/control-flow.test.mjs`、`tests/ui/design-system-i18n.test.mjs`）同步更新，计数逻辑未动 | 同左 | — |
+
 ## 2. 坐标系
 
 | 坐标系（`CoordinateSpace`，`app/src/lib/coordinates.ts`） | 含义 | 状态 |
@@ -568,7 +661,7 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 
 ## 3. 消息协议
 
-### 3.1 Worker 入站（`WorkerInMessage`，`app/src/worker/protocol.ts`）——21 种，全数在 `simWorker.ts` 有处理分支
+### 3.1 Worker 入站（`WorkerInMessage`，`app/src/worker/protocol.ts`）——23 种，全数在 `simWorker.ts` 有处理分支
 
 | # | 消息 | 字段（单位） | 发送方（SimClient 方法） | Worker 处理 → 后端函数 |
 |---|---|---|---|---|
@@ -582,29 +675,34 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 | 8 | `reset` | — | `reset()` | `WasmSim::reset()`（清偏置、OU、RNG、事件；**保留权重与背景模式**）；清 `auto` 快照、锁定闩、历史；`paused` 清零（B6b） |
 | 9 | `reset_paused` | — | `resetPaused()`（仅调试桥） | 同 `reset`，但原子地 `paused = true`（确定性步进用；禁止用 reset+pause 两条消息代替） |
 | 10 | `set_snapshot_hz` | `hz`（Hz，Worker clamp 1–120） | `setSnapshotHz()`（PR5 新增；此前为孤儿消息，见 §6 D2）+ 调试桥 | `snapshotHz = clamp(hz, 1, 120)` |
-| 11 | `set_weight` | `i, j`（0–75）、`w`（0–3） | `setWeight()`（客户端先 clamp） | `WasmSim::set_weight` → `Simulator::set_weight`（单边，clamp，立即生效，RESET 保留） |
-| 12 | `reset_weight` | `i, j` | `resetWeight()` | `WasmSim::reset_weight` |
-| 13 | `reset_all_weights` | — | `resetAllWeights()` | `WasmSim::reset_all_weights` |
-| 14 | `set_bias` | `node`、`value`（−1–+1） | `setBias()`（0 时改发 `clear_bias`） | `WasmSim::set_bias` → `Simulator::set_bias` |
-| 15 | `clear_bias` | `node` | `clearBias()` | `WasmSim::clear_bias` |
-| 16 | `clear_all_bias` | — | `clearAllBias()` | `WasmSim::clear_all_bias` |
-| 17 | `set_background_mode` | `mode: 'quiet' \| 'spontaneous' \| 'oscillatory'` | `setBackgroundMode()` | 编码 0/1/2 → `WasmSim::set_background_mode`；回 `mode_applied` |
-| 18 | `set_seed` | `seed`（≥0 整数；客户端 `max(0, floor)`） | `setSeed()` | `WasmSim::set_seed` → `Simulator::reseed` |
-| 19 | `advance_ms` | `ms`（ms） | `advanceMs()`（仅调试桥） | 仅暂停时推进（运行中忽略），随后发一条快照 |
-| 20 | `save_snapshot` | `id: string`（`'manual'` \| `'auto'`） | `saveSnapshot()`（manual） | `WasmSim::take_snapshot()` → JSON；回 `snapshot_saved` |
-| 21 | `restore_snapshot` | `id`、`json: string` | `restoreSnapshot(id)` | `WasmSim::restore_snapshot(json)`；清脉冲/按住/锁定闩/历史；回 `snapshot_restored` + 一条快照 |
+| 11 | `get_native_feedback` | `requestId: string` | `requestNativeFeedback()`（Promise，等 `native_feedback` 回包） | 读当前闭环控制器状态；先 `command_ack`，再回 `native_feedback`（phase `'observed'`，带当前 `NativeFeedbackSnapshot`） |
+| 12 | `set_native_feedback` | `config: NativeFeedbackConfig \| null`（null = 停控制器） | `configureNativeFeedback(config)`（先 `validateFeedbackConfig`，非法抛错） | `new NativeFeedback(config, n_nodes, t_ms)`（EEG 特征时基线取当前快照 E/I）；先 `command_ack`，再回 `native_feedback`（phase `'configured'` / `'stopped'`）；控制器在 Worker 积分步内检测/施加，见 `native_feedback` |
+| 13 | `set_weight` | `i, j`（0–75）、`w`（0–3） | `setWeight()`（客户端先 clamp） | `WasmSim::set_weight` → `Simulator::set_weight`（单边，clamp，立即生效，RESET 保留） |
+| 14 | `reset_weight` | `i, j` | `resetWeight()` | `WasmSim::reset_weight` |
+| 15 | `reset_all_weights` | — | `resetAllWeights()` | `WasmSim::reset_all_weights` |
+| 16 | `set_bias` | `node`、`value`（−1–+1） | `setBias()`（0 时改发 `clear_bias`） | `WasmSim::set_bias` → `Simulator::set_bias` |
+| 17 | `clear_bias` | `node` | `clearBias()` | `WasmSim::clear_bias` |
+| 18 | `clear_all_bias` | — | `clearAllBias()` | `WasmSim::clear_all_bias` |
+| 19 | `set_background_mode` | `mode: 'quiet' \| 'spontaneous' \| 'oscillatory'` | `setBackgroundMode()` | 编码 0/1/2 → `WasmSim::set_background_mode`；回 `mode_applied` |
+| 20 | `set_seed` | `seed`（≥0 整数；客户端 `max(0, floor)`） | `setSeed()` | `WasmSim::set_seed` → `Simulator::reseed` |
+| 21 | `advance_ms` | `ms`（ms） | `advanceMs()`（仅调试桥） | 仅暂停时推进（运行中忽略），随后发一条快照 |
+| 22 | `save_snapshot` | `id: string`（`'manual'` \| `'auto'`） | `saveSnapshot()`（manual） | `WasmSim::take_snapshot()` → JSON；回 `snapshot_saved` |
+| 23 | `restore_snapshot` | `id`、`json: string` | `restoreSnapshot(id)` | `WasmSim::restore_snapshot(json)`；清脉冲/按住/锁定闩/历史；回 `snapshot_restored` + 一条快照 |
 
 **时序约束（已验证的坑）：**
 - `start()` 发 `init` 后立即发的 `set_params` 会在 WASM 加载完成前被 Worker 丢弃（`sim` 尚不存在）——无害，因为引擎构造即用 `Params::demo()`，其值与 `DEFAULT_PARAMS` 一致；`set_background_mode` 必须等 `ready`（`onReady` 回调里发）。
 - `reset` 与 `pause` 分开发会在中间漏进 live tick、消耗 RNG 导致同种子重跑不一致（实测 reset 后 120 ms 内 t_ms 可跑到 50 ms）——确定性步进必须用 `reset_paused`。
 - Worker 在 WASM 加载完成前收到的所有消息（除 `init`）都会被静默丢弃（`if (!sim) return`）；UI 控件在 `simReady` 前禁用。
 
-### 3.2 Worker 出站（`WorkerOutMessage`）——6 种
+### 3.2 Worker 出站（`WorkerOutMessage`）——9 种
 
 | 消息 | 字段（单位） | 说明 |
 |---|---|---|
 | `ready` | `n_nodes`（=76）、`dt_ms`（=1） | WASM 就绪 |
+| `command_ack` | `run_id`、`command_id`、`command_type`、`t_ms`、`phase: 'accepted' \| 'applied'` | 命令确认：**只有 Worker 处理完命令后才发**（`acknowledge()`，`t_ms = sim.time_ms()`），不是点击发送时的时间；`command_id`/`run_id` 缺失时不发；客户端用它把 provisional 标记时间修正为真实模型时间 |
+| `native_samples` | `NativeChunk`（`nativeAcquisition.ts`）：`type: 'native_samples'`、`run_id`、`start_ms`、`dt_ms`（=1）、`n_nodes`（=76）、`n_samples`、`values: Float64Array`（行主序，每采样 E[0..76) + I[0..76)） | Worker 每 1 ms 积分态的原生块（`acquireAdvance` 每 ≤200 ms 一块 `post(advanceAcquiring(...))`）；放大器/记录的数据源，**不是 60 Hz 快照** |
 | `snapshot` | 见 §4.1（`Snapshot` 接口，t_ms / e / i / p / mean_e / locked / hold_* / diverged / paused） | 约 60 Hz；只读模型状态，无视觉加工 |
+| `native_feedback` | `run_id`、`requestId?`、`phase: 'configured' \| 'detected' \| 'applied' \| 'stopped' \| 'restored' \| 'observed' \| 'suppressed'`（Phase 3 新增 `'suppressed'`）、`t_ms`、`active`、`state: NativeFeedbackSnapshot \| null`、`action?: FeedbackAction`（`id` / `detectedMs` / `applyMs` / `featureValue` / `node` / `amplitude` / `durationMs`，两个时间戳均为 Worker 模型时间） | 闭环控制器事件：检测（`afterStep`，phase `'detected'`）与施加（`beforeStep`，phase `'applied'`）都在 Worker 积分步内发生；`get_native_feedback` 回 `'observed'`，`set_native_feedback` 回 `'configured'` / `'stopped'`；Phase 3：冷却期内的触发上报 `'suppressed'`（无 action，`state.suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue` 记录抑制；`state` 另有 `appliedIds`，见 §1.16） |
 | `mode_applied` | `params: ModeParams`（mode / ou_tau_ms / ou_sigma / ext_sine_amp / ext_sine_freq_hz） | 模式切换后引擎实际用的参数；UI 只读它 |
 | `snapshot_saved` | `id`、`t_ms`、`json` | `save_snapshot` / `hold_start`（auto）的确认 |
 | `snapshot_restored` | `id`、`t_ms` | 恢复确认，随后补一条快照 |
@@ -696,6 +794,7 @@ DipoleLab / HeadSphereLab / LocalBEMLab 的全部控件：偶极矩、方向、�
 | U3 | `advance_ms` / `reset_paused`（确定性步进） | Worker 已处理；`SimClient` 有方法 | 仅调试桥 / PR4 测试用，UI 无入口（有意为之：确定性步进是测试工具，不是产品功能） |
 | U4 | OU 参数（τ/σ）、正弦幅/频、drive_const、noise_amp、speed、θ_e、其余 A-set 参数 | Rust `Params` | 固定常量，无 UI 控件（有意为之：PR4 实测否决了 σ=0.15/0.20，不开放调节）；任何开放都须先过安全扫描再改契约 |
 | U5 | Jansen–Rit 局部皮层柱（独立验证路线） | `app/src/lib/jansenRitColumn.ts` + `scientific/forward/jansen_rit_reference.py` | **已暴露（2026-11-11，U5 已消项）：** `LocalBEMLab` 源模型切换（Wilson–Cowan / Jansen–Rit），两路线锁步运行、并排显示 q(t) 与电极电位；`docs/pr5-jansen-rit.md` 已落盘。漂移测试覆盖 JR 参数与 UI 入口 |
+| U6 | 权重编辑 / 持续偏置 / 回放 / 快照保存 / 随机种子（Phase 4 砍入口后） | Worker（`set_weight` / `reset_weight` / `set_bias` / `clear_bias` / `set_seed` / 快照消息）+ `SimClient` 对应方法 | **2026-11-18 Phase 4（§1.17）：** 入口随 `#advanced` 删除，UI 上暂无入口（有实现无入口，不是空壳）；`BrainScene` 的 `biasList` 入口保留、现接空数组。恢复任一入口前须先在契约 §1.4 重新登记控件与范围 |
 
 ### 5.4 已核实的“不是空壳”的易误判点
 

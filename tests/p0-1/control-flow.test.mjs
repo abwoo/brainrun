@@ -37,6 +37,10 @@ const CONTROL_FILES = [
   'app/src/components/NetworkStatePanel.tsx',
   'app/src/components/ui/ControlField.tsx',
   'app/src/components/ui/LanguageSwitch.tsx',
+  // Phase 4：台子是唯一入口，全部控件都须进网；Dropdown.tsx 本体不列入——
+  // 它的 <select {...selectProps}> 经展开转发 handler，字面量上无 onChange，
+  // 列入会误报；各调用点的 <Dropdown onChange=…> 已在网内。
+  'app/src/components/ClosedLoopBench.tsx',
 ];
 function source(p) { return readFileSync(join(ROOT, p), 'utf8'); }
 // TypeScript 7 uses a native compiler and does not expose the historical
@@ -80,7 +84,11 @@ function scan() {
 
 test('P0-1 surface: all native JSX controls have a bound interaction handler', () => {
   const rows = scan();
-  assert.ok(rows.length >= 210, `Unexpectedly small control surface: ${rows.length}`);
+  // Phase 4 实测 235（旧 257 − App 砍掉的 48 − PhysicsHome 砍掉的 2 + 台子 27 + 模板分析返回按钮 1）；
+  // Option A（2026-11-18）：#basic 恢复高级实验导航（切换按钮 + 信号/对照两个选择卡片），+2 → 237；
+  // Option A 补项（2026-11-18）：分析视图内恢复 More/Less 开关 + Comparisons 入口，+2 → 239。
+  // 下限即实测值，入口再删须同步改这里与台账，不得悄悄放宽。
+  assert.ok(rows.length >= 239, `Unexpectedly small control surface: ${rows.length}`);
   for (const c of rows) {
     const handler = c.name === 'button' ? 'onClick' : 'onChange';
     assert.ok(c.attrs.includes(handler),
@@ -90,17 +98,19 @@ test('P0-1 surface: all native JSX controls have a bound interaction handler', (
   console.log('P0-1 JSX control inventory:', JSON.stringify({ total: rows.length, counts }));
 });
 
-test('C01: EXPLORE selection writes App selectedId shared by scene and activity chart', () => {
-  const explore = source('app/src/components/ExplorePanel.tsx');
+test('C01: bench selection writes App selectedId shared by scene and bench', () => {
+  // Phase 4：EXPLORE 模式与 ExplorePanel 入口删除；选区仍是 App 的
+  // selectedId，由台子（props）与 BrainScene 网络视图共享；ActivityChart
+  // 只留在 #basic 回退（PhysicsHome）里，不再是台子的一部分。
   const app = source('app/src/App.tsx');
-  assert.match(explore, /selectedRegionId: number \| null/);
-  assert.match(explore, /onSelectRegion: \(id: number\) => void/);
-  assert.match(explore, /onClick=\{\(\) => onSelectRegion\(r\.id\)\}/);
-  assert.doesNotMatch(explore, /const \[selectedId, setSelectedId\] = useState/);
-  assert.match(app, /selectedRegionId=\{selectedId\}/);
-  assert.match(app, /onSelectRegion=\{setSelectedId\}/);
+  const bench = source('app/src/components/ClosedLoopBench.tsx');
+  assert.doesNotMatch(app, /ExplorePanel/);
+  assert.doesNotMatch(bench, /ExplorePanel/);
+  assert.match(bench, /selectedId: number \| null; onSelect: \(id: number\) => void;/);
+  assert.match(app, /selectedId=\{selectedId\} onSelect=\{setSelectedId\}/);
   assert.match(app, /<BrainScene[\s\S]*?selectedId=\{selectedId\}/);
-  assert.match(app, /<ActivityChart[\s\S]*?selectedId=\{selectedId\}/);
+  assert.match(app, /<BrainScene[\s\S]*?onSelect=\{setSelectedId\}/);
+  assert.match(bench, /onSelect\(Number\(e\.target\.value\)\)/);
 });
 
 test('C02/C03: mapped live currents trigger the actual LIF/HH solvers on the same click', () => {
@@ -114,12 +124,14 @@ test('C02/C03: mapped live currents trigger the actual LIF/HH solvers on the sam
   assert.match(s, /setResult\(\{/);
 });
 
-test('C04: scenario launcher does not pretend navigation imports scenario results', () => {
-  const launcher = source('app/src/components/ScenarioLauncher.tsx');
-  assert.match(launcher, /进入独立实验台（不载入结果）/);
-  assert.match(launcher, /onOpenLab\(s\.openLab, s\.eegTab\)/);
+test('C04: scenario launcher entry is cut; scenarios lib stays with no UI entry', () => {
+  // Phase 4：一键场景启动器随 #advanced 删除；场景定义（lib/scenarios.ts）
+  // 未动，全仓无 UI 入口（App.tsx 头注释已写明）。
   const app = source('app/src/App.tsx');
-  assert.match(app, /场景摘要尚未自动载入实验台/);
+  const bench = source('app/src/components/ClosedLoopBench.tsx');
+  assert.doesNotMatch(app, /ScenarioLauncher/);
+  assert.doesNotMatch(bench, /ScenarioLauncher/);
+  assert.match(app, /scenarios\.ts etc\. stay, with no UI entry/);
 });
 
 test('C05/C07: late ERP publishes its source Raw, events and epochs together', () => {
@@ -169,7 +181,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 257, 'UI migration includes Dropdown and workspace controls');
+  assert.equal(actual.length, 239, 'Phase 4 recount 235 + Option A restore 2 (Advanced labs toggle + signals/comparison choice) + More/Comparisons restore 2');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

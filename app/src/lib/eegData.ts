@@ -98,15 +98,15 @@ export interface EegEvent {
   id: number;
   /** Source run lineage. For recordings, tMs remains recording-relative. */
   runId?: string;
-  type: 'standard' | 'oddball' | 'noise' | 'pulse';
+  type: 'standard' | 'oddball' | 'noise' | 'pulse' | 'response';
   /** 仿真时钟上的时间戳，ms（不是浏览器墙钟）。 */
   tMs: number;
   /** An arbitrary LIVE pulse is NOT an oddball condition without a task design. */
   condition: 'standard' | 'oddball' | 'unclassified';
   /** 该事件用的刺激驱动数值。 */
   drive: number;
-  /** 驱动单位：'wc' = Wilson–Cowan 无量纲驱动；'jr' = Jansen–Rit 1/s。 */
-  driveUnit: 'wc' | 'jr' | 'nA_m';
+  /** 驱动单位：'wc' = Wilson–Cowan 无量纲驱动；'jr' = Jansen–Rit 1/s；'ms' = 反应时（response 事件的 drive = RT，单位 ms）。 */
+  driveUnit: 'wc' | 'jr' | 'nA_m' | 'ms';
 }
 
 export interface EpochSet {

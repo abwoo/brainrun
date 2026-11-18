@@ -6,7 +6,7 @@ let browser;
 try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage();
- await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.goto(server.resolvedUrls.local[0]+'#basic',{waitUntil:'domcontentloaded'});
  await page.getByRole('tab',{name:'脑区与传播',exact:true}).click();
  await page.waitForFunction(()=>window.__brainSim?.isReady()&&window.__brainSim.getSnapshot());
  await page.getByRole('combobox',{name:'选择脑区',exact:true}).selectOption('40');

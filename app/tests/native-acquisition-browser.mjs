@@ -6,7 +6,7 @@ let browser;
 try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage();
- await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.goto(server.resolvedUrls.local[0]+'#basic',{waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>document.querySelector('[data-testid="physical-field"]')?.getAttribute('data-model-id'));
  await page.getByText('更多设置与模型说明',{exact:true}).click();
  await page.getByText('自由组合测量电极',{exact:false}).click();
