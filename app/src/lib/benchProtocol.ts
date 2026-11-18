@@ -32,21 +32,24 @@
  * [20, 500] ms，与 `SimClient.pulseAt` 一致）；引擎在调用前同样
  * 钳制一次，保证假 `pulseAt` 也能看到钳制后的值。
  *
- * 响应锚定：`SimClient.pulseAt()` 返回 void、没有 `command_id`，
- * 所以 ACK 匹配用“节点 + 最近 tMs”：引擎发刺激时记
- * `{localId, node, provisionalTms, rtMs}`，`confirmFromMarkers`
- * 在 markers 里找同节点、且 `t_ms ∈ [provisionalTms - 20,
- * provisionalTms + 500]` 的 marker；找到且 `t_ms` 已被 ACK 修正
- * （与 provisional 不同）→ 在 `marker.t_ms + rtMs` 处发 `response`
- * 事件（`confirmed: true`）；500 ms 模型时间后仍未修正 → 用
- * provisional 时间 + RT 发 `response`（`confirmed: false`）；
- * 超过 500 ms 仍无 marker → 丢弃该次响应并计数
+ * 响应锚定：`SimClient.pulseAt()` 返回本次刺激的 marker 对象（与
+ * Worker ACK 原地修正 `t_ms` 的是同一引用），引擎发刺激时就把它记
+ * 在 `PendingResponse.marker` 里；`confirmFromMarkers` 凭引用认自己
+ * 的 marker——ACK 修正到 provisional + 600 ms、第一次确认才看到时
+ * 也能锚到修正时间，不会丢。引用丢了（marker 离开 50 条数组）时
+ * 回退到“节点 + 最近 tMs”窗口匹配：`t_ms ∈ [provisionalTms - 20,
+ * provisionalTms + 500]`；找到且 `t_ms` 已被 ACK 修正（与 provisional
+ * 不同）→ 在 `marker.t_ms + rtMs` 处发 `response` 事件（`confirmed: true`）；
+ * 500 ms 模型时间后仍未修正 → 用 provisional 时间 + RT 发 `response`
+ * （`confirmed: false`）；超过 500 ms 仍无 marker → 丢弃该次响应并计数
  * （`droppedResponses` 只读）。
  *
  * Phase 4 — 慢 ACK（修正晚于 +500 ms，headless 下实测可达约 600 ms）：
- * 首次看到 provisional marker 时记下它的对象引用（`PendingResponse.marker`）；
- * SimClient 的 marker 对象在数组里是同一引用，ACK 到达时原地改 t_ms，
- * 所以后续 `confirmFromMarkers` 凭引用认出自己的 marker、锚到修正时间，
+ * 发刺激时 `pulseAt` 直接返回 marker 对象并记在 `PendingResponse.marker`
+ * 里，`confirmFromMarkers` 第一次确认就凭引用认出它、锚到修正时间，
+ * 不用等先看到 provisional marker 再记引用；SimClient 的 marker 对象
+ * 在数组里是同一引用，ACK 到达时原地改 t_ms，所以后续
+ * `confirmFromMarkers` 凭引用认出自己的 marker、锚到修正时间，
  * 不会套住邻试次的 marker；markerSeen 的待定响应宽限到
  * `+LATE_ACK_GRACE_MS`（2000 ms）才按 provisional 发未确认响应，
  * 无 marker 的仍在 +500 ms 丢弃。另见 `findAckMarker`（手动刺激的 ACK
@@ -209,7 +212,7 @@ export interface BenchProtocolEngine {
 }
 
 export interface BenchProtocolDeps {
-  pulseAt: (node: number, amplitude: number, durationMs: number) => void;
+  pulseAt: (node: number, amplitude: number, durationMs: number) => StimulusMarker;
   configureFeedback: (config: NativeFeedbackConfig | null) => void;
   subject: ReturnType<typeof createSimulatedSubject>;
   onEvent: (e: BenchProtocolEvent) => void;
@@ -236,7 +239,9 @@ interface PendingResponse {
   /** 已在 markers 里看到同节点事件，但 t_ms 尚未被 ACK 修正（仍等于 provisional）。 */
   markerSeen: boolean;
   /**
-   * Phase 4 — 本试次自己的 marker 对象（首次在 markers 里看到时记下）。
+   * Phase 4 — 本试次自己的 marker 对象。发刺激时由 `pulseAt` 的返回值
+   * 直接记下（见 `fireOddballTrial`）；旧的假 `pulseAt` 不返回值时为
+   * undefined，`confirmFromMarkers` 回退到窗口匹配、首次看到时再记。
    * SimClient 的 marker 对象在数组里是同一引用，ACK 到达时原地改 t_ms；
    * 拿引用认 marker，慢 ACK 修正后仍能锚到它，不用靠时间窗口猜。
    * marker 离开 50 条数组后清掉（见 confirmFromMarkers）。
@@ -341,7 +346,11 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     trialIndex++;
     const isOddball = trialIndex % oddballEvery === 0;
     const amplitude = clampAmplitude(isOddball ? oddballAmp : oddballStandardAmp);
-    deps.pulseAt(oddballNode, amplitude, oddballDurationMs);
+    // pulseAt 返回本次刺激的 marker 对象（与 SimClient 里 ACK 原地修正
+    // t_ms 的是同一引用）：发刺激时就记下，confirmFromMarkers 第一次
+    // 看到它就能凭引用认出来——即使 ACK 已把它修正到 provisional + 600 ms、
+    // 超出首次窗口，也不会丢（见 confirmFromMarkers 的引用路径）。
+    const marker = deps.pulseAt(oddballNode, amplitude, oddballDurationMs);
     deps.onEvent({
       kind: 'stimulus-sent', tMs: scheduledTms, trialIndex,
       condition: isOddball ? 'oddball' : 'standard',
@@ -352,7 +361,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       pending.push({
         // marker 以这次 tick 的快照时间创建（见模块头注），不是计划时间。
         localId: ++localIdSeq, node: oddballNode, provisionalTms: tickTms,
-        rtMs: resp.rtMs, trialIndex, markerSeen: false,
+        rtMs: resp.rtMs, trialIndex, markerSeen: false, marker,
       });
     }
   };
@@ -486,12 +495,16 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       const used = new Set<StimulusMarker>();
       for (let j = pending.length - 1; j >= 0; j--) {
         const p = pending[j];
-        // Phase 4 — 引用匹配优先：本试次自己的 marker 对象已记下时（首次
-        // 看到 provisional marker 时存的引用），直接看它在不在数组里、在
-        // 不在已被 ACK 修正。SimClient 的 marker 对象在数组里是同一引用，
-        // ACK 到达时原地改 t_ms，所以慢 ACK（超过 +500 ms 才修正）仍能锚
-        // 到修正时间，不用靠时间窗口猜，也不会套住邻试次的 marker。
+        // Phase 4 — 引用匹配优先：本试次自己的 marker 对象在发刺激时
+        // 已由 pulseAt 的返回值记下（见 fireOddballTrial），直接看它在
+        // 不在数组里、在不在已被 ACK 修正。SimClient 的 marker 对象在
+        // 数组里是同一引用，ACK 到达时原地改 t_ms，所以慢 ACK（超过
+        // +500 ms 才修正）仍能锚到修正时间，不用靠时间窗口猜，也不会
+        // 套住邻试次的 marker。
         if (p.marker) {
+          // 同一个 marker 对象不能确认两个待定响应：先认领的那个占住它，
+          // 后一个走窗口路径找别的 marker（或继续等自己的）。
+          if (used.has(p.marker)) continue;
           used.add(p.marker);
           if (!markers.includes(p.marker)) {
             // marker 已离开 50 条数组、修正再也不会来：清掉引用，等宽限

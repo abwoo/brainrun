@@ -32,13 +32,45 @@ function harness(subject = fakeSubject()) {
   const events = [];
   const feedbackConfigs = [];
   const engine = createBenchProtocolEngine({
-    pulseAt: (node, amplitude, durationMs) => pulses.push({ node, amplitude, durationMs }),
+    // 注意：这个假 pulseAt 故意不返回 marker（返回 undefined），
+    // 测的是引用丢失时的窗口回退路径；返回 marker 的路径由
+    // harnessWithReturnedMarkers 另测。
+    pulseAt: (node, amplitude, durationMs) => { pulses.push({ node, amplitude, durationMs }); },
     configureFeedback: (config) => feedbackConfigs.push(config),
     subject,
     onEvent: (e) => events.push({ ...e }),
     regions: fakeRegions(),
   });
   return { engine, pulses, events, feedbackConfigs };
+}
+
+/** 返回 marker 对象的假 pulseAt（模拟真实 SimClient.pulseAt）：
+ *  每次调用新建一个 marker，t_ms 为调用时的假时钟时间；ACK 是原地改
+ *  该对象的 t_ms。sharedMarker=true 时所有调用共用同一个对象
+ *  （人为构造的双认领极端情况）。 */
+function harnessWithReturnedMarkers({ sharedMarker = false } = {}) {
+  const pulses = [];
+  const events = [];
+  const feedbackConfigs = [];
+  const markers = [];
+  const clock = { now: 0 };
+  const one = { t_ms: 0, node: 0, kind: 'pulse', amplitude: 2 };
+  const engine = createBenchProtocolEngine({
+    pulseAt: (node, amplitude, durationMs) => {
+      const marker = sharedMarker ? one : { t_ms: clock.now, node, kind: 'pulse', amplitude };
+      marker.t_ms = clock.now;
+      marker.node = node;
+      marker.amplitude = amplitude;
+      if (!markers.includes(marker)) markers.push(marker);
+      pulses.push({ node, amplitude, durationMs });
+      return marker;
+    },
+    configureFeedback: (config) => feedbackConfigs.push(config),
+    subject: fakeSubject(),
+    onEvent: (e) => events.push({ ...e }),
+    regions: fakeRegions(),
+  });
+  return { engine, pulses, events, feedbackConfigs, markers, clock };
 }
 
 test('oddball 试次顺序：第 5/10/15 个为 oddball，其余 standard；幅度 2.0/1.0', () => {
@@ -485,4 +517,48 @@ test('非法参数抛错：flicker 频率出界、oddball ISI 非正', () => {
   assert.throws(() => engine.start('flicker', { frequencyHz: 40 }, 0), RangeError);
   assert.throws(() => engine.start('oddball', { isiMs: 0 }, 0), RangeError);
   assert.throws(() => engine.start('single-pulse', { node: 76 }, 0), RangeError);
+});
+
+test('响应锚定：pulseAt 返回的 marker 在首次确认前已被 ACK 修正到 provisional + 600 → 凭引用确认，不丢弃', () => {
+  const { engine, events, markers, clock } = harnessWithReturnedMarkers();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
+  for (let t = 0; t <= 4000; t += 1000) { clock.now = t; engine.tick(t); }
+  // trial 5（oddball）在 t=4000 发出；pulseAt 返回的 marker 就是它自己的。
+  assert.equal(markers.length, 5);
+  const marker = markers[4];
+  assert.equal(marker.t_ms, 4000);
+  // ACK 在第一次 confirm 之前就把 marker 修正到 4600（dispatch→ACK = 600 ms，
+  // 超出首次窗口上限 +500）：旧实现第一次看到它时窗口认不出、到 +500 ms 就丢弃。
+  marker.t_ms = 4600;
+  engine.confirmFromMarkers(markers);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].tMs, 4600 + 380);
+  assert.equal(responses[0].trialIndex, 5);
+  assert.equal(responses[0].confirmed, true);
+  assert.equal(engine.droppedResponses, 0);
+  assert.equal(engine.getLoopTiming().dispatchToAckMs, 600);
+  assert.equal(engine.getLoopTiming().samples.dispatchToAck, 1);
+  // 再走过 +500 ms 期限：已确认，不补发、不丢弃。
+  engine.tick(4500);
+  assert.equal(events.filter((e) => e.kind === 'response').length, 1);
+  assert.equal(engine.droppedResponses, 0);
+});
+
+test('引用匹配：同一个 marker 对象不能确认两个待定响应', () => {
+  const { engine, events, markers, clock } = harnessWithReturnedMarkers({ sharedMarker: true });
+  engine.start('oddball', { isiMs: 100, oddballEvery: 1, durationMs: 20000 }, 0);
+  for (let t = 0; t <= 100; t += 100) { clock.now = t; engine.tick(t); }
+  // 两个 oddball 试次共用同一个 marker 对象（人为构造的极端情况；真实
+  // SimClient 每次 pulseAt 都新建 marker，不会共用）。
+  assert.equal(markers.length, 1);
+  const marker = markers[0];
+  marker.t_ms = 700; // 修正到 trial 2 的 provisional(100) + 600
+  engine.confirmFromMarkers(markers);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].trialIndex, 2);
+  assert.equal(responses[0].tMs, 700 + 380);
+  assert.equal(responses[0].confirmed, true);
+  assert.equal(engine.droppedResponses, 0);
 });

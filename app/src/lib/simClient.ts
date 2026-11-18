@@ -801,12 +801,16 @@ export class SimClient {
    *  幅度钳制到 [−2, 2]（与 Level A 直接驱动范围一致；Rust 端 per-event
    *  幅度不钳制，故客户端钳制）；持续时间钳制到 [20, 500] ms（与 UI
    *  脉冲时长范围一致）。与 pulse() 一样记标记、钉响应窗口。 */
-  pulseAt(node: number, amplitude: number, durationMs: number): void {
+  pulseAt(node: number, amplitude: number, durationMs: number): StimulusMarker {
     const amp = Math.min(2, Math.max(-2, amplitude));
     const dur = Math.min(500, Math.max(20, durationMs));
     const marker = this.mark('pulse', node, amp);
     const commandId = this.send({ type: 'stimulus', node, amplitude: amp, duration_ms: dur });
     if (commandId !== null) this.pendingStimulusMarkers.set(commandId, marker);
+    // 调用方（协议引擎）凭返回的 marker 对象认自己的刺激：Worker ACK
+    // 到达时原地改 marker.t_ms，引擎拿引用匹配，不用靠时间窗口猜。
+    // 不关心返回值的调用方忽略即可。
+    return marker;
   }
 
   holdStart(node: number): void {
