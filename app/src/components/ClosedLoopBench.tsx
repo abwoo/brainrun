@@ -597,6 +597,12 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   useEffect(() => { snapRef.current = snap; }, [snap]);
   const seenMarkerCountRef = useRef(0);
   const lastAcquireAttemptRef = useRef(0);
+  // Live-refresh during runs: wall-clock ms of the last in-run refresh, and
+  // whether the protocol was running on the previous tick (to catch the
+  // stop transition). The recording assembled once at engine-ready goes
+  // stale mid-run (样本数/波形/事件数 freeze); see the interval below.
+  const lastLiveRefreshRef = useRef(0);
+  const wasProtocolRunningRef = useRef(false);
   useEffect(() => {
     if (!sim || !ready) return;
     const id = window.setInterval(() => {
@@ -606,6 +612,25 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
         setTrialCount(engine.trialIndex);
         setProtocolRunning(engine.running);
         setDroppedResponses(engine.droppedResponses);
+        // Live-refresh while a protocol runs: re-acquire every 5 s so the
+        // bench display (样本数, live waveform, 事件数) tracks the run,
+        // and once on the stop transition so the final state is captured.
+        // runAcquisition's <1001-sample guard and the 10 s native-history
+        // cap are unchanged: a refresh only ever sees the last 10 s.
+        // Re-assembly is the same work as the manual "更新记录" button,
+        // only automatic; the derived session is reused per upstream runId.
+        const running = engine.running;
+        if (running && acquisitionRef.current && fixture && capSelection) {
+          const now = Date.now();
+          if (now - lastLiveRefreshRef.current >= 5000) {
+            lastLiveRefreshRef.current = now;
+            refreshAll();
+          }
+        }
+        if (wasProtocolRunningRef.current && !running) {
+          refreshAll();
+        }
+        wasProtocolRunningRef.current = running;
       }
       // Match manual stimulator commands to Worker-corrected markers (ACK time).
       // Phase 4 — 只认修正过的 marker（见 findAckMarker）：provisional
