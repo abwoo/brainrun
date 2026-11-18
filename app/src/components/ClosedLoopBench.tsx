@@ -1,6 +1,6 @@
 import {
-  useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type ReactNode,
+  cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
+  type ReactElement, type ReactNode,
 } from 'react';
 import { useI18n } from '../lib/i18n';
 import Dropdown from './ui/Dropdown';
@@ -14,6 +14,10 @@ import type { Snapshot } from '../worker/protocol';
 import {
   getHeadModelSelection, setHeadModelSelection, subscribeHeadModelSelection,
 } from '../lib/headModelSelection';
+import {
+  getBenchSettings, setBenchSettings, subscribeBenchSettings,
+  type BenchClosedLoopFeature, type BenchReferenceSel,
+} from '../lib/benchSettings';
 import { runNativeExperiment, NATIVE_EEG_ID } from '../lib/nativeEeg';
 import { ExperimentSession, makeDerivedSession } from '../lib/experimentSession';
 import {
@@ -37,6 +41,11 @@ import {
   BENCH_CAP_PRESETS, selectBenchCapChannels,
   type BenchCapPreset, type BenchCapSelection,
 } from '../lib/benchCap';
+import { getTemplateModel } from '../lib/fsaverageBEM';
+import {
+  selectBenchElectrodes,
+  type BenchElectrodeDirection,
+} from '../lib/benchElectrodes';
 import { bandpassFilter, validateBandpassParams } from '../lib/signalProcessing';
 import { createSimulatedSubject } from '../lib/benchSubject';
 import {
@@ -80,7 +89,6 @@ interface ResponseRow {
   trialIndex: number; stimulusTms: number; responseTms: number;
   rtMs: number; key: string; confirmed: boolean;
 }
-type ReferenceSel = 'average' | 'cz' | 'm1';
 
 const TRACE_CAP = 200;
 const WAVE_WINDOW_MS = 5000;
@@ -130,8 +138,24 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ---------- bench settings (external store; survives workspace switches) ----------
+  // Phase 2: every bench setting lives in app/src/lib/benchSettings.ts and is
+  // read here via useSyncExternalStore. App.tsx unmounts this component when
+  // the workspace changes, so useState settings used to reset to defaults;
+  // the store outlives the mount. The setter aliases below keep the rest of
+  // this file unchanged; ephemeral run state stays local on purpose.
+  const settings = useSyncExternalStore(subscribeBenchSettings, getBenchSettings);
+  const {
+    capPreset, sampleRate, referenceSel, bandpassOn, lowDraft, highDraft,
+    lowHz, highHz, gain, selectedChannel, protocolId, subjectSeed, rtMinMs,
+    rtMaxMs, oddballStandardAmp, oddballAmp, oddballIsiMs, oddballEvery,
+    oddballDurationMs, flickerFreqHz, flickerAmp, flickerDurationMs,
+    clFeature, clThreshold, clAmplitude, clDurationMs, clPeriodMs,
+    clCooldownMs, clMaxTriggers, stimTarget,
+  } = settings;
+
   // ---------- cap preset ----------
-  const [capPreset, setCapPreset] = useState<BenchCapPreset>('10-10-64');
+  const setCapPreset = (v: BenchCapPreset) => setBenchSettings({ capPreset: v });
   const [capSelection, setCapSelection] = useState<BenchCapSelection | null>(null);
   const [capError, setCapError] = useState<string | null>(null);
   useEffect(() => {
@@ -155,22 +179,44 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     } catch (e) { setCapError(String(e)); }
   }, [headModel, capSelection]);
 
+  // ---------- cap electrodes on the 3D head (Phase 2 item 1) ----------
+  // Sphere: the preset's labels → fixture directions. BEM: the template
+  // model's own electrodes (the preset does not apply there). Null = the
+  // source is not loaded — no markers, and the note below says so.
+  // getTemplateModel() is read at render: the model can only be registered
+  // from LocalBEMLab (another workspace, which unmounts this component),
+  // so a remount re-reads it; nothing registers it while the bench stays
+  // mounted.
+  const bemModel = headModel === 'bem' ? getTemplateModel() : null;
+  const benchElectrodes = useMemo(() => selectBenchElectrodes({
+    headModel, fixture, capSelection, bemModel,
+  }), [headModel, fixture, capSelection, bemModel]);
+  // networkView is created by App.tsx without electrodes; clone it with the
+  // bench's electrode directions. BrainScene stays mounted across clones
+  // (same type), so a preset change only rebuilds the marker group.
+  const networkViewWithElectrodes = useMemo(() => {
+    if (!isValidElement(networkView)) return networkView;
+    return cloneElement(
+      networkView as ReactElement<{ electrodes?: BenchElectrodeDirection[] | null }>,
+      { electrodes: benchElectrodes?.electrodes ?? null },
+    );
+  }, [networkView, benchElectrodes]);
+
   // ---------- amplifier state ----------
-  const [sampleRate, setSampleRate] = useState<250 | 500>(250);
-  const [referenceSel, setReferenceSel] = useState<ReferenceSel>('average');
+  const setSampleRate = (v: 250 | 500) => setBenchSettings({ sampleRate: v });
+  const setReferenceSel = (v: BenchReferenceSel) => setBenchSettings({ referenceSel: v });
   const reference: EegReference = useMemo(() => referenceSel === 'average'
     ? { mode: 'average' }
     : { mode: 'electrode', label: referenceSel === 'cz' ? 'Cz' : 'M1' }, [referenceSel]);
   // Protocol id mirror for callbacks that run outside render (assembleBench).
   const protocolIdRef = useRef<BenchProtocolId>('single-pulse');
-  const [bandpassOn, setBandpassOn] = useState(true);
-  const [lowDraft, setLowDraft] = useState(0.5);
-  const [highDraft, setHighDraft] = useState(40);
-  const [lowHz, setLowHz] = useState(0.5);
-  const [highHz, setHighHz] = useState(40);
+  const setLowDraft = (v: number) => setBenchSettings({ lowDraft: v });
+  const setHighDraft = (v: number) => setBenchSettings({ highDraft: v });
+  const setLowHz = (v: number) => setBenchSettings({ lowHz: v });
+  const setHighHz = (v: number) => setBenchSettings({ highHz: v });
   const bandpassValid = lowDraft > 0 && highDraft > lowDraft && highDraft < sampleRate / 2;
-  const [gain, setGain] = useState(1);
-  const [selectedChannel, setSelectedChannel] = useState('Pz');
+  const setGain = (v: number) => setBenchSettings({ gain: v });
+  const setSelectedChannel = (v: string) => setBenchSettings({ selectedChannel: v });
   // M1 is only a real reference when the acquired recording actually carries it:
   // the projection channels come from the physical source state, not the cap preset.
   const [referenceNote, setReferenceNote] = useState<string | null>(null);
@@ -335,34 +381,34 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   }, []);
 
   // ---------- protocol engine + simulated subject ----------
-  const [protocolId, setProtocolId] = useState<BenchProtocolId>('single-pulse');
+  const setProtocolId = (v: BenchProtocolId) => setBenchSettings({ protocolId: v });
   useEffect(() => { protocolIdRef.current = protocolId; }, [protocolId]);
   const [protocolRunning, setProtocolRunning] = useState(false);
   const [trialCount, setTrialCount] = useState(0);
   const [droppedResponses, setDroppedResponses] = useState(0);
   const [responses, setResponses] = useState<ResponseRow[]>([]);
-  const [subjectSeed, setSubjectSeed] = useState(1);
-  const [rtMinMs, setRtMinMs] = useState(320);
-  const [rtMaxMs, setRtMaxMs] = useState(440);
+  const setSubjectSeed = (v: number) => setBenchSettings({ subjectSeed: v });
+  const setRtMinMs = (v: number) => setBenchSettings({ rtMinMs: v });
+  const setRtMaxMs = (v: number) => setBenchSettings({ rtMaxMs: v });
   const rtRangeValid = rtMinMs >= 50 && rtMaxMs > rtMinMs && rtMaxMs <= 2000;
   // oddball params
-  const [oddballStandardAmp, setOddballStandardAmp] = useState(1);
-  const [oddballAmp, setOddballAmp] = useState(2);
-  const [oddballIsiMs, setOddballIsiMs] = useState(1000);
-  const [oddballEvery, setOddballEvery] = useState(5);
-  const [oddballDurationMs, setOddballDurationMs] = useState(100);
+  const setOddballStandardAmp = (v: number) => setBenchSettings({ oddballStandardAmp: v });
+  const setOddballAmp = (v: number) => setBenchSettings({ oddballAmp: v });
+  const setOddballIsiMs = (v: number) => setBenchSettings({ oddballIsiMs: v });
+  const setOddballEvery = (v: number) => setBenchSettings({ oddballEvery: v });
+  const setOddballDurationMs = (v: number) => setBenchSettings({ oddballDurationMs: v });
   // flicker params
-  const [flickerFreqHz, setFlickerFreqHz] = useState(10);
-  const [flickerAmp, setFlickerAmp] = useState(1);
-  const [flickerDurationMs, setFlickerDurationMs] = useState(100);
+  const setFlickerFreqHz = (v: number) => setBenchSettings({ flickerFreqHz: v });
+  const setFlickerAmp = (v: number) => setBenchSettings({ flickerAmp: v });
+  const setFlickerDurationMs = (v: number) => setBenchSettings({ flickerDurationMs: v });
   // closed-loop params
-  const [clFeature, setClFeature] = useState<'instant' | 'rms'>('instant');
-  const [clThreshold, setClThreshold] = useState(0.5);
-  const [clAmplitude, setClAmplitude] = useState(1);
-  const [clDurationMs, setClDurationMs] = useState(100);
-  const [clPeriodMs, setClPeriodMs] = useState(1000);
-  const [clCooldownMs, setClCooldownMs] = useState(500);
-  const [clMaxTriggers, setClMaxTriggers] = useState(100);
+  const setClFeature = (v: BenchClosedLoopFeature) => setBenchSettings({ clFeature: v });
+  const setClThreshold = (v: number) => setBenchSettings({ clThreshold: v });
+  const setClAmplitude = (v: number) => setBenchSettings({ clAmplitude: v });
+  const setClDurationMs = (v: number) => setBenchSettings({ clDurationMs: v });
+  const setClPeriodMs = (v: number) => setBenchSettings({ clPeriodMs: v });
+  const setClCooldownMs = (v: number) => setBenchSettings({ clCooldownMs: v });
+  const setClMaxTriggers = (v: number) => setBenchSettings({ clMaxTriggers: v });
 
   const engineRef = useRef<BenchProtocolEngine | null>(null);
   const [lastStimulusTms, setLastStimulusTms] = useState<number | null>(null);
@@ -465,7 +511,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   }, [sim, ready, appendTrace, text]);
 
   // ---------- stimulator box ----------
-  const [stimTarget, setStimTarget] = useState<number | null>(null);
+  const setStimTarget = (v: number | null) => setBenchSettings({ stimTarget: v });
   const stimNode = stimTarget ?? selectedId ?? 0;
   const [stimLog, setStimLog] = useState<StimLogEntry[]>([]);
   const stimKeyRef = useRef(0);
@@ -624,13 +670,13 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
       return {
         node: auditoryNodes[0] ?? stimNode,
         standardAmplitude: oddballStandardAmp, oddballAmplitude: oddballAmp,
-        isiMs: oddballIsiMs, oddballEvery, durationMs: oddballDurationMs,
+        isiMs: oddballIsiMs, oddballEvery, pulseDurationMs: oddballDurationMs,
       };
     }
     if (protocolId === 'flicker') {
       return {
         nodes: visualNodes.length ? visualNodes : [stimNode],
-        frequencyHz: flickerFreqHz, amplitude: flickerAmp, durationMs: flickerDurationMs,
+        frequencyHz: flickerFreqHz, amplitude: flickerAmp, pulseDurationMs: flickerDurationMs,
       };
     }
     const config: NativeFeedbackConfig = {
@@ -771,7 +817,17 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
       <div className="bench-grid">
         <section className="bench-box" aria-label={t('bench.signalDetection')}>
           <h2>{t('bench.signalDetection')}</h2>
-          <div className="bench-network"><div className="manual-brain">{networkView}</div></div>
+          <div className="bench-network"><div className="manual-brain">{networkViewWithElectrodes}</div></div>
+          <p className="bench-note">
+            {benchElectrodes
+              ? text(
+                `绿色圆点为${benchElectrodes.source === 'bem' ? '模板 BEM 自带电极' : '所选帽预设的电极'}（${benchElectrodes.electrodes.length} 个）；电极位置为头模型方向示意，未与演示网络解剖配准。`,
+                `Green dots are the ${benchElectrodes.source === 'bem' ? 'template BEM electrodes' : 'selected cap preset electrodes'} (${benchElectrodes.electrodes.length}); electrode positions are a head-model direction sketch, not anatomically registered to the demo network.`)
+              : headModel === 'bem'
+                ? text('模板 BEM 模型未加载，电极未显示（需先在高级实验 · 本地 BEM 加载模板模型文件）。',
+                  'Template BEM model not loaded; electrodes not shown (load the template model in Advanced · Local BEM first).')
+                : text('脑电帽电极尚未加载。', 'Cap electrodes not loaded yet.')}
+          </p>
           <ControlField label={text('背景活动', 'Background activity')}>
             <Dropdown value={background} disabled={!engineReady}
               title={!engineReady ? notReadyReason : undefined}
@@ -834,7 +890,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
               value={referenceSel}
               disabled={!engineReady}
               title={!engineReady ? notReadyReason : undefined}
-              onChange={(e) => setReferenceSel(e.target.value as ReferenceSel)}
+              onChange={(e) => setReferenceSel(e.target.value as BenchReferenceSel)}
               aria-label={text('参考', 'Reference')}>
               <option value="average">{text('平均参考', 'Average reference')}</option>
               <option value="cz">Cz</option>
@@ -849,7 +905,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
           <ControlField label={text('带通滤波', 'Band-pass filter')}>
             <button className="ui-button" type="button" disabled={!engineReady}
               title={!engineReady ? notReadyReason : undefined}
-              onClick={() => setBandpassOn((v) => !v)}>
+              onClick={() => setBenchSettings({ bandpassOn: !bandpassOn })}>
               {bandpassOn ? text('带通：开', 'Band-pass: on') : text('带通：关', 'Band-pass: off')}
             </button>
           </ControlField>
@@ -917,6 +973,40 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             <p>{text('协议', 'Protocol')}: {protocolId ? t(`bench.protocol.${protocolId}`) : '—'}</p>
             <p>{text('头模型', 'Head model')}: {headModel} · {text('脑电帽', 'Cap')}: {capSelection?.preset ?? '—'}</p>
           </div>
+          <h3>{text('记录事件', 'Recording events')}</h3>
+          {benchRecording ? (
+            <div className="bench-table-wrap" data-testid="bench-recording-events">
+              <p className="bench-note">
+                {text('最近一次组装的记录事件（相对时间，模型时钟）', 'Events in the last assembled recording (relative time, model clock)')}
+                {` · pulse ${benchRecording.events.filter((e) => e.type === 'pulse').length} · response ${benchRecording.events.filter((e) => e.type === 'response').length}`}
+              </p>
+              <table className="bench-table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>{text('类型', 'Type')}</th><th>{text('相对时间', 'Relative t')}</th>
+                    <th>{text('条件', 'Condition')}</th><th>runId</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benchRecording.events.length === 0 && (
+                    <tr><td colSpan={5}>{text('记录里暂无事件', 'No events in the recording yet')}</td></tr>
+                  )}
+                  {benchRecording.events.slice(-12).map((e) => (
+                    <tr key={e.id} data-event-type={e.type} data-event-tms={e.tMs}
+                      data-event-runid={e.runId ?? ''}>
+                      <td>{e.id}</td>
+                      <td>{e.type}</td>
+                      <td>{fmt(e.tMs, 0)} ms</td>
+                      <td>{e.condition}</td>
+                      <td>{shortRunId(e.runId)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="bench-note">{text('暂无已组装记录，点击“更新记录”组装当前采集。', 'No assembled recording yet; press “Update recording” to assemble the current acquisition.')}</p>
+          )}
           {benchError && <p className="bench-error" role="alert">{benchError}</p>}
           <div className="bench-actions">
             <button className="ui-button" type="button" onClick={() => refreshAll()}

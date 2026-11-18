@@ -175,6 +175,29 @@ test('参考切换用 reReferenceRecording：Cz 参考、dataRevision 同步、�
   assert.equal(br.epochs.provenance.runId, RUN_ID);
 });
 
+test('trigger + response 端到端：native pulse 触发与 response 事件同 runId、有序、RT 在 320–440 ms 窗口内', () => {
+  // 模拟真实台子：native 事件是 Worker ACK 后的 pulse（相对 1000 ms，
+  // 绝对 6000 ms = t0Ms 5000 + 1000）；extraEvents 是协议引擎锚定到
+  // 同一 ACK 时间 + RT 380 ms 的 response（绝对 6380 ms）。
+  const br = assemble([
+    { id: 0, type: 'response', condition: 'unclassified', tMs: 6380, drive: 380, driveUnit: 'ms' },
+  ]);
+  const pulse = br.events.find((e) => e.type === 'pulse');
+  const response = br.events.find((e) => e.type === 'response');
+  assert.ok(pulse && response, 'trigger and response must both be in the assembled recording');
+  assert.equal(pulse.runId, RUN_ID);
+  assert.equal(response.runId, RUN_ID);
+  assert.ok(response.tMs > pulse.tMs, 'response must come after the trigger');
+  const rtMs = response.tMs - pulse.tMs;
+  assert.ok(rtMs >= 320 && rtMs <= 440, `response - trigger = ${rtMs} ms, expected within [320, 440]`);
+  assert.equal(response.drive, 380);
+  assert.equal(response.driveUnit, 'ms');
+  // 事件按 tMs 排序、id 连续重排；epochs 只锚定 pulse。
+  assert.deepEqual(br.events.map((e) => e.tMs), [1000, 1380]);
+  assert.equal(br.epochs.trials.length, 1);
+  assert.equal(br.epochs.events[0].type, 'pulse');
+});
+
 test('store 值三件套 runId 一致，可被 setLiveRecordingStore 接受', () => {
   const br = assemble([
     { id: 0, type: 'response', condition: 'unclassified', tMs: 6100, drive: 380, driveUnit: 'ms' },

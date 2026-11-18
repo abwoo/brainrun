@@ -7,7 +7,7 @@ try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.goto(server.resolvedUrls.local[0]+'#basic',{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'English',exact:true}).click();
  await page.getByRole('tab',{name:'Regions & activity',exact:true}).click();
  await page.waitForFunction(()=>window.__brainSim?.isReady()&&window.__brainSim.getSnapshot());

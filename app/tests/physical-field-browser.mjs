@@ -6,7 +6,7 @@ let browser;
 try{
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
- await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
+ await page.goto(server.resolvedUrls.local[0]+'#basic',{waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>{const el=document.querySelector('[data-testid="physical-field"]');return el&&el.dataset.fieldMax!=='';});
  const field=page.getByTestId('physical-field');
  const original=Number(await field.getAttribute('data-field-max'));

@@ -10,7 +10,7 @@ try {
  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-webgl']});
  const page=await browser.newPage({viewport:{width:1440,height:1050}});
  page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(url,{waitUntil:'domcontentloaded'});
+ await page.goto(url+'#basic',{waitUntil:'domcontentloaded'});
  // The Linux runner has no CJK system fonts; provide the same fallback that
  // Chinese users' operating systems normally supply, without a production CDN.
  let fontCss=await readFile('node_modules/@fontsource/noto-sans-sc/400.css','utf8');

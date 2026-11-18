@@ -146,6 +146,90 @@ test('响应锚定：超过 500 ms 仍无 marker → 丢弃并计数 droppedResp
   assert.equal(engine.droppedResponses, 1);
 });
 
+test('oddball 端到端：trial 5 刺激 → ACK 修正 → 响应，响应−触发 = RT 在 320–440 ms 窗口内', () => {
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5 }, 4000);
+  for (let t = 4000; t <= 8000; t += 1000) engine.tick(t);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(stimuli.length, 5);
+  const oddballStimulus = stimuli[4];
+  assert.equal(oddballStimulus.trialIndex, 5);
+  assert.equal(oddballStimulus.condition, 'oddball');
+  assert.equal(oddballStimulus.tMs, 8000);
+  // Worker ACK 把刺激时间修正为 8012 ms。
+  engine.confirmFromMarkers([{ t_ms: 8012, node: 0, kind: 'pulse', amplitude: 2 }]);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].tMs, 8012 + 380);
+  assert.equal(responses[0].rtMs, 380);
+  assert.equal(responses[0].confirmed, true);
+  assert.ok(responses[0].tMs > oddballStimulus.tMs, 'response must come after the trigger');
+  const rtFromAck = responses[0].tMs - 8012;
+  assert.ok(rtFromAck >= 320 && rtFromAck <= 440, `response - ACK trigger = ${rtFromAck} ms, expected within [320, 440]`);
+});
+
+test('oddball：pulseDurationMs 管脉冲时长、durationMs 管整轮运行时长，两者分开', () => {
+  const { engine, pulses, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, pulseDurationMs: 200, durationMs: 5000 }, 0);
+  for (let t = 0; t <= 6000; t += 1000) engine.tick(t);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  // 5 s 内 0/1000/2000/3000/4000 共 5 个试次，5000 到时 completed。
+  assert.equal(stimuli.length, 5);
+  assert.equal(engine.running, false);
+  assert.equal(events.find((e) => e.kind === 'protocol-stopped').reason, 'completed');
+  // 每个脉冲都是 200 ms（pulseDurationMs），不是整轮的 5000 ms。
+  assert.ok(pulses.every((p) => p.durationMs === 200));
+  assert.ok(stimuli.every((s) => s.durationMs === 200));
+  assert.equal(stimuli[4].condition, 'oddball');
+});
+
+test('oddball 不传 durationMs：一直跑到 stop()，不自动 completed', () => {
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, pulseDurationMs: 100 }, 0);
+  for (let t = 0; t <= 10000; t += 1000) engine.tick(t);
+  assert.equal(engine.running, true);
+  assert.equal(engine.trialIndex, 11);
+  assert.equal(events.filter((e) => e.kind === 'protocol-stopped').length, 0);
+  engine.stop();
+  assert.equal(engine.running, false);
+});
+
+test('flicker：pulseDurationMs 管脉冲时长、durationMs 管整轮运行时长', () => {
+  const { engine, pulses, events } = harness();
+  engine.start('flicker', { frequencyHz: 10, pulseDurationMs: 50, durationMs: 500 }, 0);
+  engine.tick(0);
+  engine.tick(100);
+  engine.tick(200);
+  engine.tick(500);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  // 500 ms 内 0/100/200/300/400 共 5 个周期，每周期 2 个节点。
+  assert.equal(stimuli.length, 10);
+  assert.ok(pulses.every((p) => p.durationMs === 50));
+  assert.equal(engine.running, false);
+});
+
+test('响应锚定：tick 被延迟、一次发出多个试次时，按 dispatch 时间匹配，不套住上一个试次的 marker', () => {
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5 }, 0);
+  engine.tick(0); // trial 1，dispatch 0。
+  // 下一次 tick 晚到 4500 ms：一次发出 trial 2–5，dispatch 都是 4500。
+  engine.tick(4500);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(stimuli.length, 5);
+  assert.equal(stimuli[4].trialIndex, 5);
+  assert.equal(stimuli[4].tMs, 4000); // stimulus-sent 仍是计划时间。
+  // markers：4120 是上一个试次 ACK 后的 marker（按计划时间 4000 匹配会错套住它），
+  // 4600 才是 trial 5 自己的 marker（dispatch 4500 → ACK 4600）。
+  engine.confirmFromMarkers([
+    { t_ms: 4120, node: 0, kind: 'pulse', amplitude: 1 },
+    { t_ms: 4600, node: 0, kind: 'pulse', amplitude: 2 },
+  ]);
+  const responses = events.filter((e) => e.kind === 'response');
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].tMs, 4600 + 380);
+  assert.equal(responses[0].confirmed, true);
+});
+
 test('closed-loop：start 直通 configureFeedback，tick 不做事，stop 传 null', () => {
   const { engine, pulses, feedbackConfigs, events } = harness();
   const config = {

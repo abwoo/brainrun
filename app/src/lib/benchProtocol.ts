@@ -17,6 +17,12 @@
  *   （`sensoryTargetNodes(regions, 'visual')`，lV1/rV1）各发一次
  *   脉冲；频率默认 10 Hz（范围 1–30）；幅度直接给 0.5–2.0
  *   （默认 1.0），不另搞 intensity→amplitude 的隐藏换算。
+ * - 两个量不要混成一个字段：`durationMs` 是整轮协议的运行时长
+ *   （不传 = 一直跑到 `stop()`），`pulseDurationMs` 是每次刺激
+ *   的脉冲时长（默认 100 ms）。2026-11-18 之前台子把 UI 上的
+ *   “刺激时长”（100 ms）直接传进 `durationMs`，oddball/flicker
+ *   每轮只跑 100 ms、只发 1 个试次就 `completed`，永远到不了
+ *   trial 5、永远没有受试者响应；此后调用方必须把两者分开传。
  * - closed-loop：`start` 时调 `configureFeedback(config)` 直通
  *   `set_native_feedback`，`tick` 不做事；反馈的 detected/applied
  *   由组件经 `subscribeNativeFeedback` / `getNativeFeedback` 读到后
@@ -36,6 +42,15 @@
  * provisional 时间 + RT 发 `response`（`confirmed: false`）；
  * 超过 500 ms 仍无 marker → 丢弃该次响应并计数
  * （`droppedResponses` 只读）。
+ *
+ * `provisionalTms` 是发刺激那次 `tick()` 的模型时间（即 marker
+ * 被创建时的快照时间），不是试次的计划时间：`pulseAt` 调用的
+ * marker 以调用时的快照时间创建，`tick()` 被延迟时一次可发出
+ * 多个试次、它们的 marker 都是同一个 tick 时间；若按计划时间
+ * 匹配，窗口会套住上一个试次 ACK 后的 marker，响应就锚到错的
+ * 试次上（2026-11-18 预览实测：trial 5 的响应锚到了 trial 4
+ * 的 marker，响应−触发只有 242 ms）。`stimulus-sent` 事件的
+ * `tMs` 仍是计划时间（协议时间线），不受此影响。
  */
 import type { NativeFeedbackConfig } from './nativeFeedback.ts';
 import type { StimulusMarker } from './simClient.ts';
@@ -52,13 +67,19 @@ export interface BenchProtocolParams {
     oddballAmplitude?: number;
     isiMs?: number;
     oddballEvery?: number;
+    /** 整轮运行时长（ms）；不传 = 一直跑到 stop()。不是脉冲时长。 */
     durationMs?: number;
+    /** 每次刺激的脉冲时长（ms），默认 100；不传时回退到 durationMs（旧调用兼容）。 */
+    pulseDurationMs?: number;
   };
   flicker: {
     nodes?: number[];
     frequencyHz?: number;
     amplitude?: number;
+    /** 整轮运行时长（ms）；不传 = 一直跑到 stop()。不是脉冲时长。 */
     durationMs?: number;
+    /** 每次刺激的脉冲时长（ms），默认 100；不传时回退到 durationMs（旧调用兼容）。 */
+    pulseDurationMs?: number;
   };
   'closed-loop': NativeFeedbackConfig;
 }
@@ -110,6 +131,7 @@ const assertNode = (node: number): void => {
 interface PendingResponse {
   localId: number;
   node: number;
+  /** 发刺激那次 tick() 的模型时间（marker 创建时的快照时间），见模块头注。 */
   provisionalTms: number;
   rtMs: number;
   trialIndex: number;
@@ -166,7 +188,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     }
   };
 
-  const fireOddballTrial = (scheduledTms: number): void => {
+  const fireOddballTrial = (scheduledTms: number, tickTms: number): void => {
     trialIndex++;
     const isOddball = trialIndex % oddballEvery === 0;
     const amplitude = clampAmplitude(isOddball ? oddballAmp : oddballStandardAmp);
@@ -179,7 +201,8 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     if (isOddball) {
       const resp = deps.subject.nextOddballResponse(trialIndex, scheduledTms);
       pending.push({
-        localId: ++localIdSeq, node: oddballNode, provisionalTms: scheduledTms,
+        // marker 以这次 tick 的快照时间创建（见模块头注），不是计划时间。
+        localId: ++localIdSeq, node: oddballNode, provisionalTms: tickTms,
         rtMs: resp.rtMs, trialIndex, markerSeen: false,
       });
     }
@@ -232,7 +255,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
         oddballAmp = op.oddballAmplitude ?? 2.0;
         oddballIsiMs = op.isiMs ?? 1000;
         oddballEvery = op.oddballEvery ?? 5;
-        oddballDurationMs = clampDurationMs(op.durationMs ?? 100);
+        oddballDurationMs = clampDurationMs(op.pulseDurationMs ?? op.durationMs ?? 100);
         durationMs = op.durationMs;
         if (!(oddballIsiMs > 0)) throw new RangeError(`benchProtocol: isiMs must be > 0, got ${oddballIsiMs}`);
         if (!Number.isInteger(oddballEvery) || oddballEvery < 1) {
@@ -259,7 +282,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
         }
         flickerPeriodMs = 1000 / frequencyHz;
         flickerAmp = clampAmplitude(fp.amplitude ?? 1.0);
-        flickerDurationMs = clampDurationMs(fp.durationMs ?? 100);
+        flickerDurationMs = clampDurationMs(fp.pulseDurationMs ?? fp.durationMs ?? 100);
         durationMs = fp.durationMs;
         if (fp.nodes !== undefined) {
           fp.nodes.forEach(assertNode);
@@ -290,7 +313,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       const endMs = durationMs === undefined ? Infinity : startTms + durationMs;
       if (protocol === 'oddball') {
         while (nextTimeMs <= tMs && nextTimeMs < endMs) {
-          fireOddballTrial(nextTimeMs);
+          fireOddballTrial(nextTimeMs, tMs);
           nextTimeMs += oddballIsiMs;
         }
       } else if (protocol === 'flicker') {
