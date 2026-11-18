@@ -1,0 +1,1190 @@
+import {
+  useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import { useI18n } from '../lib/i18n';
+import Dropdown from './ui/Dropdown';
+import { ControlField, RangeControl } from './ui/ControlField';
+import LanguageSwitch from './ui/LanguageSwitch';
+import type { BrainData } from '../lib/brainData';
+import type {
+  BackgroundMode, ResponseSummary, SimClient, StimulusMarker,
+} from '../lib/simClient';
+import type { Snapshot } from '../worker/protocol';
+import {
+  getHeadModelSelection, setHeadModelSelection, subscribeHeadModelSelection,
+} from '../lib/headModelSelection';
+import { runNativeExperiment, NATIVE_EEG_ID } from '../lib/nativeEeg';
+import { ExperimentSession, makeDerivedSession } from '../lib/experimentSession';
+import {
+  capturePhysicalProjection, physicalProjectionReady,
+} from '../lib/physicalProjection';
+import { setPhysicalSource } from '../lib/physicalExperiment.ts';
+import {
+  validateSphereFixture, type MontageKey, type SphereFixture,
+} from '../lib/sphereForward';
+import type { EegEvent, EegRecording, EegReference } from '../lib/eegData';
+import {
+  recordingToCsv, recordingToJson, reReferenceRecording, rms,
+  sensoryTargetNodes, setLiveRecordingStore,
+} from '../lib/eegRecording';
+import type { NativeFeedbackConfig } from '../lib/nativeFeedback';
+// ---- Phase 1 bench lib (Implementer A, landed 2026-11-18). Signatures per
+// implementation-plan.md §1; the five deviations in A's report are reconciled
+// here (optional protocol nodes + regions dep, event `reason`, band-pass edge
+// 64 samples, derived-session assembly, single-pulse defaults).
+import {
+  BENCH_CAP_PRESETS, selectBenchCapChannels,
+  type BenchCapPreset, type BenchCapSelection,
+} from '../lib/benchCap';
+import { bandpassFilter, validateBandpassParams } from '../lib/signalProcessing';
+import { createSimulatedSubject } from '../lib/benchSubject';
+import {
+  createBenchProtocolEngine,
+  type BenchProtocolEngine, type BenchProtocolEvent, type BenchProtocolId,
+  type BenchProtocolParams,
+} from '../lib/benchProtocol';
+import { createBenchTrace, type BenchTraceEvent } from '../lib/benchTrace';
+import {
+  assembleBenchRecording, benchRecordingToStoreValue,
+  type AmplifierConfig, type BenchRecording,
+} from '../lib/benchRecording';
+
+/**
+ * Closed-loop bench (Phase 1 shell). Props are fixed by implementation-plan.md §2;
+ * App.tsx wiring is the coordinator's job. `sim` may be null until the engine is
+ * ready — every control that touches the engine is disabled with a reason instead
+ * of silently doing nothing.
+ */
+export interface ClosedLoopBenchProps {
+  networkView: ReactNode; data: BrainData | null;
+  selectedId: number | null; onSelect: (id: number) => void;
+  sim: SimClient | null; ready: boolean; error: string | null;
+  snap: Snapshot | null; paused: boolean; onPause: () => void;
+  background: BackgroundMode; onBackground: (mode: BackgroundMode) => void;
+  strength: number; durationMs: number; onStrength: (v: number) => void; onDuration: (v: number) => void; onPulse: () => void;
+  response: ResponseSummary | null; liveMomentNAm: number | null; runId: string | null;
+  onReset: () => void; onRecover: () => void;
+  onExitToPhysicsHome: () => void; onOpenAdvanced: () => void;
+}
+
+interface Acquisition {
+  recording: EegRecording; events: EegEvent[]; t0Ms: number;
+  sourcePositionMm: number[]; acquiredAtTms: number;
+}
+interface StimLogEntry {
+  key: number; node: number; amplitude: number; durationMs: number;
+  dispatchTms: number; ackTms: number | null; confirmed: boolean;
+}
+interface ResponseRow {
+  trialIndex: number; stimulusTms: number; responseTms: number;
+  rtMs: number; key: string; confirmed: boolean;
+}
+type ReferenceSel = 'average' | 'cz' | 'm1';
+
+const TRACE_CAP = 200;
+const WAVE_WINDOW_MS = 5000;
+
+function shortRunId(runId: string | null | undefined): string {
+  if (!runId) return '—';
+  return runId.length > 8 ? runId.slice(0, 8) : runId;
+}
+function fmt(n: number | null | undefined, digits = 2): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  return n.toFixed(digits);
+}
+function download(filename: string, text: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
+  const {
+    networkView, data, selectedId, onSelect, sim, ready, error, snap, paused, onPause,
+    background, onBackground, strength, durationMs, onStrength, onDuration,
+    liveMomentNAm, runId, onReset, onRecover, onExitToPhysicsHome, onOpenAdvanced,
+  } = props;
+  const { locale, t } = useI18n();
+  const text = useCallback((zh: string, en: string) => locale === 'zh-CN' ? zh : en, [locale]);
+  const engineReady = ready && sim !== null;
+  const notReadyReason = text('引擎未就绪：等待 Worker 启动。', 'Engine not ready: waiting for the Worker to start.');
+
+  // ---------- shared head-model store + sphere fixture ----------
+  const headModel = useSyncExternalStore(subscribeHeadModelSelection, getHeadModelSelection);
+  const [fixture, setFixture] = useState<SphereFixture | null>(null);
+  const [fixtureError, setFixtureError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(import.meta.env.BASE_URL + 'forward-assets/sphere-model.json', { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(text('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py', 'Model asset missing: run scientific/forward/generate_sphere_model.py first'));
+        const loaded = (await r.json()) as SphereFixture;
+        validateSphereFixture(loaded);
+        setFixture(loaded);
+      })
+      .catch((e) => { if (!controller.signal.aborted) setFixtureError(String(e)); });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------- cap preset ----------
+  const [capPreset, setCapPreset] = useState<BenchCapPreset>('10-10-64');
+  const [capSelection, setCapSelection] = useState<BenchCapSelection | null>(null);
+  const [capError, setCapError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fixture) { setCapSelection(null); return; }
+    try {
+      setCapSelection(selectBenchCapChannels(fixture, capPreset));
+      setCapError(null);
+    } catch (e) { setCapSelection(null); setCapError(String(e)); }
+  }, [fixture, capPreset]);
+  const capLabels: string[] = useMemo(() => capSelection?.labels ?? [], [capSelection]);
+  // The cap preset IS the channel state: push it into the shared physical
+  // source state so the projection (capturePhysicalProjection) — and therefore
+  // the recording — carries exactly these labels. One control, one state;
+  // the cap box, the loop strip and the recording can no longer disagree.
+  // Sphere only: the template BEM brings its own electrodes and ignores
+  // selectedLabels (physicalProjection.ts), so the preset does not apply there.
+  useEffect(() => {
+    if (headModel !== 'sphere' || !capSelection) return;
+    try {
+      setPhysicalSource({ montage: capSelection.montage, selectedLabels: [...capSelection.labels] });
+    } catch (e) { setCapError(String(e)); }
+  }, [headModel, capSelection]);
+
+  // ---------- amplifier state ----------
+  const [sampleRate, setSampleRate] = useState<250 | 500>(250);
+  const [referenceSel, setReferenceSel] = useState<ReferenceSel>('average');
+  const reference: EegReference = useMemo(() => referenceSel === 'average'
+    ? { mode: 'average' }
+    : { mode: 'electrode', label: referenceSel === 'cz' ? 'Cz' : 'M1' }, [referenceSel]);
+  // Protocol id mirror for callbacks that run outside render (assembleBench).
+  const protocolIdRef = useRef<BenchProtocolId>('single-pulse');
+  const [bandpassOn, setBandpassOn] = useState(true);
+  const [lowDraft, setLowDraft] = useState(0.5);
+  const [highDraft, setHighDraft] = useState(40);
+  const [lowHz, setLowHz] = useState(0.5);
+  const [highHz, setHighHz] = useState(40);
+  const bandpassValid = lowDraft > 0 && highDraft > lowDraft && highDraft < sampleRate / 2;
+  const [gain, setGain] = useState(1);
+  const [selectedChannel, setSelectedChannel] = useState('Pz');
+  // M1 is only a real reference when the acquired recording actually carries it:
+  // the projection channels come from the physical source state, not the cap preset.
+  const [referenceNote, setReferenceNote] = useState<string | null>(null);
+
+  // ---------- acquisition (native 1 ms path) + bench recording ----------
+  const [acquisition, setAcquisition] = useState<Acquisition | null>(null);
+  const acquisitionRef = useRef<Acquisition | null>(null);
+  // M1 is a real reference only when the acquired recording carries it; before
+  // the first acquisition, fall back to the cap preset's labels.
+  const hasM1 = acquisition
+    ? acquisition.recording.channels.some((c) => c.label === 'M1')
+    : capLabels.includes('M1');
+  const [acquiring, setAcquiring] = useState(false);
+  const acquiringRef = useRef(false);
+  const [acqError, setAcqError] = useState<string | null>(null);
+  const [benchRecording, setBenchRecording] = useState<BenchRecording | null>(null);
+  const [benchError, setBenchError] = useState<string | null>(null);
+  // Derived session for the bench record (one per upstream live run, reused
+  // across re-assemblies so the bench runId stays stable while the live run
+  // continues; a reset/new live run derives a fresh one). The raw live
+  // session must NOT be passed to assembleBenchRecording (A, 2026-11-18).
+  const derivedRef = useRef<{ upstreamRunId: string; session: ExperimentSession } | null>(null);
+  const getDerivedSession = useCallback((acq: Acquisition): ExperimentSession => {
+    const upstream = sim!.getExperimentSession();
+    const upstreamRunId = upstream.provenance.runId;
+    const cached = derivedRef.current;
+    if (cached && cached.upstreamRunId === upstreamRunId) {
+      cached.session.recordModelTime(cached.session.runId, acq.recording.timesMs.at(-1) ?? 0);
+      return cached.session;
+    }
+    const derived = makeDerivedSession(upstream.provenance, NATIVE_EEG_ID);
+    derived.recordModelTime(derived.runId, acq.recording.timesMs.at(-1) ?? 0);
+    derived.recordArtifact({
+      id: 'raw', runId: derived.runId, kind: 'eeg-raw', tMs: 0,
+      sourceId: upstreamRunId, methodId: NATIVE_EEG_ID,
+    });
+    derivedRef.current = { upstreamRunId, session: derived };
+    return derived;
+  }, [sim]);
+  // Extra events in absolute Worker ms (protocol triggers + subject responses).
+  // Native marker pulses are already in acquisition.events; assembleBench dedupes.
+  const extraEventsRef = useRef<EegEvent[]>([]);
+  const extraIdRef = useRef(0);
+
+  const amplifierConfig: AmplifierConfig = useMemo(() => ({
+    sampleRateHz: sampleRate,
+    reference,
+    bandpass: bandpassOn ? { lowHz, highHz } : null,
+    gain,
+  }), [sampleRate, reference, bandpassOn, lowHz, highHz, gain]);
+
+  const runAcquisition = useCallback((): Acquisition | null => {
+    if (!sim || !ready || !fixture || acquiringRef.current) return acquisitionRef.current;
+    acquiringRef.current = true;
+    setAcquiring(true);
+    try {
+      const node = selectedId ?? 0;
+      const samples = sim.getNativeHistory();
+      if (samples.length < 1001) {
+        throw new Error(text('原生积分记录不足，请等待至少 1 秒。', 'Not enough native integration history yet; wait at least 1 second.'));
+      }
+      if (!physicalProjectionReady(fixture)) {
+        throw new Error(text('所选头部模型尚未准备好，请先返回物理模型页面等待加载。', 'The selected head model is not ready. Open the physical model and wait for it to load.'));
+      }
+      const projection = capturePhysicalProjection(fixture);
+      const first = samples[0];
+      const { recording: rawRec, events, t0Ms, sourcePositionMm } = runNativeExperiment({
+        sfreqHz: sampleRate,
+        projection,
+        samples,
+        node,
+        baselineE: first.e[node],
+        baselineI: first.i[node],
+        markers: sim.getMarkers(),
+        noise: null,
+        seed: 1,
+      });
+      // Reference switch is a lossless re-reference off raw infinity data,
+      // never a rebuild of the µV itself (plan §1.6). M1 only exists when the
+      // acquired recording carries that channel; otherwise keep average and say so.
+      let recording = rawRec;
+      if (referenceSel === 'm1' && !rawRec.channels.some((c) => c.label === 'M1')) {
+        setReferenceNote(text('当前记录无 M1 通道，参考保持平均。', 'The current recording has no M1 channel; reference stays on average.'));
+      } else {
+        setReferenceNote(null);
+        recording = referenceSel === 'average' && rawRec.reference.mode === 'average'
+          ? rawRec
+          : reReferenceRecording(rawRec, reference);
+      }
+      const acquired: Acquisition = {
+        recording, events, t0Ms, sourcePositionMm: [...sourcePositionMm],
+        acquiredAtTms: sim.getLatest()?.t_ms ?? snap?.t_ms ?? 0,
+      };
+      acquisitionRef.current = acquired;
+      setAcquisition(acquired);
+      setAcqError(null);
+      if (!recording.channels.some((c) => c.label === selectedChannel)) {
+        setSelectedChannel(recording.channels.some((c) => c.label === 'Pz')
+          ? 'Pz' : recording.channels[0]?.label ?? 'Pz');
+      }
+      return acquired;
+    } catch (e) {
+      setAcqError(String(e));
+      return acquisitionRef.current;
+    } finally {
+      acquiringRef.current = false;
+      setAcquiring(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim, ready, fixture, sampleRate, referenceSel, selectedId]);
+
+  const assembleBench = useCallback((acq: Acquisition | null) => {
+    if (!sim || !acq || !capSelection) return;
+    try {
+      // Drop protocol trigger events the Worker already ACKed as markers:
+      // the native events carry the corrected ACK time and are authoritative.
+      const nativeAbs = new Set(acq.events.map((ev) => Math.round(ev.tMs + acq.t0Ms)));
+      const extra = extraEventsRef.current.filter((ev) => {
+        if (ev.type !== 'pulse') return true;
+        for (const t of nativeAbs) if (Math.abs(ev.tMs - t) <= 500) return false;
+        return true;
+      });
+      const br = assembleBenchRecording({
+        native: {
+          recording: acq.recording, events: acq.events,
+          t0Ms: acq.t0Ms, sourcePositionMm: acq.sourcePositionMm,
+        },
+        extraEvents: extra,
+        session: getDerivedSession(acq).getSnapshot(),
+        protocol: protocolIdRef.current,
+        amplifier: amplifierConfig,
+        cap: capSelection,
+        headModel,
+      });
+      setLiveRecordingStore(benchRecordingToStoreValue(br));
+      setBenchRecording(br);
+      setBenchError(null);
+    } catch (e) { setBenchError(String(e)); }
+  }, [sim, capSelection, amplifierConfig, headModel, getDerivedSession]);
+
+  const refreshAll = useCallback(() => {
+    const acq = runAcquisition();
+    if (acq) assembleBench(acq);
+  }, [runAcquisition, assembleBench]);
+
+  // Re-acquire when the amplifier chain, source node or head model changes.
+  const lastAutoRef = useRef(0);
+  useEffect(() => {
+    if (!engineReady || !fixture || !capSelection) return;
+    const now = Date.now();
+    if (now - lastAutoRef.current < 500) return;
+    lastAutoRef.current = now;
+    refreshAll();
+  }, [engineReady, fixture, capSelection, refreshAll]);
+
+  // ---------- loop trace ----------
+  const traceRef = useRef(createBenchTrace(TRACE_CAP));
+  const [traceList, setTraceList] = useState<BenchTraceEvent[]>([]);
+  const appendTrace = useCallback((e: Omit<BenchTraceEvent, 'seq'>) => {
+    traceRef.current.append(e);
+    setTraceList(traceRef.current.list());
+  }, []);
+
+  // ---------- protocol engine + simulated subject ----------
+  const [protocolId, setProtocolId] = useState<BenchProtocolId>('single-pulse');
+  useEffect(() => { protocolIdRef.current = protocolId; }, [protocolId]);
+  const [protocolRunning, setProtocolRunning] = useState(false);
+  const [trialCount, setTrialCount] = useState(0);
+  const [droppedResponses, setDroppedResponses] = useState(0);
+  const [responses, setResponses] = useState<ResponseRow[]>([]);
+  const [subjectSeed, setSubjectSeed] = useState(1);
+  const [rtMinMs, setRtMinMs] = useState(320);
+  const [rtMaxMs, setRtMaxMs] = useState(440);
+  const rtRangeValid = rtMinMs >= 50 && rtMaxMs > rtMinMs && rtMaxMs <= 2000;
+  // oddball params
+  const [oddballStandardAmp, setOddballStandardAmp] = useState(1);
+  const [oddballAmp, setOddballAmp] = useState(2);
+  const [oddballIsiMs, setOddballIsiMs] = useState(1000);
+  const [oddballEvery, setOddballEvery] = useState(5);
+  const [oddballDurationMs, setOddballDurationMs] = useState(100);
+  // flicker params
+  const [flickerFreqHz, setFlickerFreqHz] = useState(10);
+  const [flickerAmp, setFlickerAmp] = useState(1);
+  const [flickerDurationMs, setFlickerDurationMs] = useState(100);
+  // closed-loop params
+  const [clFeature, setClFeature] = useState<'instant' | 'rms'>('instant');
+  const [clThreshold, setClThreshold] = useState(0.5);
+  const [clAmplitude, setClAmplitude] = useState(1);
+  const [clDurationMs, setClDurationMs] = useState(100);
+  const [clPeriodMs, setClPeriodMs] = useState(1000);
+  const [clCooldownMs, setClCooldownMs] = useState(500);
+  const [clMaxTriggers, setClMaxTriggers] = useState(100);
+
+  const engineRef = useRef<BenchProtocolEngine | null>(null);
+  const [lastStimulusTms, setLastStimulusTms] = useState<number | null>(null);
+  const trialCountRef = useRef(0);
+
+  const handleProtocolEvent = useCallback((e: BenchProtocolEvent) => {
+    if (e.kind === 'protocol-started') {
+      setProtocolRunning(true);
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'protocol-started',
+        label: text('协议开始', 'Protocol started'), value: protocolIdRef.current, confirmed: false });
+    } else if (e.kind === 'protocol-stopped') {
+      setProtocolRunning(false);
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'protocol-stopped',
+        label: text('协议停止', 'Protocol stopped'), value: e.reason ?? '', confirmed: false });
+    } else if (e.kind === 'stimulus-sent') {
+      setLastStimulusTms(e.tMs);
+      extraEventsRef.current.push({
+        id: extraIdRef.current++, type: 'pulse',
+        condition: e.condition ?? 'unclassified', tMs: e.tMs,
+        drive: e.amplitude ?? 1, driveUnit: 'wc',
+      });
+      const v = `${text('脑区', 'node')} ${e.node ?? '—'} · ${fmt(e.amplitude, 2)} · ${e.durationMs ?? '—'} ms`;
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'trigger',
+        label: text('trigger 发出', 'Trigger sent'), value: v, confirmed: false });
+      appendTrace({ tMs: e.tMs, hop: 'stimulator', kind: 'command',
+        label: text('刺激命令已发送', 'Stimulus command sent'), value: v, confirmed: false });
+    } else if (e.kind === 'response') {
+      const rt = e.rtMs ?? 0;
+      const stimulusTms = e.tMs - rt;
+      setResponses((prev) => [...prev.slice(-49), {
+        trialIndex: e.trialIndex ?? trialCountRef.current,
+        stimulusTms, responseTms: e.tMs, rtMs: rt, key: 'Space',
+        confirmed: e.confirmed ?? false,
+      }]);
+      extraEventsRef.current.push({
+        id: extraIdRef.current++, type: 'response', condition: 'unclassified',
+        tMs: e.tMs, drive: rt, driveUnit: 'ms',
+      });
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'response',
+        label: text('受试者按键 Space', 'Subject pressed Space'),
+        value: `RT ${fmt(rt, 0)} ms`, confirmed: e.confirmed ?? false });
+    } else if (e.kind === 'feedback-detected') {
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'feedback-detected',
+        label: text('闭环特征检出', 'Closed-loop feature detected'),
+        value: `${text('脑区', 'node')} ${e.node ?? '—'}`, confirmed: true });
+    } else if (e.kind === 'feedback-applied') {
+      appendTrace({ tMs: e.tMs, hop: 'stimulator', kind: 'feedback-applied',
+        label: text('闭环刺激已施加', 'Closed-loop stimulus applied'),
+        value: `${text('脑区', 'node')} ${e.node ?? '—'} · ${fmt(e.amplitude, 2)}`, confirmed: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appendTrace]);
+
+  useEffect(() => {
+    if (!sim || !ready) { engineRef.current = null; setProtocolRunning(false); return; }
+    const subject = createSimulatedSubject({
+      seed: subjectSeed,
+      ...(rtRangeValid ? { rtMinMs, rtMaxMs } : {}),
+    });
+    const engine = createBenchProtocolEngine({
+      pulseAt: (node, amplitude, durationMs) => sim.pulseAt(node, amplitude, durationMs),
+      // simClient's public method is configureNativeFeedback (no setNativeFeedback).
+      configureFeedback: (config) => sim.configureNativeFeedback(config),
+      subject,
+      onEvent: handleProtocolEvent,
+      // Lets the engine resolve default sensory nodes when a protocol omits them.
+      regions: data?.regions,
+    });
+    engineRef.current = engine;
+    return () => { engine.stop(); engineRef.current = null; };
+  }, [sim, ready, data, subjectSeed, rtMinMs, rtMaxMs, rtRangeValid, handleProtocolEvent]);
+
+  // Worker feedback messages -> engine feedback events (plan §2: via emitFeedbackEvent).
+  useEffect(() => {
+    if (!sim || !ready) return;
+    return sim.subscribeNativeFeedback((msg) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      if (msg.phase === 'detected') {
+        engine.emitFeedbackEvent({
+          kind: 'feedback-detected', tMs: msg.t_ms,
+          node: msg.action?.node, amplitude: msg.action?.amplitude,
+          durationMs: msg.action?.durationMs, confirmed: true,
+        });
+      } else if (msg.phase === 'applied') {
+        engine.emitFeedbackEvent({
+          kind: 'feedback-applied', tMs: msg.t_ms,
+          node: msg.action?.node, amplitude: msg.action?.amplitude,
+          durationMs: msg.action?.durationMs, confirmed: true,
+        });
+      } else if (msg.phase === 'configured' || msg.phase === 'stopped') {
+        appendTrace({ tMs: msg.t_ms, hop: 'experiment-computer',
+          kind: msg.phase === 'configured' ? 'feedback-configured' : 'feedback-stopped',
+          label: msg.phase === 'configured'
+            ? text('闭环控制器已配置', 'Closed-loop controller configured')
+            : text('闭环控制器已停止', 'Closed-loop controller stopped'),
+          value: '', confirmed: true });
+      }
+    });
+  }, [sim, ready, appendTrace, text]);
+
+  // ---------- stimulator box ----------
+  const [stimTarget, setStimTarget] = useState<number | null>(null);
+  const stimNode = stimTarget ?? selectedId ?? 0;
+  const [stimLog, setStimLog] = useState<StimLogEntry[]>([]);
+  const stimKeyRef = useRef(0);
+  const sendPulse = useCallback(() => {
+    if (!sim || !ready) return;
+    const dispatchTms = sim.getLatest()?.t_ms ?? snap?.t_ms ?? 0;
+    sim.pulseAt(stimNode, strength, durationMs);
+    const key = stimKeyRef.current++;
+    setStimLog((prev) => [...prev.slice(-19), {
+      key, node: stimNode, amplitude: strength, durationMs,
+      dispatchTms, ackTms: null, confirmed: false,
+    }]);
+    appendTrace({ tMs: dispatchTms, hop: 'stimulator', kind: 'command',
+      label: text('手动刺激已发送', 'Manual stimulus sent'),
+      value: `${text('脑区', 'node')} ${stimNode} · ${fmt(strength, 2)} · ${durationMs} ms`,
+      confirmed: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim, ready, stimNode, strength, durationMs, appendTrace]);
+
+  // ---------- 250 ms poll: engine tick, marker confirmation, ACK matching ----------
+  const snapRef = useRef(snap);
+  useEffect(() => { snapRef.current = snap; }, [snap]);
+  const seenMarkerCountRef = useRef(0);
+  const lastAcquireAttemptRef = useRef(0);
+  useEffect(() => {
+    if (!sim || !ready) return;
+    const id = window.setInterval(() => {
+      const tMs = sim.getLatest()?.t_ms ?? snapRef.current?.t_ms ?? 0;
+      const engine = engineRef.current;
+      if (engine) {
+        engine.tick(tMs);
+        engine.confirmFromMarkers(sim.getMarkers());
+        trialCountRef.current = engine.trialIndex;
+        setTrialCount(engine.trialIndex);
+        setProtocolRunning(engine.running);
+        setDroppedResponses(engine.droppedResponses);
+      }
+      // Match manual stimulator commands to Worker-corrected markers (ACK time).
+      const markers = sim.getMarkers();
+      setStimLog((prev) => {
+        if (!prev.some((e) => !e.confirmed)) return prev;
+        let changed = false;
+        const next = prev.map((e) => {
+          if (e.confirmed) return e;
+          const m = markers.find((mk: StimulusMarker) => mk.kind === 'pulse' &&
+            mk.node === e.node && mk.t_ms >= e.dispatchTms - 20 && mk.t_ms <= e.dispatchTms + 500);
+          if (m) { changed = true; return { ...e, ackTms: m.t_ms, confirmed: true }; }
+          return e;
+        });
+        return changed ? next : prev;
+      });
+      // Trigger hop: every new Worker marker enters the amplifier event stream.
+      if (markers.length < seenMarkerCountRef.current) seenMarkerCountRef.current = 0;
+      if (markers.length > seenMarkerCountRef.current) {
+        const fresh = markers.slice(seenMarkerCountRef.current);
+        seenMarkerCountRef.current = markers.length;
+        const acq = acquisitionRef.current;
+        for (const m of fresh) {
+          if (m.kind !== 'pulse') continue;
+          const sampleIndex = acq
+            ? Math.round((m.t_ms - acq.t0Ms) * sampleRate / 1000)
+            : null;
+          appendTrace({ tMs: m.t_ms, hop: 'amplifier', kind: 'trigger',
+            label: text('trigger 记入事件流', 'Trigger logged to event stream'),
+            value: `${text('脑区', 'node')} ${m.node} · ${text('采样点', 'sample')} ${sampleIndex ?? '—'}`,
+            confirmed: true });
+        }
+      }
+      // Retry acquisition once native history is long enough.
+      if (!acquisitionRef.current && fixture && capSelection) {
+        const now = Date.now();
+        if (now - lastAcquireAttemptRef.current >= 1000) {
+          lastAcquireAttemptRef.current = now;
+          refreshAll();
+        }
+      }
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [sim, ready, fixture, capSelection, sampleRate, refreshAll, appendTrace, text]);
+
+  // ---------- displayed (amplified) trace: band-pass + gain, display only ----------
+  const [displayedSeries, setDisplayedSeries] = useState<number[] | null>(null);
+  const [displayError, setDisplayError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!acquisition) { setDisplayedSeries(null); return; }
+    const rec = acquisition.recording;
+    const idx = rec.channels.findIndex((c) => c.label === selectedChannel);
+    if (idx < 0) { setDisplayedSeries(null); return; }
+    try {
+      let series = [...rec.dataUv[idx]];
+      if (bandpassOn) {
+        validateBandpassParams({ lowHz, highHz, sfreqHz: rec.sfreqHz });
+        series = bandpassFilter(series, { lowHz, highHz, sfreqHz: rec.sfreqHz });
+      }
+      if (gain !== 1) series = series.map((v) => v * gain);
+      setDisplayedSeries(series);
+      setDisplayError(null);
+    } catch (e) {
+      setDisplayedSeries([...rec.dataUv[idx]].map((v) => v * gain));
+      setDisplayError(String(e));
+    }
+  }, [acquisition, selectedChannel, bandpassOn, lowHz, highHz, gain]);
+  const latestUv = displayedSeries?.at(-1) ?? null;
+  const rmsUv = displayedSeries ? rms(displayedSeries) : null;
+  const waveSeries = useMemo(() => {
+    if (!displayedSeries || !acquisition) return null;
+    const n = Math.min(displayedSeries.length, Math.round(WAVE_WINDOW_MS / 1000 * acquisition.recording.sfreqHz));
+    return displayedSeries.slice(-n);
+  }, [displayedSeries, acquisition]);
+
+  // ---------- waveform canvas (last 5 s, selected channel) ----------
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !waveSeries || !acquisition) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || 600;
+    const h = canvas.clientHeight || 160;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#070e16';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#1c3041';
+    ctx.lineWidth = 1;
+    for (let gy = 1; gy < 4; gy++) {
+      ctx.beginPath(); ctx.moveTo(0, (h * gy) / 4); ctx.lineTo(w, (h * gy) / 4); ctx.stroke();
+    }
+    const peak = Math.max(1, ...waveSeries.map((v) => Math.abs(v)));
+    ctx.strokeStyle = '#8bd3ff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    waveSeries.forEach((v, j) => {
+      const x = (j / Math.max(1, waveSeries.length - 1)) * w;
+      const y = h / 2 - (v / peak) * (h / 2 - 8);
+      if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = '#9db5c8';
+    ctx.font = '11px monospace';
+    ctx.fillText(`±${peak.toFixed(1)} µV`, 6, 14);
+  }, [waveSeries, acquisition]);
+
+  // ---------- protocol run / stop (a second run layer, distinct from global pause) ----------
+  const auditoryNodes = useMemo(
+    () => (data ? sensoryTargetNodes(data.regions, 'auditory') : []), [data]);
+  const visualNodes = useMemo(
+    () => (data ? sensoryTargetNodes(data.regions, 'visual') : []), [data]);
+  const protocolParams = useMemo((): BenchProtocolParams[BenchProtocolId] => {
+    if (protocolId === 'single-pulse') {
+      return { node: stimNode, amplitude: strength, durationMs };
+    }
+    if (protocolId === 'oddball') {
+      return {
+        node: auditoryNodes[0] ?? stimNode,
+        standardAmplitude: oddballStandardAmp, oddballAmplitude: oddballAmp,
+        isiMs: oddballIsiMs, oddballEvery, durationMs: oddballDurationMs,
+      };
+    }
+    if (protocolId === 'flicker') {
+      return {
+        nodes: visualNodes.length ? visualNodes : [stimNode],
+        frequencyHz: flickerFreqHz, amplitude: flickerAmp, durationMs: flickerDurationMs,
+      };
+    }
+    const config: NativeFeedbackConfig = {
+      node: stimNode, feature: clFeature, threshold: clThreshold,
+      amplitude: clAmplitude, durationMs: clDurationMs,
+      periodMs: clPeriodMs, windowMs: 1000, cooldownMs: clCooldownMs,
+      delayMs: 0, maxTriggers: clMaxTriggers,
+    };
+    return config;
+  }, [protocolId, stimNode, strength, durationMs, auditoryNodes, visualNodes,
+    oddballStandardAmp, oddballAmp, oddballIsiMs, oddballEvery, oddballDurationMs,
+    flickerFreqHz, flickerAmp, flickerDurationMs,
+    clFeature, clThreshold, clAmplitude, clDurationMs, clPeriodMs, clCooldownMs, clMaxTriggers]);
+
+  const runProtocol = useCallback(() => {
+    const engine = engineRef.current;
+    const startTms = sim?.getLatest()?.t_ms ?? snapRef.current?.t_ms ?? 0;
+    if (!engine || !sim || !ready) return;
+    extraEventsRef.current = [];
+    setResponses([]);
+    engine.start(protocolId, protocolParams, startTms);
+    setProtocolRunning(engine.running);
+  }, [sim, ready, protocolId, protocolParams]);
+  const stopProtocol = useCallback(() => {
+    engineRef.current?.stop();
+    setProtocolRunning(false);
+  }, []);
+
+  const nextStimulusTms = useMemo(() => {
+    if (!protocolRunning || lastStimulusTms === null) return null;
+    if (protocolId === 'oddball') return lastStimulusTms + oddballIsiMs;
+    if (protocolId === 'flicker') return lastStimulusTms + 1000 / flickerFreqHz;
+    return null;
+  }, [protocolRunning, protocolId, oddballIsiMs, flickerFreqHz, lastStimulusTms]);
+
+  // ---------- export ----------
+  const exportRecording = useCallback((kind: 'json' | 'csv') => {
+    const rec = benchRecording?.recording ?? acquisition?.recording;
+    if (!rec) return;
+    const short = shortRunId(benchRecording?.runId ?? runId);
+    download(`bench-${short}.${kind}`,
+      kind === 'json' ? recordingToJson(rec) : recordingToCsv(rec),
+      kind === 'json' ? 'application/json' : 'text/csv');
+  }, [benchRecording, acquisition, runId]);
+
+  const selectedRegion = data?.regions.find((r) => r.id === selectedId) ?? null;
+  const channelOptions = useMemo(() => {
+    const recChannels = acquisition?.recording.channels.map((c) => c.label) ?? [];
+    const inCap = recChannels.filter((l) => capLabels.includes(l));
+    return inCap.length ? inCap : recChannels;
+  }, [acquisition, capLabels]);
+  const montageOfPreset: MontageKey = capPreset.startsWith('10-20') ? '10-20'
+    : capPreset.startsWith('10-10') ? '10-10' : '10-05';
+  const lastStim = stimLog.at(-1) ?? null;
+  const totalSamples = acquisition?.recording.timesMs.length ?? 0;
+  const totalEvents = benchRecording?.events.length ?? acquisition?.events.length ?? 0;
+
+  return (
+    <div className="bench" data-testid="closed-loop-bench">
+      <header className="bench-header">
+        <div>
+          <h1>{t('bench.title')}</h1>
+          <p className="bench-subtitle">{t('bench.subtitle')}</p>
+        </div>
+        <div className="bench-header-actions">
+          <LanguageSwitch />
+          <button className="ui-button" type="button" onClick={onExitToPhysicsHome}>
+            {t('bench.backToPhysics')}
+          </button>
+          <button className="ui-button" type="button" onClick={onOpenAdvanced}>
+            {t('bench.openAdvanced')}
+          </button>
+          <button className="ui-button" type="button" onClick={onPause}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {paused ? t('shell.resume') : t('shell.pause')}
+          </button>
+          <button className="ui-button" type="button" onClick={onReset}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {t('shell.reset')}
+          </button>
+          <button className="ui-button" type="button" onClick={onRecover}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {text('恢复', 'Recover')}
+          </button>
+        </div>
+      </header>
+      {error && <p className="bench-error" role="alert">{error}</p>}
+      {!engineReady && (
+        <p className="bench-error" role="status">
+          {t('bench.notReady')}{text('：引擎启动后，全部控件可用。', ': all controls become available once the engine starts.')}
+        </p>
+      )}
+
+      {/* ---- loop diagram: six boxes, live value on every edge (snap, ~15 Hz) ---- */}
+      <section className="bench-loop" aria-label={t('bench.loop')}>
+        <div className="bench-loop-box">
+          <h2>{t('bench.brain')}</h2>
+          <p>q = {fmt(liveMomentNAm, 3)} nA·m</p>
+          <p>{selectedRegion ? selectedRegion.label : text('未选脑区', 'No region selected')}</p>
+        </div>
+        <div className="bench-loop-arrow" aria-hidden="true">→</div>
+        <div className="bench-loop-box">
+          <h2>{t('bench.cap')}</h2>
+          <p>{headModel === 'bem'
+            ? `${text('模板 BEM', 'Template BEM')} · ${acquisition?.recording.channels.length ?? '—'} ${text('通道', 'ch')}`
+            : capSelection ? `${capSelection.preset} · ${capSelection.channelCount} ${text('通道', 'ch')}` : '—'}</p>
+          <p>{headModel === 'bem' ? (acquisition?.recording.montage ?? text('模板 BEM', 'Template BEM')) : montageOfPreset}</p>
+        </div>
+        <div className="bench-loop-arrow" aria-hidden="true">→</div>
+        <div className="bench-loop-box">
+          <h2>{t('bench.amplifier')}</h2>
+          <p>{text('输出', 'Output')} {fmt(latestUv, 2)} µV</p>
+          <p>{sampleRate} Hz</p>
+        </div>
+        <div className="bench-loop-arrow" aria-hidden="true">→</div>
+        <div className="bench-loop-box">
+          <h2>{t('bench.testComputer')}</h2>
+          <p>{totalSamples} {text('样本', 'samples')} · {totalEvents} {text('事件', 'events')}</p>
+          <p>runId {shortRunId(benchRecording?.runId ?? runId)}</p>
+        </div>
+        <div className="bench-loop-arrow" aria-hidden="true">→</div>
+        <div className="bench-loop-box">
+          <h2>{t('bench.experimentComputer')}</h2>
+          <p>{t(`bench.protocol.${protocolId}`)}</p>
+          <p>{protocolRunning ? t('shell.running') : t('shell.paused')}</p>
+        </div>
+        <div className="bench-loop-arrow" aria-hidden="true">→</div>
+        <div className="bench-loop-box">
+          <h2>{t('bench.stimulator')}</h2>
+          <p>{lastStim
+            ? `${text('脑区', 'node')} ${lastStim.node} · ${fmt(lastStim.amplitude, 2)} · ${lastStim.durationMs} ms`
+            : text('尚未发送', 'Nothing sent yet')}</p>
+          <p>{lastStim?.confirmed ? text('Worker 已确认', 'Confirmed by Worker') : ''}</p>
+        </div>
+      </section>
+
+      {/* ---- main grid: signal detection / amplifier / test computer ---- */}
+      <div className="bench-grid">
+        <section className="bench-box" aria-label={t('bench.signalDetection')}>
+          <h2>{t('bench.signalDetection')}</h2>
+          <div className="bench-network"><div className="manual-brain">{networkView}</div></div>
+          <ControlField label={text('背景活动', 'Background activity')}>
+            <Dropdown value={background} disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => onBackground(e.target.value as BackgroundMode)}
+              aria-label={text('背景活动', 'Background activity')}>
+              <option value="quiet">{text('安静', 'Quiet')}</option>
+              <option value="spontaneous">{text('自发', 'Spontaneous')}</option>
+              <option value="oscillatory">{text('振荡', 'Oscillatory')}</option>
+            </Dropdown>
+          </ControlField>
+          <h3>{t('bench.cap')}</h3>
+          <ControlField label={text('脑电帽预设', 'Cap preset')}
+            hint={fixtureError ?? capError ?? undefined}>
+            <Dropdown value={capPreset} disabled={!fixture || !engineReady || headModel === 'bem'}
+              title={headModel === 'bem'
+                ? text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')
+                : !fixture ? text('头模型资源未加载', 'Head-model asset not loaded') : !engineReady ? notReadyReason : undefined}
+              onChange={(e) => setCapPreset(e.target.value as BenchCapPreset)}
+              aria-label={text('脑电帽预设', 'Cap preset')}>
+              {BENCH_CAP_PRESETS.map((p) => (
+                <option key={p.preset} value={p.preset}>
+                  {locale === 'zh-CN' ? p.labelZh : p.labelEn}
+                </option>
+              ))}
+            </Dropdown>
+          </ControlField>
+          {headModel === 'bem' ? (
+            <p className="bench-note">{text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')}</p>
+          ) : capSelection && (
+            <p className="bench-note">
+              {capSelection.montage} · {capSelection.channelCount} {text('通道', 'channels')} · {text('含 Cz', 'includes Cz')}: {capLabels.includes('Cz') ? text('是', 'yes') : text('否', 'no')}
+            </p>
+          )}
+          <ControlField label={text('头模型', 'Head model')}>
+            <Dropdown value={headModel}
+              onChange={(e) => setHeadModelSelection(e.target.value as 'sphere' | 'bem')}
+              aria-label={text('头模型', 'Head model')}>
+              <option value="sphere">{text('球形', 'Sphere')}</option>
+              <option value="bem">{text('模板 BEM', 'Template BEM')}</option>
+            </Dropdown>
+          </ControlField>
+          <p className="bench-note">
+            {text('外周传感器接口：ECG / 呼吸（Phase 1 未接入）', 'Peripheral sensor interface: ECG / respiration (not connected in Phase 1)')}
+          </p>
+        </section>
+
+        <section className="bench-box" aria-label={t('bench.amplifier')}>
+          <h2>{t('bench.amplifier')}</h2>
+          <ControlField label={text('采样率', 'Sample rate')}>
+            <Dropdown value={String(sampleRate)} disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => setSampleRate(Number(e.target.value) as 250 | 500)}
+              aria-label={text('采样率', 'Sample rate')}>
+              <option value="250">250 Hz</option>
+              <option value="500">500 Hz</option>
+            </Dropdown>
+          </ControlField>
+          <ControlField label={text('参考', 'Reference')}>
+            <Dropdown
+              value={referenceSel}
+              disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => setReferenceSel(e.target.value as ReferenceSel)}
+              aria-label={text('参考', 'Reference')}>
+              <option value="average">{text('平均参考', 'Average reference')}</option>
+              <option value="cz">Cz</option>
+              <option value="m1" disabled={!hasM1}>
+                {text('乳突 M1（单侧）', 'Mastoid M1 (single-sided)')}
+              </option>
+            </Dropdown>
+          </ControlField>
+          {!hasM1 && (
+            <p className="bench-note">{text('当前导联无 M1', 'No M1 in the current montage')}</p>
+          )}
+          <ControlField label={text('带通滤波', 'Band-pass filter')}>
+            <button className="ui-button" type="button" disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onClick={() => setBandpassOn((v) => !v)}>
+              {bandpassOn ? text('带通：开', 'Band-pass: on') : text('带通：关', 'Band-pass: off')}
+            </button>
+          </ControlField>
+          <RangeControl label={text('带通下限', 'Band-pass low')} unit="Hz"
+            value={lowDraft} min={0.1} max={10} step={0.1}
+            disabled={!engineReady || !bandpassOn}
+            onChange={setLowDraft} />
+          <RangeControl label={text('带通上限', 'Band-pass high')} unit="Hz"
+            value={highDraft} min={10} max={125} step={0.5}
+            disabled={!engineReady || !bandpassOn}
+            onChange={setHighDraft} />
+          <button className="ui-button" type="button"
+            disabled={!engineReady || !bandpassOn || !bandpassValid}
+            title={!bandpassValid ? text('需满足 0 < 低 < 高 < 采样率/2', 'Requires 0 < low < high < sample rate / 2') : undefined}
+            onClick={() => { setLowHz(lowDraft); setHighHz(highDraft); }}>
+            {t('bench.applyBandpass')}
+          </button>
+          {!bandpassValid && (
+            <p className="bench-note">{text('带通无效：需满足低 < 高。', 'Invalid band-pass: low must be below high.')}</p>
+          )}
+          <RangeControl label={text('增益', 'Gain')} unit="×"
+            value={gain} min={0.5} max={5} step={0.1}
+            disabled={!engineReady} onChange={setGain}
+            hint={text('增益只放大显示，不改记录里的 µV。', 'Gain scales the display only, never the recorded µV.')} />
+          {referenceNote && <p className="bench-note">{referenceNote}</p>}
+          <div className="bench-readout">
+            <p>{text('选中通道实时', 'Selected channel, live')} {fmt(latestUv, 2)} µV</p>
+            <p>RMS {fmt(rmsUv, 2)} µV · {sampleRate} Hz</p>
+            <p>{text('滤波状态', 'Filter')}: {bandpassOn
+              ? `${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz`
+              : text('直通（无带通）', 'Bypass (no band-pass)')}</p>
+            <p>{text('参考', 'Reference')}: {referenceSel === 'average'
+              ? text('平均', 'average') : referenceSel === 'cz' ? 'Cz' : 'M1'}</p>
+          </div>
+          {displayError && <p className="bench-error" role="alert">{displayError}</p>}
+          {acqError && <p className="bench-error" role="alert">{acqError}</p>}
+          <button className="ui-button" type="button" onClick={refreshAll}
+            disabled={!engineReady || acquiring}>
+            {acquiring ? text('采集中…', 'Acquiring…') : t('bench.refreshAcquisition')}
+          </button>
+        </section>
+
+        <section className="bench-box" aria-label={t('bench.testComputer')}>
+          <h2>{t('bench.testComputer')}</h2>
+          <h3>{t('bench.waveform')}</h3>
+          <p className="bench-note">
+            {text('通道', 'Channel')} {selectedChannel} · {sampleRate} Hz · {text('近 5 秒', 'last 5 s')}
+            {bandpassOn ? ` · ${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz` : ''}
+          </p>
+          <ControlField label={text('波形通道', 'Waveform channel')}>
+            <Dropdown value={selectedChannel} disabled={channelOptions.length === 0}
+              onChange={(e) => setSelectedChannel(e.target.value)}
+              aria-label={text('波形通道', 'Waveform channel')}>
+              {channelOptions.map((label) => (
+                <option key={label} value={label}>{label}</option>
+              ))}
+            </Dropdown>
+          </ControlField>
+          <canvas ref={canvasRef} className="bench-wave" aria-label={t('bench.waveform')} />
+          <h3>{t('bench.recording')}</h3>
+          <div className="bench-readout">
+            <p>runId {shortRunId(benchRecording?.runId ?? runId)}</p>
+            <p>{text('模型时间', 'Model time')} {fmt(snap?.t_ms ?? null, 0)} ms</p>
+            <p>{text('样本数', 'Samples')} {totalSamples} · {text('事件数', 'Events')} {totalEvents} · {text('试次数', 'Trials')} {trialCount}</p>
+            <p>{text('协议', 'Protocol')}: {protocolId ? t(`bench.protocol.${protocolId}`) : '—'}</p>
+            <p>{text('头模型', 'Head model')}: {headModel} · {text('脑电帽', 'Cap')}: {capSelection?.preset ?? '—'}</p>
+          </div>
+          {benchError && <p className="bench-error" role="alert">{benchError}</p>}
+          <div className="bench-actions">
+            <button className="ui-button" type="button" onClick={() => refreshAll()}
+              disabled={!engineReady || acquiring}>{t('bench.updateRecording')}</button>
+            <button className="ui-button" type="button" onClick={() => exportRecording('json')}
+              disabled={!benchRecording && !acquisition}>{t('bench.exportJson')}</button>
+            <button className="ui-button" type="button" onClick={() => exportRecording('csv')}
+              disabled={!benchRecording && !acquisition}>{t('bench.exportCsv')}</button>
+          </div>
+        </section>
+      </div>
+
+      {/* ---- bottom row: experiment computer + stimulator ---- */}
+      <div className="bench-grid bench-grid-bottom">
+        <section className="bench-box" aria-label={t('bench.experimentComputer')}>
+          <h2>{t('bench.experimentComputer')}</h2>
+          <ControlField label={text('协议', 'Protocol')}>
+            <Dropdown value={protocolId} disabled={!engineReady || protocolRunning}
+              title={!engineReady ? notReadyReason : protocolRunning ? text('协议运行中，停下后再换', 'Stop the protocol before switching') : undefined}
+              onChange={(e) => setProtocolId(e.target.value as BenchProtocolId)}
+              aria-label={text('协议', 'Protocol')}>
+              <option value="single-pulse">{t('bench.protocol.single-pulse')}</option>
+              <option value="oddball">{t('bench.protocol.oddball')}</option>
+              <option value="flicker">{t('bench.protocol.flicker')}</option>
+              <option value="closed-loop">{t('bench.protocol.closed-loop')}</option>
+            </Dropdown>
+          </ControlField>
+          {protocolId === 'oddball' && (
+            <>
+              <RangeControl label={text('标准刺激幅度', 'Standard amplitude')} unit=""
+                value={oddballStandardAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballStandardAmp} />
+              <RangeControl label={text('oddball 幅度', 'Oddball amplitude')} unit=""
+                value={oddballAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballAmp} />
+              <RangeControl label={text('试次间隔 ISI', 'Inter-stimulus interval')} unit="ms"
+                value={oddballIsiMs} min={200} max={5000} step={50}
+                disabled={!engineReady || protocolRunning} onChange={setOddballIsiMs} />
+              <RangeControl label={text('每 N 个试次出一个 oddball', 'Oddball every N trials')} unit=""
+                value={oddballEvery} min={2} max={10} step={1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballEvery} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={oddballDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setOddballDurationMs} />
+              <p className="bench-note">
+                {text('听觉节点', 'Auditory nodes')}: {auditoryNodes.length
+                  ? auditoryNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
+                  : text('未找到（检查脑区数据）', 'not found (check region data)')}
+              </p>
+            </>
+          )}
+          {protocolId === 'flicker' && (
+            <>
+              <RangeControl label={text('闪烁频率', 'Flicker frequency')} unit="Hz"
+                value={flickerFreqHz} min={1} max={30} step={0.5}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerFreqHz} />
+              <RangeControl label={text('幅度', 'Amplitude')} unit=""
+                value={flickerAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerAmp} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={flickerDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerDurationMs} />
+              <p className="bench-note">
+                {text('视觉节点', 'Visual nodes')}: {visualNodes.length
+                  ? visualNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
+                  : text('未找到（检查脑区数据）', 'not found (check region data)')}
+              </p>
+            </>
+          )}
+          {protocolId === 'closed-loop' && (
+            <>
+              <ControlField label={text('特征', 'Feature')}>
+                <Dropdown value={clFeature} disabled={!engineReady || protocolRunning}
+                  onChange={(e) => setClFeature(e.target.value as 'instant' | 'rms')}
+                  aria-label={text('特征', 'Feature')}>
+                  <option value="instant">{text('瞬时值', 'Instant value')}</option>
+                  <option value="rms">{text('均方根', 'RMS')}</option>
+                </Dropdown>
+              </ControlField>
+              <RangeControl label={text('触发阈值', 'Trigger threshold')} unit=""
+                value={clThreshold} min={0} max={1} step={0.05}
+                disabled={!engineReady || protocolRunning} onChange={setClThreshold} />
+              <RangeControl label={text('幅度', 'Amplitude')} unit=""
+                value={clAmplitude} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setClAmplitude} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={clDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setClDurationMs} />
+              <RangeControl label={text('评估周期', 'Evaluation period')} unit="ms"
+                value={clPeriodMs} min={100} max={5000} step={100}
+                disabled={!engineReady || protocolRunning} onChange={setClPeriodMs} />
+              <RangeControl label={text('冷却时间', 'Cooldown')} unit="ms"
+                value={clCooldownMs} min={0} max={5000} step={100}
+                disabled={!engineReady || protocolRunning} onChange={setClCooldownMs} />
+              <RangeControl label={text('最多触发次数', 'Max triggers')} unit=""
+                value={clMaxTriggers} min={1} max={100} step={1}
+                disabled={!engineReady || protocolRunning} onChange={setClMaxTriggers} />
+            </>
+          )}
+          {protocolId === 'single-pulse' && (
+            <p className="bench-note">
+              {text('单脉冲用刺激器盒的目标、幅度和时长，开始即发一次，随后自动停止。',
+                'Single pulse uses the stimulator box target, amplitude and duration; it fires once on start, then stops itself.')}
+            </p>
+          )}
+          <div className="bench-actions">
+            <button className="ui-button ui-button-primary" type="button"
+              onClick={runProtocol} disabled={!engineReady || protocolRunning}
+              title={!engineReady ? notReadyReason : undefined}>
+              {t('bench.runProtocol')}
+            </button>
+            <button className="ui-button" type="button"
+              onClick={stopProtocol} disabled={!engineReady || !protocolRunning}>
+              {t('bench.stopProtocol')}
+            </button>
+          </div>
+          <p className="bench-note">
+            {text('全局暂停（顶栏）停的是整个仿真；协议运行/停止只管当前协议，两者不是同一个按钮。',
+              'The header pause stops the whole simulation; protocol run/stop only controls the current protocol. They are not the same button.')}
+          </p>
+          <div className="bench-readout">
+            <p>{text('协议状态', 'Protocol state')}: {protocolRunning ? t('shell.running') : t('shell.paused')}</p>
+            <p>{text('试次数', 'Trials')}: {trialCount}</p>
+            <p>{text('下一次刺激（模型时间）', 'Next stimulus (model time)')}: {nextStimulusTms !== null ? `${fmt(nextStimulusTms, 0)} ms` : '—'}</p>
+            <p>{text('丢弃的响应', 'Dropped responses')}: {droppedResponses}</p>
+          </div>
+          <h3>{text('模拟受试者', 'Simulated subject')}</h3>
+          <RangeControl label={text('种子', 'Seed')} unit=""
+            value={subjectSeed} min={1} max={9999} step={1}
+            disabled={!engineReady || protocolRunning} onChange={setSubjectSeed}
+            hint={text('同一种子给出同一串反应时。', 'The same seed gives the same reaction-time sequence.')} />
+          <RangeControl label={text('反应时下限', 'Reaction-time minimum')} unit="ms"
+            value={rtMinMs} min={50} max={1000} step={10}
+            disabled={!engineReady || protocolRunning} onChange={setRtMinMs} />
+          <RangeControl label={text('反应时上限', 'Reaction-time maximum')} unit="ms"
+            value={rtMaxMs} min={50} max={2000} step={10}
+            disabled={!engineReady || protocolRunning} onChange={setRtMaxMs} />
+          {!rtRangeValid && (
+            <p className="bench-note">{text('反应时范围无效：需满足 50 ≤ 下限 < 上限 ≤ 2000 ms。', 'Invalid RT range: requires 50 ≤ min < max ≤ 2000 ms.')}</p>
+          )}
+          <p className="bench-note">
+            {text('模拟受试者只对 oddball 试次按 Space 键；反应时是仿真假设，不是生理测量。',
+              'The simulated subject only presses Space on oddball trials; reaction time is a simulation assumption, not a physiological measurement.')}
+          </p>
+          <div className="bench-table-wrap">
+            <table className="bench-table">
+              <thead>
+                <tr>
+                  <th>{text('试次', 'Trial')}</th><th>{text('刺激 t', 'Stimulus t')}</th>
+                  <th>{text('响应 t', 'Response t')}</th><th>RT</th><th>{text('按键', 'Key')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {responses.length === 0 && (
+                  <tr><td colSpan={5}>{text('暂无按键记录', 'No key presses yet')}</td></tr>
+                )}
+                {responses.slice(-8).map((r) => (
+                  <tr key={`${r.trialIndex}-${r.responseTms}`}>
+                    <td>{r.trialIndex}</td>
+                    <td>{fmt(r.stimulusTms, 0)} ms</td>
+                    <td>{fmt(r.responseTms, 0)} ms{r.confirmed ? '' : ` ${text('（未确认）', '(unconfirmed)')}`}</td>
+                    <td>{fmt(r.rtMs, 0)} ms</td>
+                    <td>{r.key}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="bench-box" aria-label={t('bench.stimulator')}>
+          <h2>{t('bench.stimulator')}</h2>
+          <ControlField label={text('目标脑区', 'Target region')}>
+            <Dropdown value={String(stimNode)} disabled={!engineReady || !data}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => { setStimTarget(Number(e.target.value)); onSelect(Number(e.target.value)); }}
+              aria-label={text('目标脑区', 'Target region')}>
+              {(data?.regions ?? []).map((r) => (
+                <option key={r.id} value={String(r.id)}>{r.label}</option>
+              ))}
+            </Dropdown>
+          </ControlField>
+          <RangeControl label={text('幅度', 'Amplitude')} unit=""
+            value={strength} min={0.5} max={2} step={0.05}
+            disabled={!engineReady} onChange={onStrength} />
+          <RangeControl label={text('时长', 'Duration')} unit="ms"
+            value={durationMs} min={20} max={500} step={10}
+            disabled={!engineReady} onChange={onDuration} />
+          <button className="ui-button ui-button-primary" type="button"
+            onClick={sendPulse} disabled={!engineReady}
+            title={!engineReady ? notReadyReason : undefined}>
+            {t('bench.sendPulse')}
+          </button>
+          <p className="bench-note">
+            {text('经 sim.pulseAt 直达 Worker；ACK 时间以 Worker 为准，不是点击时间。',
+              'Goes to the Worker via sim.pulseAt; the ACK time is the Worker time, not the click time.')}
+          </p>
+          <h3>{text('命令日志', 'Command log')}</h3>
+          <div className="bench-table-wrap">
+            <table className="bench-table">
+              <thead>
+                <tr>
+                  <th>{text('目标', 'Target')}</th><th>{text('幅度', 'Amplitude')}</th>
+                  <th>{text('时长', 'Duration')}</th><th>ACK</th><th>{text('确认', 'Confirmed')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stimLog.length === 0 && (
+                  <tr><td colSpan={5}>{text('暂无命令', 'No commands yet')}</td></tr>
+                )}
+                {stimLog.slice(-8).map((e) => (
+                  <tr key={e.key}>
+                    <td>{data?.regions[e.node]?.label ?? e.node}</td>
+                    <td>{fmt(e.amplitude, 2)}</td>
+                    <td>{e.durationMs} ms</td>
+                    <td>{e.ackTms !== null ? `${fmt(e.ackTms, 0)} ms` : '—'}</td>
+                    <td>{e.confirmed ? text('是', 'yes') : text('否', 'no')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* ---- loop trace ---- */}
+      <section className="bench-box bench-trace" aria-label={t('bench.trace')}>
+        <div className="bench-trace-head">
+          <h2>{t('bench.trace')}</h2>
+          <button className="ui-button" type="button"
+            onClick={() => { traceRef.current.clear(); setTraceList([]); }}>
+            {t('bench.clearTrace')}
+          </button>
+        </div>
+        <p className="bench-note">
+          {text('图例：Worker 确认 = 时间来自 Worker 的 ACK / 反馈动作；客户端观测 = 取最新快照的模型时间，未经 Worker 确认。两者不要混为一谈。',
+            'Legend: Worker-confirmed = time from a Worker ACK / feedback action; client-observed = the latest snapshot model time, not confirmed by the Worker. Do not mix the two.')}
+        </p>
+        <div className="bench-table-wrap">
+          <table className="bench-table">
+            <thead>
+              <tr>
+                <th>#</th><th>{text('环节', 'Hop')}</th><th>{text('模型时间', 'Model time')}</th>
+                <th>{text('内容', 'Content')}</th><th>{text('数值', 'Value')}</th><th>{text('确认', 'Confirmed')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {traceList.length === 0 && (
+                <tr><td colSpan={6}>{text('暂无追踪记录', 'No trace entries yet')}</td></tr>
+              )}
+              {traceList.slice(-30).map((e) => (
+                <tr key={e.seq}>
+                  <td>{e.seq}</td>
+                  <td>{e.hop}</td>
+                  <td>{fmt(e.tMs, 0)} ms</td>
+                  <td>{e.label}</td>
+                  <td>{e.value}</td>
+                  <td>{e.confirmed
+                    ? text('Worker 确认', 'Worker-confirmed')
+                    : text('客户端观测', 'Client-observed')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer className="bench-footnote">{t('bench.footer')}</footer>
+    </div>
+  );
+}

@@ -1,5 +1,5 @@
-import {compareNetworkBranches} from './networkComparison';
-import {validateFeedbackConfig,type NativeFeedbackConfig} from './nativeFeedback';
+import {compareNetworkBranches} from './networkComparison.ts';
+import {validateFeedbackConfig,type NativeFeedbackConfig} from './nativeFeedback.ts';
 /**
  * 主线程仿真客户端（Phase 3）。
  *
@@ -11,8 +11,8 @@ import {validateFeedbackConfig,type NativeFeedbackConfig} from './nativeFeedback
  * 供 Playwright 因果测试使用；它不产生任何额外活动。
  */
 import type { ModeParams, SimParams, Snapshot, WorkerInMessage, WorkerOutMessage } from '../worker/protocol';
-import {appendNativeChunk,type NativeSample} from './nativeAcquisition';
-import { ExperimentSession } from './experimentSession';
+import {appendNativeChunk,type NativeSample} from './nativeAcquisition.ts';
+import { ExperimentSession } from './experimentSession.ts';
 import type { ExperimentSessionSnapshot } from './experimentSession';
 
 export type { ModeParams } from '../worker/protocol';

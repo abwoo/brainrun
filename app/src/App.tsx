@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PhysicsHome, { type AdvancedDestination } from './components/PhysicsHome';
+import ClosedLoopBench from './components/ClosedLoopBench';
 import LanguageSwitch from './components/ui/LanguageSwitch';
 import { useI18n, type MessageKey } from './lib/i18n';
 import BrainScene from './components/BrainScene';
@@ -184,9 +185,9 @@ function ValueSlider({
 
 export default function App() {
   const { locale, t } = useI18n();
-  const [workspace, setWorkspace] = useState<'basic'|'advanced'>(() => window.location.hash.startsWith('#advanced') ? 'advanced' : 'basic');
+  const [workspace, setWorkspace] = useState<'bench'|'basic'|'advanced'>(() => window.location.hash.startsWith('#advanced') ? 'advanced' : window.location.hash.startsWith('#basic') ? 'basic' : 'bench');
   useEffect(() => {
-    const route = () => setWorkspace(window.location.hash.startsWith('#advanced') ? 'advanced' : 'basic');
+    const route = () => setWorkspace(window.location.hash.startsWith('#advanced') ? 'advanced' : window.location.hash.startsWith('#basic') ? 'basic' : 'bench');
     window.addEventListener('hashchange', route);
     return () => window.removeEventListener('hashchange', route);
   }, []);
@@ -997,6 +998,27 @@ export default function App() {
     if (target === 'presets') setShowScenarioLauncher(true);
     if (target === 'model') setShowModelInfo(true);
   };
+  if (workspace === 'bench') return <ClosedLoopBench
+    data={data} selectedId={selectedId} onSelect={setSelectedId}
+    sim={simRef.current} ready={simReady} error={simError??loadError}
+    snap={snap} paused={paused} onPause={handlePlayPause}
+    background={bgMode} onBackground={handleBackgroundMode}
+    strength={Number(KNOB_MAP.stimulusAmplitude(kStim).toFixed(2))} durationMs={Math.round(KNOB_MAP.durationMs(kDur))}
+    onStrength={value=>{setKStim(KNOB_MAP.stimulusK(value));simRef.current?.setParams({stim_amplitude:value});}}
+    onDuration={value=>{setKDur(KNOB_MAP.durationK(value));simRef.current?.setParams({stim_duration_ms:value});}}
+    onPulse={()=>{if(selectedId!==null)handlePulse(selectedId);}}
+    response={resp.summary} liveMomentNAm={liveMomentNAm} runId={runOverview?.runId ?? null}
+    onReset={()=>{const id=selectedId;handleWeightResetAll();handleBackgroundMode(DEFAULT_BACKGROUND_MODE);handleReset();setSelectedId(id);}}
+    onRecover={()=>handleRestoreSnapshot('pulse-baseline')}
+    onExitToPhysicsHome={()=>{window.location.hash='basic';setWorkspace('basic');}}
+    onOpenAdvanced={()=>{window.location.hash='advanced';setWorkspace('advanced');}}
+    networkView={data?<BrainScene pointerStimulates={false} data={data} autoRotate={false}
+      showConnections={true} selectedId={selectedId} resetSignal={resetSignal} onSelect={setSelectedId}
+      sim={simRef.current} onPulse={handlePulse} onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd}
+      onHoldRetract={handleHoldRetract} colorMode="delta" baselineE={resp.baselineE} replayE={null}
+      responseGroups={resp.summary?resp.groups:null} biasList={biasList}/>:
+      <p className="model-loading">{locale==='zh-CN'?'正在加载脑区模型…':'Loading the region model…'}</p>}
+  />;
   if (workspace === 'basic') return <PhysicsHome
     data={data} selectedId={selectedId} onSelect={setSelectedId}
     sim={simRef.current} ready={simReady} error={simError??loadError}
@@ -1018,8 +1040,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <a className="topbar-title" href="#" onClick={()=>setWorkspace('basic')}>BrainRun</a>
-        <button type="button" className="chip" onClick={()=>{window.location.hash='';setWorkspace('basic');}}>
+        <a className="topbar-title" href="#basic" onClick={()=>setWorkspace('basic')}>BrainRun</a>
+        <button type="button" className="chip" onClick={()=>{window.location.hash='basic';setWorkspace('basic');}}>
           {locale==='zh-CN'?'返回物理模型':'Back to physical models'}
         </button>
         <div className="topbar-sub">{t('shell.subtitle')}</div>

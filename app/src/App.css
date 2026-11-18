@@ -1475,3 +1475,47 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .template-physics-body label{display:block;margin-bottom:12px}.template-physics-body input[type=range]{width:100%}
 .template-physics-body td,.template-physics-body th{padding:4px 10px;text-align:right}.template-physics-body pre{max-height:240px;overflow:auto;font-size:12px}
 @media(max-width:760px){.template-physics-grid{grid-template-columns:minmax(0,1fr)}.template-physics-body{padding:8px}}
+
+/* Closed-loop bench (Phase 1): own .bench-* prefix; never reuse .physics-* / .manual-*. */
+.bench { background:#080e16; color:#dcecf5; min-height:100dvh; padding:0 clamp(16px,3vw,48px) 32px; box-sizing:border-box; }
+.bench-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; padding:20px 0 8px; }
+.bench-header h1 { font-size:clamp(22px,2.1vw,32px); line-height:1.25; font-weight:600; margin:0; }
+.bench-subtitle { color:#8ebcda; font-size:13px; margin:6px 0 0; }
+.bench-header-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.bench-error { color:#ffcc9b; padding:10px 12px; border:1px solid #79563a; border-radius:5px; font-size:13px; }
+.bench-loop { display:grid; grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr) 24px minmax(0,1fr) 24px minmax(0,1fr) 24px minmax(0,1fr) 24px minmax(0,1fr); gap:0; align-items:stretch; margin:16px 0 24px; }
+.bench-loop-box { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:12px 14px; min-width:0; }
+.bench-loop-box h2 { margin:0 0 6px; font-size:14px; font-weight:600; color:#d9e6ee; }
+.bench-loop-box p { margin:2px 0; font-size:12px; color:#9fb6c6; overflow-wrap:anywhere; }
+.bench-loop-arrow { display:grid; place-items:center; color:#8bd3ff; font-size:18px; }
+.bench-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; align-items:start; margin-bottom:24px; }
+.bench-grid-bottom { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.bench-box { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:20px; min-width:0; display:flex; flex-direction:column; gap:14px; }
+.bench-box>h2 { margin:0; font-size:16px; font-weight:600; }
+.bench-box>h3 { margin:4px 0 0; font-size:14px; font-weight:600; color:#c6dce9; }
+.bench-box .control-field { width:100%; }
+.bench-box .brainrun-dropdown { width:100%; }
+.bench-box .brainrun-dropdown-native { min-height:42px; font-size:14px; }
+.bench-network { min-height:320px; border:1px solid #283f51; border-radius:10px; background:#070e16; overflow:hidden; }
+.bench-network .manual-brain { height:clamp(320px,40vh,480px); }
+.bench-note { color:#9fb6c6; font-size:13px; line-height:1.65; margin:0; }
+.bench-readout { padding:12px; background:#08121c; border:1px solid #284255; border-radius:5px; font-size:13px; }
+.bench-readout p { margin:4px 0; overflow-wrap:anywhere; }
+.bench-wave { display:block; width:100%; height:160px; background:#070e16; border:1px solid #283f51; border-radius:8px; }
+.bench-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.bench-actions>* { flex:1; min-width:120px; }
+.bench-table-wrap { overflow-x:auto; }
+.bench-table { width:100%; border-collapse:collapse; font-size:12px; }
+.bench-table th, .bench-table td { padding:6px 8px; text-align:left; border-bottom:1px solid #203545; color:#b6cbd8; white-space:nowrap; }
+.bench-table th { color:#c6dce9; }
+.bench-trace-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+.bench-trace-head h2 { margin:0; font-size:16px; font-weight:600; }
+.bench-footnote { padding-top:18px; font-size:12px; color:#819aaf; }
+@media(max-width:1100px) { .bench-loop { grid-template-columns:repeat(3,minmax(0,1fr)); } .bench-loop-arrow { display:none; } }
+@media(max-width:900px) {
+  .bench-grid, .bench-grid-bottom { grid-template-columns:minmax(0,1fr); }
+  .bench-loop { grid-template-columns:minmax(0,1fr); }
+  .bench-loop-arrow { display:grid; transform:rotate(90deg); padding:2px 0; }
+  .bench-header-actions { width:100%; }
+  .bench-box { padding:16px; }
+}

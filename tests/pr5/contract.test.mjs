@@ -70,6 +70,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (rel) => readFileSync(join(root, rel), 'utf8');
 
 const protocolTs = src('app/src/worker/protocol.ts');
+const nativeAcquisitionTs = src('app/src/lib/nativeAcquisition.ts');
 const simWorkerTs = src('app/src/worker/simWorker.ts');
 const simClientTs = src('app/src/lib/simClient.ts');
 const appTsx = src('app/src/App.tsx');
@@ -343,27 +344,33 @@ test('局部皮层柱：TS 默认 = Python 对照，换算因子一致', () => {
   assert.ok(columnPy.includes('"drive":1.4'));
 });
 
-test('Worker 协议：21 种入站消息与 Worker 处理分支一一对应', () => {
+test('Worker 协议：23 种入站消息与 Worker 处理分支一一对应', () => {
   const inStart = protocolTs.indexOf('export type WorkerInMessage');
   const inEnd = protocolTs.indexOf('/** Background mode', inStart);
   const inBlock = protocolTs.slice(inStart, inEnd);
   const declared = [...inBlock.matchAll(/\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
-  assert.equal(declared.length, 21, `入站消息应为 21 种，实得 ${declared.length}`);
-  assert.equal(new Set(declared).size, 21, '入站消息类型不得重复');
+  assert.equal(declared.length, 23, `入站消息应为 23 种，实得 ${declared.length}`);
+  assert.equal(new Set(declared).size, 23, '入站消息类型不得重复');
   const cases = [...simWorkerTs.matchAll(/case '([^']+)':/g)].map((m) => m[1]);
   assert.deepEqual([...cases].sort(), [...declared].sort());
-  // 出站 6 种：5 种字面 post + snapshot 是 WorkerOutMessage 里的裸接口引用。
+  // 出站 9 种：7 种字面 + snapshot 与 native_samples 是 WorkerOutMessage 里的接口引用
+  //（Snapshot 裸接口、NativeChunk 导入接口；NativeChunk 的 type 字面量在 nativeAcquisition.ts 里）。
   const outStart = protocolTs.indexOf('export type WorkerOutMessage');
   const outBlock = protocolTs.slice(outStart);
   const outDeclared = [...outBlock.matchAll(/\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
   if (/\n\s*\| Snapshot\b/.test(outBlock)) outDeclared.push('snapshot');
+  if (outBlock.includes('NativeChunk')) outDeclared.push('native_samples');
+  assert.ok(nativeAcquisitionTs.includes("type:'native_samples'"),
+    'NativeChunk 的 type 字面量应为 native_samples');
   assert.deepEqual([...outDeclared].sort(),
-    ['error', 'mode_applied', 'ready', 'snapshot', 'snapshot_restored', 'snapshot_saved'].sort());
+    ['command_ack', 'error', 'mode_applied', 'native_feedback', 'native_samples',
+      'ready', 'snapshot', 'snapshot_restored', 'snapshot_saved'].sort());
   const posted = [...simWorkerTs.matchAll(/post\(\{\s*type:\s*'([^']+)'/g)].map((m) => m[1]);
-  for (const t of ['ready', 'mode_applied', 'snapshot_saved', 'snapshot_restored', 'error']) {
+  for (const t of ['ready', 'command_ack', 'native_feedback', 'mode_applied', 'snapshot_saved', 'snapshot_restored', 'error']) {
     assert.ok(posted.includes(t), `Worker 从未 post ${t}`);
   }
   assert.ok(simWorkerTs.includes("type: 'snapshot',"), 'snapshot 经 snapshot() 变量 post');
+  assert.ok(simWorkerTs.includes('post(advanceAcquiring('), 'native_samples 经 advanceAcquiring 变量 post');
 });
 
 test('客户端：每种入站消息都有 SimClient 发送点（无孤儿消息）', () => {

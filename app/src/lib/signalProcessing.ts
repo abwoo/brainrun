@@ -1013,3 +1013,88 @@ export function peakInWindow(
   if (cnt === 0) throw new RangeError(`peakInWindow: window [${winMs}] has no samples`);
   return { peakUv, latencyMs, windowMeanUv: sum / cnt };
 }
+
+/* ── 闭环实验台放大器：带通滤波（Phase 1，implementation-plan.md §1.2）── */
+
+/**
+ * 放大器盒默认带通（与 TFR 上限 40 Hz 一致）。
+ */
+export const DEFAULT_BANDPASS_HZ = { lowHz: 0.5, highHz: 40 } as const;
+
+export interface BandpassFilterParams {
+  lowHz: number;
+  highHz: number;
+  sfreqHz: number;
+  /** FIR 抽头数，奇数，默认 129（与 `filterAndDecimate` 同族）。 */
+  taps?: number;
+}
+
+export function validateBandpassParams(params: BandpassFilterParams): void {
+  const taps = params.taps ?? 129;
+  if (!Number.isFinite(params.sfreqHz) || params.sfreqHz <= 0) {
+    throw new RangeError(`bandpassFilter: sfreqHz must be positive, got ${params.sfreqHz}`);
+  }
+  if (!Number.isFinite(params.lowHz) || params.lowHz <= 0) {
+    throw new RangeError(`bandpassFilter: lowHz must be > 0, got ${params.lowHz}`);
+  }
+  if (!Number.isFinite(params.highHz) || params.highHz <= params.lowHz) {
+    throw new RangeError(`bandpassFilter: need highHz > lowHz, got lowHz=${params.lowHz} highHz=${params.highHz}`);
+  }
+  if (params.highHz >= params.sfreqHz / 2) {
+    throw new RangeError(
+      `bandpassFilter: highHz must be < Nyquist (${params.sfreqHz / 2} Hz), got ${params.highHz}`,
+    );
+  }
+  if (!Number.isInteger(taps) || taps < 15 || taps % 2 === 0) {
+    throw new RangeError(`bandpassFilter: taps must be an odd integer >= 15, got ${taps}`);
+  }
+}
+
+/**
+ * 低通核：与 `filterAndDecimate`（`nativeAcquisition.ts`）的 129-tap
+ * Hamming 窗 sinc 同式，归一化后直流增益为 1。`cutoffHz` 为 Hz，
+ * `sfreqHz` 为采样率。
+ */
+function lowpassKernel(cutoffHz: number, sfreqHz: number, taps: number): number[] {
+  const half = (taps - 1) / 2;
+  const fc = cutoffHz / sfreqHz;
+  const kernel = Array.from({ length: taps }, (_, j) => {
+    const k = j - half;
+    return (k === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * k) / (Math.PI * k)) *
+      (0.54 - 0.46 * Math.cos((2 * Math.PI * j) / (taps - 1)));
+  });
+  const sum = kernel.reduce((a, b) => a + b, 0);
+  return kernel.map((v) => v / sum);
+}
+
+/**
+ * 窗函数 sinc FIR 带通滤波（Hamming），做法 = 低通(highHz) − 低通(lowHz)，
+ * 两个低通核各自归一化后再相减，因此直流增益为 0。
+ *
+ * 中心化（零相位）、与输入等长输出；边缘零填充——首尾各 `(taps-1)/2`
+ * 个采样是边缘瞬态（默认 taps=129 时在 250 Hz 下为首尾各 64 个采样、
+ * 约 256 ms），调用方忽略该段即可，与 `filterAndDecimate` 的 edge
+ * discard 口径一致。本函数不做去均值：直流由带通本身去掉。
+ */
+export function bandpassFilter(samples: readonly number[], params: BandpassFilterParams): number[] {
+  validateBandpassParams(params);
+  if (samples.length === 0) return [];
+  if (samples.some((x) => !Number.isFinite(x))) {
+    throw new RangeError('bandpassFilter: nonfinite input sample');
+  }
+  const taps = params.taps ?? 129;
+  const half = (taps - 1) / 2;
+  const lo = lowpassKernel(params.lowHz, params.sfreqHz, taps);
+  const hi = lowpassKernel(params.highHz, params.sfreqHz, taps);
+  const kernel = hi.map((v, j) => v - lo[j]);
+  const out = new Array<number>(samples.length);
+  for (let n = 0; n < samples.length; n++) {
+    let y = 0;
+    for (let j = 0; j < taps; j++) {
+      const idx = n - half + j;
+      if (idx >= 0 && idx < samples.length) y += samples[idx] * kernel[j];
+    }
+    out[n] = y;
+  }
+  return out;
+}

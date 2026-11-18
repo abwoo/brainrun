@@ -545,6 +545,31 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 ---
 
 
+### 1.15 闭环实验台 Phase 1（台子壳，2026-11-18，分支 `feat/closed-loop-bench`）
+
+台子是新的首页入口（`app/src/components/ClosedLoopBench.tsx`，workspace `'bench'` 为默认；`#basic` 回旧首页，
+`#advanced` 不变；旧入口一字不动）。六框回路：大脑 → 脑电帽 → 放大器 → 测试电脑 → 实验电脑 → 刺激器 → 大脑；
+一个 Worker 时钟、一份共享记录。Phase 1 不新增 Worker 消息，全部走现有消息（`stimulus` / `set_native_feedback` /
+`native_samples` / `native_feedback` / `command_ack`）；不改物理、不重缩放数字。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 脑电帽预设 | 5 个：10-20·19 通道 / 10-10·32 / 10-10·64 / 10-5·128 / 10-5·256（32/64 取自 10-10 的 94 导，128/256 取自 10-5 的 343 导；10-20 只有 19 导，给不出 32）。子集规则：以 Cz 为种子的最远点采样（按传感器 3D 位置欧氏距离，平局按 fixture 顺序），返回标签按 fixture 导联顺序排；count 超过可用标签抛 `RangeError`，不静默截断 | `ClosedLoopBench.tsx` 脑电帽盒（一个预设下拉，一个状态） | `benchCap.ts` `selectBenchCapChannels`；导联数 19/94/343 见 §1.6（MNE 生成 fixture 实测） |
+| 放大器配置 | `AmplifierConfig`：`sampleRateHz: 250 \| 500`（取自 Worker 1 ms 积分态经 `runNativeExperiment`，不是 60 Hz 快照插值）、`reference: average \| Cz \| M1`（乳突 = 单侧 M1 电极参考，如实标注“乳突 M1（单侧）”，不是联通乳突；M1 只在 10-10/10-05 导联里有，10-20·19 时该选项禁用并注明）、`bandpass: {lowHz, highHz} \| null`（默认 {0.5, 40} Hz）、`gain: 0.5–5`（默认 1，只记在 `acquisition` 元数据里，**不乘进 `dataUv`**） | 放大器盒：采样率下拉、参考下拉、带通开关 + 低/高滑杆、增益滑杆、输出读数（选中通道实时 µV、RMS、采样率、滤波状态） | `benchRecording.ts`；采样/参考/带通走 `runNativeExperiment` + `reReferenceRecording` + `signalProcessing.ts` 的 `bandpassFilter` |
+| 带通滤波 | 窗函数 sinc FIR（Hamming），做法 = 低通(highHz) − 低通(lowHz)，与 `filterAndDecimate` 同式；默认 129 tap（奇数），中心化（零相位），与输入等长输出，边缘零填充（调用方忽略首尾 64 ms）；`lowHz > 0`、`highHz > lowHz`、`highHz < sfreqHz/2`、`taps` 奇数 ≥ 15，否则抛错 | 放大器盒的带通开关与低/高滑杆（低 0.1–10 Hz、高 10–125 Hz，低 < 高否则不许应用） | `signalProcessing.ts` `bandpassFilter` / `validateBandpassParams`；测试：node 行为测试 + Python 行为对照（`tests/bench/`） |
+| 协议引擎 | 客户端调度器，按快照 `t_ms`（模型时钟）触发，不用墙钟 `setTimeout` 定刺激时间。single-pulse：发一次即完成；oddball：ISI 默认 1000 ms，每第 5 个试次为 oddball（与 `runOddballExperiment` 同口径），standard 幅度 1.0 / oddball 2.0；flicker：周期 `1000/frequencyHz` ms，视觉节点（lV1/rV1），频率 1–30 Hz（默认 10），幅度直接 0.5–2.0（默认 1.0）；closed-loop：`NativeFeedbackConfig` 直通 `configureNativeFeedback` | 实验电脑盒：协议下拉 + 各协议参数 + 运行/停止（与全局 `paused` 是两层状态，不混成一个按钮） | `benchProtocol.ts` `createBenchProtocolEngine`；刺激走 `sim.pulseAt`（幅度钳制 [-2, 2]、时长 [20, 500] ms，见 §1.14）；响应锚定见下 |
+| 响应锚定 | `pulseAt()` 返回 `void`、不给 `command_id`，所以 ACK 匹配用“节点 + 最近 tMs”：引擎发刺激时记 provisional 时间，`confirmFromMarkers` 在 markers 里找同节点、且 `t_ms ∈ [provisionalTms − 20, provisionalTms + 500]` 的 marker；ACK 修正后响应时间 = `marker.t_ms + RT`（`confirmed: true`）；未修正则 provisional + RT（`confirmed: false`，trace 里标明未确认）；超 500 ms 无 marker 丢弃并计数 | 回路追踪面板：`confirmed` 标记 + 图例（Worker 确认 vs 客户端观测） | `benchProtocol.ts`；`StimulusMarker`（`simClient.ts`，ACK 修正后改写 `t_ms`） |
+| 模拟受试者 | 只对 oddball 试次按键（`key: 'Space'`），RT = 320–440 ms（seeded 均匀，复用 `eegRecording.ts` 导出的 `mulberry32`）；同种子同 RT 序列；无漏报、无虚报（Phase 1 假设，文档写明，不是生理结论） | 实验电脑盒的模拟受试者面板（种子、RT 范围、按键记录：试次 / 刺激 tMs / 响应 tMs / RT / Space） | `benchSubject.ts` `createSimulatedSubject` |
+| 事件扩展 | `EegEvent.type` 增加 `'response'`；`driveUnit` 增加 `'ms'`（response 事件的 `drive` = RT，单位 ms）。只改类型定义，不改任何现有构造处 | 事件表（测试电脑盒） | `eegData.ts`（加法扩展） |
+| 一份记录 | `runNativeExperiment` 的 Raw（250/500 Hz，原生 1 ms）+ 触发/响应事件 + epochs（只围绕 `type: 'pulse'` 事件切，−200/800 ms，基线 [−200, 0]，与 ERP 口径一致；response 事件只进事件表、不做切分锚点）；`extraEvents` 的 `tMs` 是绝对 Worker ms，组装时换算成相对时间（`tMs − t0Ms`），全部盖同一个 `runId`（与 `native.recording` 不一致时抛错）；写入单槽 `LiveRecordingStoreValue`，与 EEG 实验台共用一份记录 | 测试电脑盒：记录面板（runId、模型时间、样本数、事件数、试次数、导出 JSON/CSV——复用 `recordingToJson` / `recordingToCsv`） | `benchRecording.ts` `assembleBenchRecording` / `benchRecordingToStoreValue`；`recording.experiment.parameters` 记 {protocol, amplifier, cap, headModel}，`provenance.upstreamStartMs = t0Ms` |
+| 回路追踪 | append-only 日志，cap 200（超了丢最旧），`seq` 单调递增；每条 `{seq, tMs, hop, kind, label, value, confirmed}`，hop ∈ amplifier / test-computer / experiment-computer / stimulator / brain；`confirmed: true` = Worker 确认的时间（ACK `t_ms`、`FeedbackAction` 的 `detectedMs`/`applyMs`），`false` = 客户端观测时取的最新快照 `t_ms`；trigger 这一跳必须可见：实验电脑发 trigger → 放大器事件流 → 记入记录，带 sample index = `round((tMs − t0Ms) × sfreqHz / 1000)` | 回路追踪面板（全宽，底部）：列表 + 图例 + 清空按钮 | `benchTrace.ts` `createBenchTrace` |
+| 外周传感器 | 只留接口：ECG / 呼吸在界面上标“Phase 1 未接入”，不放任何控件（不许出现死按钮） | 信号检测盒的静态文字区 | —（无后端） |
+
+方法学测试：`tests/bench/`（cap / subject / protocol / trace / recording / band-pass node 测试 + Python 带通行为对照）；
+契约测试：`tests/pr5/contract.test.mjs`（Worker 协议一节：入站 23 种、出站 9 种——此前表与测试只登记 21/6，
+`get/set_native_feedback`、`command_ack`、`native_samples`、`native_feedback` 四条消息早已在代码与 Worker 里存在，
+P0 加入时未同步更新；本次补齐，测试断言只增不减，不是放宽）。
+
 ## 2. 坐标系
 
 | 坐标系（`CoordinateSpace`，`app/src/lib/coordinates.ts`） | 含义 | 状态 |
@@ -568,7 +593,7 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 
 ## 3. 消息协议
 
-### 3.1 Worker 入站（`WorkerInMessage`，`app/src/worker/protocol.ts`）——21 种，全数在 `simWorker.ts` 有处理分支
+### 3.1 Worker 入站（`WorkerInMessage`，`app/src/worker/protocol.ts`）——23 种，全数在 `simWorker.ts` 有处理分支
 
 | # | 消息 | 字段（单位） | 发送方（SimClient 方法） | Worker 处理 → 后端函数 |
 |---|---|---|---|---|
@@ -582,29 +607,34 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 | 8 | `reset` | — | `reset()` | `WasmSim::reset()`（清偏置、OU、RNG、事件；**保留权重与背景模式**）；清 `auto` 快照、锁定闩、历史；`paused` 清零（B6b） |
 | 9 | `reset_paused` | — | `resetPaused()`（仅调试桥） | 同 `reset`，但原子地 `paused = true`（确定性步进用；禁止用 reset+pause 两条消息代替） |
 | 10 | `set_snapshot_hz` | `hz`（Hz，Worker clamp 1–120） | `setSnapshotHz()`（PR5 新增；此前为孤儿消息，见 §6 D2）+ 调试桥 | `snapshotHz = clamp(hz, 1, 120)` |
-| 11 | `set_weight` | `i, j`（0–75）、`w`（0–3） | `setWeight()`（客户端先 clamp） | `WasmSim::set_weight` → `Simulator::set_weight`（单边，clamp，立即生效，RESET 保留） |
-| 12 | `reset_weight` | `i, j` | `resetWeight()` | `WasmSim::reset_weight` |
-| 13 | `reset_all_weights` | — | `resetAllWeights()` | `WasmSim::reset_all_weights` |
-| 14 | `set_bias` | `node`、`value`（−1–+1） | `setBias()`（0 时改发 `clear_bias`） | `WasmSim::set_bias` → `Simulator::set_bias` |
-| 15 | `clear_bias` | `node` | `clearBias()` | `WasmSim::clear_bias` |
-| 16 | `clear_all_bias` | — | `clearAllBias()` | `WasmSim::clear_all_bias` |
-| 17 | `set_background_mode` | `mode: 'quiet' \| 'spontaneous' \| 'oscillatory'` | `setBackgroundMode()` | 编码 0/1/2 → `WasmSim::set_background_mode`；回 `mode_applied` |
-| 18 | `set_seed` | `seed`（≥0 整数；客户端 `max(0, floor)`） | `setSeed()` | `WasmSim::set_seed` → `Simulator::reseed` |
-| 19 | `advance_ms` | `ms`（ms） | `advanceMs()`（仅调试桥） | 仅暂停时推进（运行中忽略），随后发一条快照 |
-| 20 | `save_snapshot` | `id: string`（`'manual'` \| `'auto'`） | `saveSnapshot()`（manual） | `WasmSim::take_snapshot()` → JSON；回 `snapshot_saved` |
-| 21 | `restore_snapshot` | `id`、`json: string` | `restoreSnapshot(id)` | `WasmSim::restore_snapshot(json)`；清脉冲/按住/锁定闩/历史；回 `snapshot_restored` + 一条快照 |
+| 11 | `get_native_feedback` | `requestId: string` | `requestNativeFeedback()`（Promise，等 `native_feedback` 回包） | 读当前闭环控制器状态；先 `command_ack`，再回 `native_feedback`（phase `'observed'`，带当前 `NativeFeedbackSnapshot`） |
+| 12 | `set_native_feedback` | `config: NativeFeedbackConfig \| null`（null = 停控制器） | `configureNativeFeedback(config)`（先 `validateFeedbackConfig`，非法抛错） | `new NativeFeedback(config, n_nodes, t_ms)`（EEG 特征时基线取当前快照 E/I）；先 `command_ack`，再回 `native_feedback`（phase `'configured'` / `'stopped'`）；控制器在 Worker 积分步内检测/施加，见 `native_feedback` |
+| 13 | `set_weight` | `i, j`（0–75）、`w`（0–3） | `setWeight()`（客户端先 clamp） | `WasmSim::set_weight` → `Simulator::set_weight`（单边，clamp，立即生效，RESET 保留） |
+| 14 | `reset_weight` | `i, j` | `resetWeight()` | `WasmSim::reset_weight` |
+| 15 | `reset_all_weights` | — | `resetAllWeights()` | `WasmSim::reset_all_weights` |
+| 16 | `set_bias` | `node`、`value`（−1–+1） | `setBias()`（0 时改发 `clear_bias`） | `WasmSim::set_bias` → `Simulator::set_bias` |
+| 17 | `clear_bias` | `node` | `clearBias()` | `WasmSim::clear_bias` |
+| 18 | `clear_all_bias` | — | `clearAllBias()` | `WasmSim::clear_all_bias` |
+| 19 | `set_background_mode` | `mode: 'quiet' \| 'spontaneous' \| 'oscillatory'` | `setBackgroundMode()` | 编码 0/1/2 → `WasmSim::set_background_mode`；回 `mode_applied` |
+| 20 | `set_seed` | `seed`（≥0 整数；客户端 `max(0, floor)`） | `setSeed()` | `WasmSim::set_seed` → `Simulator::reseed` |
+| 21 | `advance_ms` | `ms`（ms） | `advanceMs()`（仅调试桥） | 仅暂停时推进（运行中忽略），随后发一条快照 |
+| 22 | `save_snapshot` | `id: string`（`'manual'` \| `'auto'`） | `saveSnapshot()`（manual） | `WasmSim::take_snapshot()` → JSON；回 `snapshot_saved` |
+| 23 | `restore_snapshot` | `id`、`json: string` | `restoreSnapshot(id)` | `WasmSim::restore_snapshot(json)`；清脉冲/按住/锁定闩/历史；回 `snapshot_restored` + 一条快照 |
 
 **时序约束（已验证的坑）：**
 - `start()` 发 `init` 后立即发的 `set_params` 会在 WASM 加载完成前被 Worker 丢弃（`sim` 尚不存在）——无害，因为引擎构造即用 `Params::demo()`，其值与 `DEFAULT_PARAMS` 一致；`set_background_mode` 必须等 `ready`（`onReady` 回调里发）。
 - `reset` 与 `pause` 分开发会在中间漏进 live tick、消耗 RNG 导致同种子重跑不一致（实测 reset 后 120 ms 内 t_ms 可跑到 50 ms）——确定性步进必须用 `reset_paused`。
 - Worker 在 WASM 加载完成前收到的所有消息（除 `init`）都会被静默丢弃（`if (!sim) return`）；UI 控件在 `simReady` 前禁用。
 
-### 3.2 Worker 出站（`WorkerOutMessage`）——6 种
+### 3.2 Worker 出站（`WorkerOutMessage`）——9 种
 
 | 消息 | 字段（单位） | 说明 |
 |---|---|---|
 | `ready` | `n_nodes`（=76）、`dt_ms`（=1） | WASM 就绪 |
+| `command_ack` | `run_id`、`command_id`、`command_type`、`t_ms`、`phase: 'accepted' \| 'applied'` | 命令确认：**只有 Worker 处理完命令后才发**（`acknowledge()`，`t_ms = sim.time_ms()`），不是点击发送时的时间；`command_id`/`run_id` 缺失时不发；客户端用它把 provisional 标记时间修正为真实模型时间 |
+| `native_samples` | `NativeChunk`（`nativeAcquisition.ts`）：`type: 'native_samples'`、`run_id`、`start_ms`、`dt_ms`（=1）、`n_nodes`（=76）、`n_samples`、`values: Float64Array`（行主序，每采样 E[0..76) + I[0..76)） | Worker 每 1 ms 积分态的原生块（`acquireAdvance` 每 ≤200 ms 一块 `post(advanceAcquiring(...))`）；放大器/记录的数据源，**不是 60 Hz 快照** |
 | `snapshot` | 见 §4.1（`Snapshot` 接口，t_ms / e / i / p / mean_e / locked / hold_* / diverged / paused） | 约 60 Hz；只读模型状态，无视觉加工 |
+| `native_feedback` | `run_id`、`requestId?`、`phase: 'configured' \| 'detected' \| 'applied' \| 'stopped' \| 'restored' \| 'observed'`、`t_ms`、`active`、`state: NativeFeedbackSnapshot \| null`、`action?: FeedbackAction`（`id` / `detectedMs` / `applyMs` / `featureValue` / `node` / `amplitude` / `durationMs`，两个时间戳均为 Worker 模型时间） | 闭环控制器事件：检测（`afterStep`，phase `'detected'`）与施加（`beforeStep`，phase `'applied'`）都在 Worker 积分步内发生；`get_native_feedback` 回 `'observed'`，`set_native_feedback` 回 `'configured'` / `'stopped'` |
 | `mode_applied` | `params: ModeParams`（mode / ou_tau_ms / ou_sigma / ext_sine_amp / ext_sine_freq_hz） | 模式切换后引擎实际用的参数；UI 只读它 |
 | `snapshot_saved` | `id`、`t_ms`、`json` | `save_snapshot` / `hold_start`（auto）的确认 |
 | `snapshot_restored` | `id`、`t_ms` | 恢复确认，随后补一条快照 |
