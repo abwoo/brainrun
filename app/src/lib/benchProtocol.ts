@@ -45,12 +45,23 @@
  *
  * `provisionalTms` 是发刺激那次 `tick()` 的模型时间（即 marker
  * 被创建时的快照时间），不是试次的计划时间：`pulseAt` 调用的
- * marker 以调用时的快照时间创建，`tick()` 被延迟时一次可发出
- * 多个试次、它们的 marker 都是同一个 tick 时间；若按计划时间
- * 匹配，窗口会套住上一个试次 ACK 后的 marker，响应就锚到错的
- * 试次上（2026-11-18 预览实测：trial 5 的响应锚到了 trial 4
- * 的 marker，响应−触发只有 242 ms）。`stimulus-sent` 事件的
+ * marker 以调用时的快照时间创建。Phase 3 之前 `tick()` 被延迟时
+ * 一次可发出多个试次、它们的 marker 都是同一个 tick 时间；若按
+ * 计划时间匹配，窗口会套住上一个试次 ACK 后的 marker，响应就锚
+ * 到错的试次上（2026-11-18 预览实测：trial 5 的响应锚到了 trial 4
+ * 的 marker，响应−触发只有 242 ms）。Phase 3 起去重：一次 tick
+ * 最多发一个试次（最新到期的那一个），其余记为跳过（`skippedTrials`
+ * + `trial-skipped` 事件），永不突发连发；响应仍按 dispatch 时间
+ * 锚定（见 `confirmFromMarkers`）。`stimulus-sent` 事件的
  * `tMs` 仍是计划时间（协议时间线），不受此影响。
+ *
+ * Phase 3 回路时延（模型 ms，见 `BenchLoopTiming` / `LOOP_TIMING_BOUNDS`）：
+ * - trigger→command：闭环动作 `applyMs − detectedMs`（应恒等于
+ *   `delayMs + 1`，按 action id 配对实测，不假设）；
+ * - dispatch→ACK：ACK 修正后的 `marker.t_ms − provisionalTms`；
+ * - observation lag：收到 applied 事件时客户端最新快照 `tMs − applyMs`
+ *  （客户端视图落后多少；可为负，表示快照还没走到施加时刻）。
+ * 三者都由 `getLoopTiming()` 读出（最新值 + 各自样本数），供控制条读数。
  */
 import type { NativeFeedbackConfig } from './nativeFeedback.ts';
 import type { StimulusMarker } from './simClient.ts';
@@ -85,7 +96,7 @@ export interface BenchProtocolParams {
 }
 
 export interface BenchProtocolEvent {
-  kind: 'protocol-started' | 'stimulus-sent' | 'response' | 'feedback-detected' | 'feedback-applied' | 'protocol-stopped';
+  kind: 'protocol-started' | 'stimulus-sent' | 'response' | 'feedback-detected' | 'feedback-applied' | 'feedback-suppressed' | 'trial-skipped' | 'protocol-stopped';
   tMs: number;
   trialIndex?: number;
   condition?: 'standard' | 'oddball';
@@ -95,7 +106,49 @@ export interface BenchProtocolEvent {
   rtMs?: number;
   confirmed?: boolean;
   reason?: string;
+  /** 本次 tick 因去重跳过的试次数（仅 'trial-skipped'）。 */
+  skippedCount?: number;
+  /** 闭环动作 id（仅 feedback-detected / feedback-applied）：配对 trigger→command 用。 */
+  actionId?: number;
+  /** 闭环动作的 Worker 检出 / 施加时刻（模型 ms，仅 feedback-detected / feedback-applied）。 */
+  detectedMs?: number;
+  applyMs?: number;
+  /** 收到 applied 事件时客户端最新快照的 tMs（模型 ms）：算 observation lag 用。 */
+  observedAtTms?: number;
+  /** 累计被冷却抑制的次数（仅 'feedback-suppressed'，取自 Worker 快照）。 */
+  suppressedCount?: number;
+  /** 最后一次被抑制的特征值（仅 'feedback-suppressed'）。 */
+  suppressedValue?: number;
 }
+
+/**
+ * Phase 3 回路时延（全部模型 ms；null = 该指标尚未测到样本）。
+ * triggerToCommandMs 应恒等于动作的 delayMs + 1（Worker 侧调度保证，
+ * 这里按 action id 配对实测，不假设）；dispatchToAckMs 与 observationLagMs
+ * 的门见 `LOOP_TIMING_BOUNDS`（由 60 Hz 快照间隔 ≈16.7 ms 推导，见该处注释）。
+ */
+export interface BenchLoopTiming {
+  triggerToCommandMs: number | null;
+  dispatchToAckMs: number | null;
+  observationLagMs: number | null;
+  /** 最后一次测到 trigger→command 的动作 id（null = 未测到）。 */
+  lastActionId: number | null;
+  /** 各指标已测样本数（0 = 未测到）。 */
+  samples: { triggerToCommand: number; dispatchToAck: number; observationLag: number };
+}
+
+/**
+ * Phase 3 时延门（模型 ms）。推导：Worker 快照 60 Hz，间隔 ≈16.7 ms；
+ * dispatch→ACK 是“客户端最新快照 → Worker 受理命令”的往返，正常不超过
+ * 一个快照间隔加 postMessage 往返，门限 100 ms ≈ 6 个间隔；observation lag
+ * 是 applied 上报时刻客户端快照与施加时刻之差，正常在 ±一个快照间隔内，
+ * 门限 |lag| ≤ 50 ms ≈ 3 个间隔。trigger→command 不设区间门——它必须精确
+ * 等于 delayMs + 1，测试里按动作对断言。
+ */
+export const LOOP_TIMING_BOUNDS = {
+  dispatchToAckMaxMs: 100,
+  observationLagMaxAbsMs: 50,
+} as const;
 
 export interface BenchProtocolEngine {
   start(protocol: BenchProtocolId, params: BenchProtocolParams[BenchProtocolId], startTms: number): void;
@@ -108,6 +161,10 @@ export interface BenchProtocolEngine {
   readonly protocol: BenchProtocolId | null;
   readonly trialIndex: number;
   readonly droppedResponses: number;
+  /** Phase 3 — 本轮因去重跳过的试次总数（一次 tick 最多发一个试次）。 */
+  readonly skippedTrials: number;
+  /** Phase 3 — 回路时延最新值（`BenchLoopTiming`，每次调用返回新对象）。 */
+  getLoopTiming(): BenchLoopTiming;
 }
 
 export interface BenchProtocolDeps {
@@ -144,12 +201,29 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
   let protocol: BenchProtocolId | null = null;
   let trialIndex = 0;
   let droppedResponses = 0;
+  let skippedTrials = 0;
   let startTms = 0;
   let lastTms = 0;
   let nextTimeMs = 0;
   let durationMs: number | undefined;
   let localIdSeq = 0;
   const pending: PendingResponse[] = [];
+  // Phase 3 — 回路时延最新值 + detected 待配对（按 action id）。
+  const loopTiming: BenchLoopTiming = {
+    triggerToCommandMs: null, dispatchToAckMs: null, observationLagMs: null,
+    lastActionId: null, samples: { triggerToCommand: 0, dispatchToAck: 0, observationLag: 0 },
+  };
+  const pendingDetected = new Map<number, number>();
+  const resetLoopTiming = (): void => {
+    loopTiming.triggerToCommandMs = null;
+    loopTiming.dispatchToAckMs = null;
+    loopTiming.observationLagMs = null;
+    loopTiming.lastActionId = null;
+    loopTiming.samples.triggerToCommand = 0;
+    loopTiming.samples.dispatchToAck = 0;
+    loopTiming.samples.observationLag = 0;
+    pendingDetected.clear();
+  };
 
   // 当前协议的发刺激参数（start 时冻结）。
   let oddballNode = 0;
@@ -166,8 +240,31 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
   const stopInternal = (reason: string): void => {
     if (!running) return;
     running = false;
+    // 已检出未施加的动作不会再施加；pendingDetected 必须清空，否则下一轮
+    // action id 从 1 重排时会错配到上一轮的 detectedMs。
+    pendingDetected.clear();
     if (protocol === 'closed-loop') deps.configureFeedback(null);
     deps.onEvent({ kind: 'protocol-stopped', tMs: lastTms, reason });
+  };
+
+  /** Phase 3 去重记账：一次 tick 只发最新到期的一个试次，其余记为跳过并可见。 */
+  const recordSkipped = (count: number, tMs: number): void => {
+    if (count <= 0) return;
+    skippedTrials += count;
+    deps.onEvent({ kind: 'trial-skipped', tMs, trialIndex, skippedCount: count });
+  };
+
+  /** Phase 3 — 一次 tick 内到期的试次只发最新一个：返回 {due, latestDue}，并把 nextTimeMs 推到首个未到期。 */
+  const countDue = (tMs: number, periodMs: number): { due: number; latestDue: number } => {
+    const endMs = durationMs === undefined ? Infinity : startTms + durationMs;
+    let due = 0;
+    let latestDue = -1;
+    while (nextTimeMs <= tMs && nextTimeMs < endMs) {
+      latestDue = nextTimeMs;
+      due++;
+      nextTimeMs += periodMs;
+    }
+    return { due, latestDue };
   };
 
   /** 500 ms 模型时间后仍未被 ACK 修正的待定响应：有 marker 则按 provisional 发未确认响应，无 marker 则丢弃计数。 */
@@ -232,6 +329,8 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       trialIndex = 0;
       durationMs = undefined;
       pending.length = 0;
+      skippedTrials = 0;
+      resetLoopTiming();
 
       if (p === 'single-pulse') {
         const sp = params as BenchProtocolParams['single-pulse'];
@@ -310,16 +409,19 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       if (protocol === 'closed-loop') return;
       resolveOverduePending(tMs);
       if (!running) return;
-      const endMs = durationMs === undefined ? Infinity : startTms + durationMs;
       if (protocol === 'oddball') {
-        while (nextTimeMs <= tMs && nextTimeMs < endMs) {
-          fireOddballTrial(nextTimeMs, tMs);
-          nextTimeMs += oddballIsiMs;
+        // Phase 3 去重：tick 被延迟（或快照合并）时到期试次只发最新一个，
+        // 其余记为跳过——永不突发连发。
+        const { due, latestDue } = countDue(tMs, oddballIsiMs);
+        if (due > 0) {
+          fireOddballTrial(latestDue, tMs);
+          recordSkipped(due - 1, tMs);
         }
       } else if (protocol === 'flicker') {
-        while (nextTimeMs <= tMs && nextTimeMs < endMs) {
-          fireFlickerCycle(nextTimeMs);
-          nextTimeMs += flickerPeriodMs;
+        const { due, latestDue } = countDue(tMs, flickerPeriodMs);
+        if (due > 0) {
+          fireFlickerCycle(latestDue);
+          recordSkipped(due - 1, tMs);
         }
       }
       if (durationMs !== undefined && tMs >= startTms + durationMs) {
@@ -343,6 +445,10 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
         used.add(marker);
         if (marker.t_ms !== p.provisionalTms) {
           // Worker ACK 已修正刺激时间：响应锚定到修正后的时间。
+          // Phase 3 — 同一次匹配测 dispatch→ACK：修正后的 marker 时间 −
+          // 发刺激那次 tick 的模型时间（正常 0–100 ms，门见 LOOP_TIMING_BOUNDS）。
+          loopTiming.dispatchToAckMs = marker.t_ms - p.provisionalTms;
+          loopTiming.samples.dispatchToAck++;
           pending.splice(j, 1);
           deps.onEvent({
             kind: 'response', tMs: marker.t_ms + p.rtMs, trialIndex: p.trialIndex,
@@ -361,7 +467,32 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     },
 
     emitFeedbackEvent(e: BenchProtocolEvent): void {
-      if (running && protocol === 'closed-loop') deps.onEvent(e);
+      if (running && protocol === 'closed-loop') {
+        if (e.kind === 'feedback-detected' && e.actionId !== undefined && e.detectedMs !== undefined) {
+          // 按 action id 记下检出时刻，等 applied 到达时配对。
+          pendingDetected.set(e.actionId, e.detectedMs);
+          if (pendingDetected.size > 16) {
+            const oldest = pendingDetected.keys().next().value;
+            if (oldest !== undefined) pendingDetected.delete(oldest);
+          }
+        } else if (e.kind === 'feedback-applied' && e.actionId !== undefined && e.applyMs !== undefined) {
+          // Phase 3 — trigger→command：按 action id 配对实测 applyMs − detectedMs
+          // （应恒等于 delayMs + 1；detected 事件先到则用它，未到则用 applied 自带的 detectedMs）。
+          const detectedMs = pendingDetected.get(e.actionId) ?? e.detectedMs;
+          pendingDetected.delete(e.actionId);
+          if (detectedMs !== undefined) {
+            loopTiming.triggerToCommandMs = e.applyMs - detectedMs;
+            loopTiming.lastActionId = e.actionId;
+            loopTiming.samples.triggerToCommand++;
+          }
+          if (e.observedAtTms !== undefined) {
+            // observation lag：收到 applied 时客户端最新快照 − 施加时刻（可为负）。
+            loopTiming.observationLagMs = e.observedAtTms - e.applyMs;
+            loopTiming.samples.observationLag++;
+          }
+        }
+        deps.onEvent(e);
+      }
     },
 
     get running(): boolean {
@@ -375,6 +506,18 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     },
     get droppedResponses(): number {
       return droppedResponses;
+    },
+    get skippedTrials(): number {
+      return skippedTrials;
+    },
+    getLoopTiming(): BenchLoopTiming {
+      return {
+        triggerToCommandMs: loopTiming.triggerToCommandMs,
+        dispatchToAckMs: loopTiming.dispatchToAckMs,
+        observationLagMs: loopTiming.observationLagMs,
+        lastActionId: loopTiming.lastActionId,
+        samples: { ...loopTiming.samples },
+      };
     },
   };
 }

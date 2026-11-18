@@ -571,6 +571,21 @@ UI：`app/src/components/CellularLab.tsx`（模型选择 LIF/HH/多房室、电�
 `get/set_native_feedback`、`command_ack`、`native_samples`、`native_feedback` 四条消息早已在代码与 Worker 里存在，
 P0 加入时未同步更新；本次补齐，测试断言只增不减，不是放宽）。
 
+### 1.16 闭环实验台 Phase 3（Worker 时钟时序 + 回路时延 + 冷却可见 + 去重，2026-11-18，分支 `feat/closed-loop-bench`）
+
+不新增 Worker 消息种类（入站仍 23 种、出站仍 9 种），只在 `native_feedback` 增加一个 phase（见 §3.2）。不改物理、不重缩放数字、不放宽任何测试容差。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| Worker 时钟驱动 | 协议引擎的 `tick()` 与 `confirmFromMarkers()` 不再由 250 ms 前端定时器驱动，改由每条 Worker 快照驱动：`ClosedLoopBench` 里 `snap` prop（App.tsx 经 `sim.subscribe` 推进，约 60 Hz）变化即一次 `engine.tick(snap.t_ms)` + `confirmFromMarkers(sim.getMarkers())`。React 批量更新可能合并快照（两次 effect 之间跳过一个快照），去重保证这时不突发。250 ms 定时器只剩观测/记账（读数同步、手动刺激 ACK 匹配、新 marker 记入放大器事件流、采集重试），不调用 `engine.tick`、不发任何刺激——前端只显示，永不决定时序 | `ClosedLoopBench.tsx` 快照 effect + 250 ms 轮询注释 | `benchProtocol.ts`（`tick` 仍是模型时间的纯函数） |
+| 去重 | 一次 tick 内到期的试次只发最新一个（计划时间 = 最新到期的那一个，`provisionalTms` = 该 tick 的模型时间），其余记为跳过：`skippedTrials` 计数 + `trial-skipped` 事件（`skippedCount`、发出的那个试次的 `trialIndex`），永不突发连发。oddball 与 flicker 同口径；single-pulse（`start()` 里发一次）与 closed-loop（`tick` 不做事）不受影响。响应锚定不变（仍按 dispatch 时间匹配，见 §1.15） | 回路追踪：`trial-skipped` 事件（`confirmed: false`，客户端调度观测） | `benchProtocol.ts` `countDue` / `recordSkipped`；测试 `tests/bench/bench-protocol.test.mjs`（迟到 tick、快照断流） |
+| 回路时延 | 三个指标，全部模型 ms，引擎 `getLoopTiming()` 读出（最新值 + 各自样本数；未测到为 null / 0；新开一轮清零）：(a) trigger→command = applied `applyMs − detectedMs`，按 action id 配对实测，应恒等于 `delayMs + 1`（不假设，测试按动作对断言；detected 漏掉时用 applied 自带的 `detectedMs`）；(b) dispatch→ACK = ACK 修正后的 `marker.t_ms − provisionalTms`，在 `confirmFromMarkers` 匹配到修正 marker 时计一次；(c) observation lag = 收到 applied 事件时客户端最新快照 `tMs − applyMs`，可为负（快照还没走到施加时刻是诚实的）。门限 `LOOP_TIMING_BOUNDS`：dispatch→ACK ≤ 100 ms、\|observation lag\| ≤ 50 ms，由 60 Hz 快照间隔 ≈16.7 ms 推导（前者 ≈6 个间隔，后者 ≈3 个间隔）；trigger→command 不设区间门，必须精确等于 `delayMs + 1` | 控制条读数（P3 已落地，`ClosedLoopBench.tsx` 的 `bench-loop-timing` 行：闭环运行中显示 trigger→command 与 observation lag，dispatch→ACK 只在开环分发路径上测到故不进这一行；本地 preview 实测见 P3 收尾报告）：`engineRef.current?.getLoopTiming()`，组件每快照重渲染故读数新鲜；另见 `BenchLoopTiming` | `benchProtocol.ts` `BenchLoopTiming` / `LOOP_TIMING_BOUNDS` / `getLoopTiming()`；`BenchProtocolEvent` 新增 `actionId` / `detectedMs` / `applyMs` / `observedAtTms` 字段；测试同上 |
+| 冷却抑制可见 | 冷却期内的触发不再静默：`NativeFeedback` 记 `suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue` 进快照；Worker 在 `afterStep` 返回 null 且 `suppressedCount` 涨了时上报 `native_feedback`（phase `'suppressed'`，无 action，state 带抑制记录）；组件经 `emitFeedbackEvent` 转成 `feedback-suppressed` 协议事件，写进回路追踪（`confirmed: true`，Worker 时间） | 回路追踪：`feedback-suppressed` 事件（`#N · 特征值 x.xx`）；控制条读数：最新 `native_feedback` 消息的 `state.suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue`（`sim.getNativeFeedback()?.state`） | `nativeFeedback.ts`（`afterStep` 拆阈值/冷却两路 null）；`simWorker.ts`（`acquireAdvance` 的 afterStep 钩子）；`protocol.ts`（phase 并集 + `'suppressed'`）；`benchProtocol.ts`（`feedback-suppressed` 事件种） |
+| 冷却剩余 | `cooldownRemainingMs(state, tMs) = max(0, lastTriggerMs + cooldownMs − tMs)`，`lastTriggerMs` 为 null 时 0。控制条读数：`cooldownRemainingMs(sim.getNativeFeedback()?.state, snap.t_ms)`（P3 已落地，同 `bench-loop-timing` 行） | 控制条读数（P3 已落地） | `nativeFeedback.ts` `cooldownRemainingMs` |
+| restore 不双发 | `NativeFeedbackSnapshot` 新增 `appliedIds: number[]`（已施加过的动作 id）；`beforeStep` 绝不重发其中任一 id（不一致的快照里重回 pending 的已施加 id 直接丢弃）；`restore()` 校验：pending id 唯一、不与 `appliedIds` 相交、`appliedIds` 唯一且都在 `[1, count]` 内、抑制记录自洽（`suppressedCount === 0 ⟺ lastSuppressedMs/lastSuppressedValue 为 null`）。Phase 3 之前存的快照没有新字段：缺失时按“未抑制、未施加”补默认，不拒绝旧快照 | — | `nativeFeedback.ts`（`beforeStep` / `restore`）；测试 `tests/pr6/native-feedback.test.mjs`（抑制、校验、双发） |
+
+方法学测试：`tests/bench/bench-protocol.test.mjs`（去重 + 三时延 + 门限）、`tests/pr6/native-feedback.test.mjs`（抑制 + restore 校验 + 不双发）。
+
 ## 2. 坐标系
 
 | 坐标系（`CoordinateSpace`，`app/src/lib/coordinates.ts`） | 含义 | 状态 |
@@ -635,7 +650,7 @@ P0 加入时未同步更新；本次补齐，测试断言只增不减，不是�
 | `command_ack` | `run_id`、`command_id`、`command_type`、`t_ms`、`phase: 'accepted' \| 'applied'` | 命令确认：**只有 Worker 处理完命令后才发**（`acknowledge()`，`t_ms = sim.time_ms()`），不是点击发送时的时间；`command_id`/`run_id` 缺失时不发；客户端用它把 provisional 标记时间修正为真实模型时间 |
 | `native_samples` | `NativeChunk`（`nativeAcquisition.ts`）：`type: 'native_samples'`、`run_id`、`start_ms`、`dt_ms`（=1）、`n_nodes`（=76）、`n_samples`、`values: Float64Array`（行主序，每采样 E[0..76) + I[0..76)） | Worker 每 1 ms 积分态的原生块（`acquireAdvance` 每 ≤200 ms 一块 `post(advanceAcquiring(...))`）；放大器/记录的数据源，**不是 60 Hz 快照** |
 | `snapshot` | 见 §4.1（`Snapshot` 接口，t_ms / e / i / p / mean_e / locked / hold_* / diverged / paused） | 约 60 Hz；只读模型状态，无视觉加工 |
-| `native_feedback` | `run_id`、`requestId?`、`phase: 'configured' \| 'detected' \| 'applied' \| 'stopped' \| 'restored' \| 'observed'`、`t_ms`、`active`、`state: NativeFeedbackSnapshot \| null`、`action?: FeedbackAction`（`id` / `detectedMs` / `applyMs` / `featureValue` / `node` / `amplitude` / `durationMs`，两个时间戳均为 Worker 模型时间） | 闭环控制器事件：检测（`afterStep`，phase `'detected'`）与施加（`beforeStep`，phase `'applied'`）都在 Worker 积分步内发生；`get_native_feedback` 回 `'observed'`，`set_native_feedback` 回 `'configured'` / `'stopped'` |
+| `native_feedback` | `run_id`、`requestId?`、`phase: 'configured' \| 'detected' \| 'applied' \| 'stopped' \| 'restored' \| 'observed' \| 'suppressed'`（Phase 3 新增 `'suppressed'`）、`t_ms`、`active`、`state: NativeFeedbackSnapshot \| null`、`action?: FeedbackAction`（`id` / `detectedMs` / `applyMs` / `featureValue` / `node` / `amplitude` / `durationMs`，两个时间戳均为 Worker 模型时间） | 闭环控制器事件：检测（`afterStep`，phase `'detected'`）与施加（`beforeStep`，phase `'applied'`）都在 Worker 积分步内发生；`get_native_feedback` 回 `'observed'`，`set_native_feedback` 回 `'configured'` / `'stopped'`；Phase 3：冷却期内的触发上报 `'suppressed'`（无 action，`state.suppressedCount` / `lastSuppressedMs` / `lastSuppressedValue` 记录抑制；`state` 另有 `appliedIds`，见 §1.16） |
 | `mode_applied` | `params: ModeParams`（mode / ou_tau_ms / ou_sigma / ext_sine_amp / ext_sine_freq_hz） | 模式切换后引擎实际用的参数；UI 只读它 |
 | `snapshot_saved` | `id`、`t_ms`、`json` | `save_snapshot` / `hold_start`（auto）的确认 |
 | `snapshot_restored` | `id`、`t_ms` | 恢复确认，随后补一条快照 |

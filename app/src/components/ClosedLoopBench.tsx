@@ -32,7 +32,7 @@ import {
   recordingToCsv, recordingToJson, reReferenceRecording, rms,
   sensoryTargetNodes, setLiveRecordingStore,
 } from '../lib/eegRecording';
-import type { NativeFeedbackConfig } from '../lib/nativeFeedback';
+import { cooldownRemainingMs, type NativeFeedbackConfig } from '../lib/nativeFeedback';
 // ---- Phase 1 bench lib (Implementer A, landed 2026-11-18). Signatures per
 // implementation-plan.md §1; the five deviations in A's report are reconciled
 // here (optional protocol nodes + regions dep, event `reason`, band-pass edge
@@ -458,6 +458,18 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
       appendTrace({ tMs: e.tMs, hop: 'stimulator', kind: 'feedback-applied',
         label: text('闭环刺激已施加', 'Closed-loop stimulus applied'),
         value: `${text('脑区', 'node')} ${e.node ?? '—'} · ${fmt(e.amplitude, 2)}`, confirmed: true });
+    } else if (e.kind === 'trial-skipped') {
+      // Phase 3 去重：一次 tick 只发最新到期的一个试次，其余记为跳过并可见。
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'trial-skipped',
+        label: text('试次跳过（去重）', 'Trials skipped (dedupe)'),
+        value: `${text('跳过', 'skipped')} ${e.skippedCount ?? 0} ${text('个试次，仅发最新一个', 'trials; fired latest only')}`,
+        confirmed: false });
+    } else if (e.kind === 'feedback-suppressed') {
+      // Phase 3 冷却抑制：Worker 侧规则触发但处于冷却期，抑制可见、不静默。
+      appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'feedback-suppressed',
+        label: text('闭环触发被冷却抑制', 'Closed-loop trigger suppressed by cooldown'),
+        value: `#${e.suppressedCount ?? '—'} · ${text('特征值', 'value')} ${fmt(e.suppressedValue, 2)}`,
+        confirmed: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appendTrace]);
@@ -482,6 +494,9 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   }, [sim, ready, data, subjectSeed, rtMinMs, rtMaxMs, rtRangeValid, handleProtocolEvent]);
 
   // Worker feedback messages -> engine feedback events (plan §2: via emitFeedbackEvent).
+  // Phase 3: detected/applied 携带 action id 与两个 Worker 时间戳，引擎按 id
+  // 配对实测 trigger→command；applied 另带收到时客户端最新快照 tMs，算
+  // observation lag；'suppressed' 是 Worker 上报的冷却抑制（见 nativeFeedback）。
   useEffect(() => {
     if (!sim || !ready) return;
     return sim.subscribeNativeFeedback((msg) => {
@@ -492,12 +507,22 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
           kind: 'feedback-detected', tMs: msg.t_ms,
           node: msg.action?.node, amplitude: msg.action?.amplitude,
           durationMs: msg.action?.durationMs, confirmed: true,
+          actionId: msg.action?.id, detectedMs: msg.action?.detectedMs,
         });
       } else if (msg.phase === 'applied') {
         engine.emitFeedbackEvent({
           kind: 'feedback-applied', tMs: msg.t_ms,
           node: msg.action?.node, amplitude: msg.action?.amplitude,
           durationMs: msg.action?.durationMs, confirmed: true,
+          actionId: msg.action?.id, detectedMs: msg.action?.detectedMs,
+          applyMs: msg.action?.applyMs, observedAtTms: sim.getLatest()?.t_ms,
+        });
+      } else if (msg.phase === 'suppressed') {
+        engine.emitFeedbackEvent({
+          kind: 'feedback-suppressed', tMs: msg.t_ms,
+          node: msg.state?.config.node, confirmed: true,
+          suppressedCount: msg.state?.suppressedCount,
+          suppressedValue: msg.state?.lastSuppressedValue ?? undefined,
         });
       } else if (msg.phase === 'configured' || msg.phase === 'stopped') {
         appendTrace({ tMs: msg.t_ms, hop: 'experiment-computer',
@@ -531,7 +556,25 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sim, ready, stimNode, strength, durationMs, appendTrace]);
 
-  // ---------- 250 ms poll: engine tick, marker confirmation, ACK matching ----------
+  // ---------- Phase 3：协议引擎由 Worker 时钟驱动，不再由前端定时器驱动 ----------
+  // 每条 Worker 快照（App.tsx 经 sim.subscribe 推进 snap prop，约 60 Hz）
+  // 恰好是一次 engine.tick(snap.t_ms) + confirmFromMarkers：试次 firing 与
+  // 响应锚定都发生在 Worker 的模型时间上。React 批量更新可能合并快照
+  // （两次 effect 之间跳过一个快照），引擎的去重保证这时只发最新到期的
+  // 一个试次、其余记为跳过，永不突发连发。前端定时器不再决定任何刺激时序。
+  useEffect(() => {
+    if (!sim || !ready || !snap) return;
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.tick(snap.t_ms);
+    engine.confirmFromMarkers(sim.getMarkers());
+  }, [sim, ready, snap]);
+
+  // ---------- 250 ms 轮询：只做观测/记账，不决定刺激时序 ----------
+  // Phase 3：试次 firing 与响应锚定已移到 Worker 快照驱动（见上方快照 effect）。
+  // 这个定时器只做读数同步（试次数/丢弃响应/运行态）、手动刺激的 ACK 匹配、
+  // 新 marker 记入放大器事件流（回路追踪）、采集重试。它不调用 engine.tick、
+  // 不发任何刺激——前端只显示，永不决定时序。
   const snapRef = useRef(snap);
   useEffect(() => { snapRef.current = snap; }, [snap]);
   const seenMarkerCountRef = useRef(0);
@@ -539,11 +582,8 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   useEffect(() => {
     if (!sim || !ready) return;
     const id = window.setInterval(() => {
-      const tMs = sim.getLatest()?.t_ms ?? snapRef.current?.t_ms ?? 0;
       const engine = engineRef.current;
       if (engine) {
-        engine.tick(tMs);
-        engine.confirmFromMarkers(sim.getMarkers());
         trialCountRef.current = engine.trialIndex;
         setTrialCount(engine.trialIndex);
         setProtocolRunning(engine.running);
@@ -733,6 +773,17 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const lastStim = stimLog.at(-1) ?? null;
   const totalSamples = acquisition?.recording.timesMs.length ?? 0;
   const totalEvents = benchRecording?.events.length ?? acquisition?.events.length ?? 0;
+
+  // Phase 3 — 控制条上的闭环时延小读数（设计 §2d：只在控制条露一个小实时读数，不另开面板）。
+  // 每快照重渲染时从引擎与最新 native_feedback 消息现读；只在闭环协议运行中显示数值，
+  // 其余时间只显示 "—"。trigger→command 与 observation lag 取自 getLoopTiming()，
+  // 冷却剩余取自 NativeFeedback 快照；dispatch→ACK 只在开环分发路径上测到，闭环里恒为 null，故不放进这一行。
+  const loopTiming = engineRef.current?.getLoopTiming() ?? null;
+  const feedbackState = sim?.getNativeFeedback()?.state ?? null;
+  const cooldownRemaining = feedbackState ? cooldownRemainingMs(feedbackState, snap?.t_ms ?? 0) : 0;
+  const loopTimingText = protocolId === 'closed-loop' && protocolRunning
+    ? `${text('触发→命令', 'trigger→command')} ${fmt(loopTiming?.triggerToCommandMs, 0)} ms · ${text('观测滞后', 'observation lag')} ${fmt(loopTiming?.observationLagMs, 0)} ms · ${text('冷却中', 'cooldown')} ${(cooldownRemaining / 1000).toFixed(1)} s`
+    : '—';
 
   return (
     <div className="bench" data-testid="closed-loop-bench">
@@ -1130,6 +1181,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
           <div className="bench-readout">
             <p>{text('协议状态', 'Protocol state')}: {protocolRunning ? t('shell.running') : t('shell.paused')}</p>
             <p>{text('试次数', 'Trials')}: {trialCount}</p>
+            <p data-testid="bench-loop-timing">{text('闭环延迟', 'Closed-loop latency')}: {loopTimingText}</p>
             <p>{text('下一次刺激（模型时间）', 'Next stimulus (model time)')}: {nextStimulusTms !== null ? `${fmt(nextStimulusTms, 0)} ms` : '—'}</p>
             <p>{text('丢弃的响应', 'Dropped responses')}: {droppedResponses}</p>
           </div>
