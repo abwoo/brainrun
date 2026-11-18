@@ -89,8 +89,15 @@ export const BENCH_SETTINGS_DEFAULTS: BenchSettings = {
   flickerAmp: 1,
   flickerDurationMs: 100,
   clFeature: 'instant',
-  clThreshold: 0.5,
-  clAmplitude: 1,
+  /** 闭环默认阈值与幅度（2026-11-19 实测校准，见 tests/bench/bench-closed-loop-defaults.test.mjs）：
+   * Spontaneous 下节点 0（rA1）E 均值约 0.014、最大值约 0.019，旧阈值 0.5
+   * 高出最大值约 25 倍、60 s 内 0 次触发；0.016 使约 12–15% 的评估越过阈值，
+   * 两个种子上 60 s 内触发 7 次与 9 次。幅度 1.0 的重复脉冲会把双稳态网络
+   * 翻进 E≈0.5 的高态并锁死（60 s 内 18–58 次触发）；0.7 在两个种子上均不
+   * 翻转，单脉冲 max|ΔE| 0.0211（响应阈值 0.01 的约 2 倍）。节点仍为默认
+   * 0（未选脑区时的回退值），冷却 500 ms 与评估周期 1000 ms 不变。 */
+  clThreshold: 0.016,
+  clAmplitude: 0.7,
   clDurationMs: 100,
   clPeriodMs: 1000,
   clCooldownMs: 500,
