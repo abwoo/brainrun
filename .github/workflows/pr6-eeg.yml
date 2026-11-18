@@ -104,6 +104,12 @@ jobs:
             echo "SKIP: app/tests/pr6-browser-smoke.mjs does not exist yet (created by wave-2); skipping browser smoke test."
           fi
 
+      - name: Bench live-refresh browser test
+        working-directory: app
+        # 样本数冻结回归：协议运行中记录须自动刷新（每 5 秒 + 停止时），
+        # 否则样本数/波形/事件数全冻在引擎就绪那一刻。
+        run: node tests/bench-live-refresh-browser.mjs
+
       - name: EEG configuration and export consistency
         working-directory: app
         run: node tests/eeg-configuration-browser.mjs
