@@ -54,7 +54,7 @@ import {
 import { bandpassFilter, validateBandpassParams } from '../lib/signalProcessing';
 import { createSimulatedSubject } from '../lib/benchSubject';
 import {
-  createBenchProtocolEngine, findAckMarker,
+  createBenchProtocolEngine, findAckMarker, protocolStatusKey,
   type BenchProtocolEngine, type BenchProtocolEvent, type BenchProtocolId,
   type BenchProtocolParams,
 } from '../lib/benchProtocol';
@@ -400,6 +400,11 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const setProtocolId = (v: BenchProtocolId) => setBenchSettings({ protocolId: v });
   useEffect(() => { protocolIdRef.current = protocolId; }, [protocolId]);
   const [protocolRunning, setProtocolRunning] = useState(false);
+  // 协议状态四态的第三个输入（见 benchProtocol.ts protocolStatusKey）：
+  // 本协议是否跑过。runProtocol 置真；换协议清零——下拉在运行中禁用，
+  // 所以换协议时协议一定不在跑，清零后新协议如实显示“未开始”。
+  const [protocolEverStarted, setProtocolEverStarted] = useState(false);
+  useEffect(() => { setProtocolEverStarted(false); }, [protocolId]);
   const [trialCount, setTrialCount] = useState(0);
   const [droppedResponses, setDroppedResponses] = useState(0);
   const [responses, setResponses] = useState<ResponseRow[]>([]);
@@ -783,6 +788,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     extraEventsRef.current = [];
     setResponses([]);
     engine.start(protocolId, protocolParams, startTms);
+    setProtocolEverStarted(true);
     setProtocolRunning(engine.running);
   }, [sim, ready, protocolId, protocolParams]);
   const stopProtocol = useCallback(() => {
@@ -827,6 +833,15 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const loopTimingText = protocolId === 'closed-loop' && protocolRunning
     ? `${text('触发→命令', 'trigger→command')} ${fmt(loopTiming?.triggerToCommandMs, 0)} ms · ${text('观测滞后', 'observation lag')} ${fmt(loopTiming?.observationLagMs, 0)} ms · ${text('冷却中', 'cooldown')} ${(cooldownRemaining / 1000).toFixed(1)} s`
     : '—';
+
+  // 协议状态文案：三处（回路角色行、实验电脑折叠标题、细节读数）共用同一份
+  // 派生，见 benchProtocol.ts protocolStatusKey——停过的协议显示“已停止”，
+  // 不再误标“已暂停”；运行中全局暂停才显示“已暂停”。
+  const protocolStatus = protocolStatusKey(protocolRunning, paused, protocolEverStarted);
+  const protocolStatusText = protocolStatus === 'running' ? t('shell.running')
+    : protocolStatus === 'paused' ? t('shell.paused')
+    : protocolStatus === 'stopped' ? t('shell.stopped')
+    : t('bench.protocol.notStarted');
 
   // ---------- test-computer views: live waveform + recording analysis ----------
   // The six old analysis tabs are two views of the ONE shared bench recording:
@@ -884,7 +899,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
           </button>
           <button className="ui-button" type="button" onClick={onRecover}
             disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
-            {text('恢复', 'Recover')}
+            {text('恢复快照', 'Restore snapshot')}
           </button>
         </div>
       </header>
@@ -1047,7 +1062,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             : capSelection ? `${capSelection.preset} · ${capSelection.channelCount} ${text('通道', 'ch')}` : '—'}
           {' · '}{text('放大器', 'Amplifier')} {sampleRate} Hz · {text('输出', 'Output')} {fmt(latestUv, 2)} µV
           {' · '}{text('测试电脑', 'Test computer')} {totalSamples} {text('样本', 'samples')} · {totalEvents} {text('事件', 'events')} · runId {shortRunId(benchRecording?.runId ?? runId)}
-          {' · '}{text('实验电脑', 'Experiment computer')} {t(`bench.protocol.${protocolId}`)} · {protocolRunning ? t('shell.running') : t('shell.paused')}
+          {' · '}{text('实验电脑', 'Experiment computer')} {t(`bench.protocol.${protocolId}`)} · {protocolStatusText}
           {' · '}{text('刺激器', 'Stimulator')} {lastStim
             ? `${text('脑区', 'node')} ${lastStim.node} · ${fmt(lastStim.amplitude, 2)} · ${lastStim.durationMs} ms${lastStim.confirmed ? ` · ${text('Worker 已确认', 'Confirmed by Worker')}` : ''}`
             : text('就绪', 'Ready')}
@@ -1229,7 +1244,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
 
       {/* ---- collapsible settings: protocol parameters + stimulator ---- */}
       <details className="bench-details" aria-label={t('bench.experimentComputer')}>
-        <summary>{t('bench.experimentComputer')} · {t(`bench.protocol.${protocolId}`)} · {protocolRunning ? t('shell.running') : t('shell.paused')}</summary>
+        <summary>{t('bench.experimentComputer')} · {t(`bench.protocol.${protocolId}`)} · {protocolStatusText}</summary>
         <div className="bench-details-body">
           {protocolId === 'oddball' && (
             <>
@@ -1314,7 +1329,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
               'The header pause stops the whole simulation; protocol run/stop only controls the current protocol. They are not the same button.')}
           </p>
           <div className="bench-readout">
-            <p>{text('协议状态', 'Protocol state')}: {protocolRunning ? t('shell.running') : t('shell.paused')}</p>
+            <p>{text('协议状态', 'Protocol state')}: {protocolStatusText}</p>
             <p>{text('试次数', 'Trials')}: {trialCount}</p>
             <p>{text('下一次刺激（模型时间）', 'Next stimulus (model time)')}: {nextStimulusTms !== null ? `${fmt(nextStimulusTms, 0)} ms` : '—'}</p>
             <p>{text('丢弃的响应', 'Dropped responses')}: {droppedResponses}</p>

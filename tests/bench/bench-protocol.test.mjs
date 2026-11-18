@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBenchProtocolEngine, findAckMarker, LATE_ACK_GRACE_MS, LOOP_TIMING_BOUNDS } from '../../app/src/lib/benchProtocol.ts';
+import { createBenchProtocolEngine, findAckMarker, protocolStatusKey, LATE_ACK_GRACE_MS, LOOP_TIMING_BOUNDS } from '../../app/src/lib/benchProtocol.ts';
 
 /** 脑区表：rA1=0、lA1=38、rV1=35、lV1=73（与 regions.json 的 id 一致）。 */
 function fakeRegions() {
@@ -561,4 +561,24 @@ test('引用匹配：同一个 marker 对象不能确认两个待定响应', () 
   assert.equal(responses[0].tMs, 700 + 380);
   assert.equal(responses[0].confirmed, true);
   assert.equal(engine.droppedResponses, 0);
+});
+
+/**
+ * 协议状态文案四态（2026-11-19 修：停过的协议此前误标“已暂停”）。
+ * 旧文案只看 running：停过的协议也显示“已暂停”，用户会以为顶栏的
+ * “恢复”能续跑协议——它只是恢复脉冲基线快照。protocolStatusKey 是
+ * 纯函数：running + 全局暂停 → paused；running → running；
+ * 停过 → stopped；从未跑过 → not-started。全局暂停只在运行中才
+ * 影响文案（停过的协议被全局暂停也不变回“已暂停”）。
+ */
+test('protocolStatusKey：四态——运行中 / 运行中全局暂停 / 停过 / 从未跑过', () => {
+  // 从未跑过：全局暂停与否都是 not-started（没跑过的协议没有“暂停”可言）。
+  assert.equal(protocolStatusKey(false, false, false), 'not-started');
+  assert.equal(protocolStatusKey(false, true, false), 'not-started');
+  // 运行中：全局暂停 → paused，否则 running。
+  assert.equal(protocolStatusKey(true, false, true), 'running');
+  assert.equal(protocolStatusKey(true, true, true), 'paused');
+  // 停过：全局暂停也不变回 paused，仍是 stopped（旧文案这里错标 paused）。
+  assert.equal(protocolStatusKey(false, false, true), 'stopped');
+  assert.equal(protocolStatusKey(false, true, true), 'stopped');
 });
