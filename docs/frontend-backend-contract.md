@@ -603,7 +603,7 @@ P0 加入时未同步更新；本次补齐，测试断言只增不减，不是�
 
 | 项 | 值 / 口径 | 前端 | 后端 |
 |---|---|---|---|
-| 入口 | 唯一入口 = 台子（`workspace 'bench'`）。`#basic` 回退页保留，但其“高级实验”导航卡片全部删除（七个目的地都指向已不存在的 `#advanced`，留着就是死按钮）；`LocalBEMLab` 的“分析当前模板实验”按钮原随 `onAnalysis` 入口一起删除，后恢复为 `#basic` 内联入口（`PhysicsHome` 的 `analysisOpen` → 内联 `EegAnalysisLab`，返回按钮回模板首页；台子没有模板偶极子实验的等价入口，故保留在 `#basic`，不声称台子覆盖该流程）。台子顶栏的“高级实验”按钮删除；“返回物理模型”保留（`#basic` 仍可达） | `App.tsx`（2179 → 约 340 行：只留 SimClient 接线 + bench/basic 两个分支）；`PhysicsHome.tsx`（删 `AdvancedDestination` 与高级导航）；`ClosedLoopBench.tsx`（删 `onOpenAdvanced` prop） | —（无后端改动） |
+| 入口 | 唯一入口 = 台子（`workspace 'bench'`）。`#basic` 回退页保留，但其“高级实验”导航卡片全部删除（七个目的地都指向已不存在的 `#advanced`，留着就是死按钮）；`LocalBEMLab` 的“分析当前模板实验”按钮原随 `onAnalysis` 入口一起删除，后恢复为 `#basic` 内联入口（`PhysicsHome` 的 `analysisOpen` → 内联 `EegAnalysisLab`，返回按钮回模板首页；台子没有模板偶极子实验的等价入口，故保留在 `#basic`，不声称台子覆盖该流程）。台子顶栏的“高级实验”按钮删除；“返回物理模型”保留（`#basic` 仍可达）。2026-11-18 用户选 Option A（见 §1.18）：`#basic` 的高级实验导航恢复两个入口（信号分析、对照与回放），其余五个目的地仍不恢复 | `App.tsx`（2179 → 约 340 行：只留 SimClient 接线 + bench/basic 两个分支）；`PhysicsHome.tsx`（删 `AdvancedDestination` 与高级导航）；`ClosedLoopBench.tsx`（删 `onOpenAdvanced` prop） | —（无后端改动） |
 | 主滑杆 §1.2 | c_ei / G 两档滑杆随 `#advanced` 的 PARAMETERS 面板一起删除（引擎 clamp 与 `KNOB_MAP` 未动）；刺激强度 / 持续时间两档保留，进台子（刺激器）与 `#basic` | `App.tsx` 只留 `kStim / kDur` | `KNOB_MAP` / `DEFAULT_PARAMS` / WASM clamp 未动 |
 | 权重 / 偏置 §1.4 | 权重编辑、持续偏置、回放、快照保存/恢复按钮、随机种子输入随 `#advanced` 删除；`BrainScene` 的 `biasList` 入口保留，接空数组（无偏置可传，不是空壳——偏置能力仍在 `lib/simClient` 与 Worker 里，UI 上暂无入口，见 §5.3 新增缺口行） | `App.tsx`（删 `weightEdits / biasMap / replay / snapInfo` 状态与对应 handler） | `set_weight / set_bias / snapshot` 消息与 Rust 实现未动 |
 | 六个分析页 → 两个视图 | 旧六 tab（EEG 波形 / 频谱 / ERP / 时频 / 地形 / 源定位）不再是独立页，改为测试电脑的两个视图：(a) 实时波形视图（原波形 canvas + 通道下拉 + 记录读数 + 导出，位置不动）；(b) 记录分析视图（ERP / 时频 / 地形 / 源定位 / 频谱五个子 tab，复用 `ErpTab / TfrTab / TopoTab / InverseTab / WavesTab` 原组件，不重建）。两个视图读同一份台子记录（`benchRecording.recording`，无记录时退到 `acquisition.recording`）+ 同一份事件表 + 同一份 epochs，同一 runId；`EegAnalysisLab` 壳（独立柱模型运行实验、直播推导、参考/导联/噪声配置）随入口删除 | `ClosedLoopBench.tsx` 测试电脑区：视图切换 + `analysisTab` 状态；`epochs` = 手动切分覆盖 ?? `benchRecording.epochs`（组装时已按 pulse 事件切好）；新组装记录时覆盖清零 | `benchRecording.ts` `assembleBenchRecording`（epochs 本就随记录算出）；`signalProcessing.ts` `epochRecording`；`lateResponse.ts` `epochOddballExperiment` |
@@ -625,6 +625,18 @@ Superseded（本节取代，不再作为入口登记；后端参数与数值仍�
 
 测试移动（2026-11-18 实测，见 P4 报告）：全 node 套件 326/353（基线 338/353），新增失败 12 个，全部是已删入口的源码级断言，无数值漂移、无方法学回归：
 `tests/pr5/contract.test.mjs` 新增 6 个——「四滑杆」（App 已无 ParamControls 的 min/max）、「权重/偏置 clamp」（权重/偏置滑杆已删）、「PR7 细胞级/刺激/实验」（CellularLab/StimLab/ExperimentLab 不再挂载）、「PR8-LINK §4.1」（六台接线随入口失效）；`tests/p0-1/control-flow.test.mjs` 新增 4 个——「P0-1 surface」（控件面 207 < 210 阈值，App 砍掉约 50 个控件；ClosedLoopBench.tsx 不在该测试的扫描文件列表内）、「P0-1B 控件登记」（登记总数 257 ≠ 实际 207）、「C01」（EXPLORE 模式已删）、「C04」（ScenarioLauncher 与「场景摘要尚未自动载入实验台」文案已删）；`tests/ui/design-system-i18n.test.mjs` 新增 2 个——「i18n key coverage」（App 不再含 `<LanguageSwitch`，bench 自己渲染）、「workspace layout」（stageWidth/data-mode/brainrun-focus 已删）。其余 15 个失败与基线完全相同。`tests/bench/`（57）+ `tests/pr6/native-feedback.test.mjs`（10）= 67/67，与基线一致；`modes-scenarios`、`methods-numfix` 等 lib 测试不受影响。登记文件 `docs/p0-1b-control-register.json`（257 条）尚未按新控件面（207 条）重生成，属后续审计工作，不在本批改动内。
+
+### 1.18 闭环实验台 Option A：`#basic` 恢复高级实验两个入口（2026-11-18，用户定）
+
+只恢复入口，不改物理、不改 lib、不重缩放数字、不放宽任何测试容差、不新增 Worker 消息；台子仍是唯一默认入口，`#basic` 仍是回退页。恢复的两个入口都内联在 `PhysicsHome` 里，不重建 `#advanced` 路由、不恢复其余五个目的地（单个神经元、刺激与电场、脑区与坐标、辅助预设、模型说明）。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 信号分析 | `#basic` 头栏“高级实验”开关 → “信号分析”卡片。电流模型下先按所选头部模型准备记录（BEM 调 `prepareTemplateAnalysis()`，球形调 `preparePhysicalAnalysis()`），再内联打开 `EegAnalysisLab`（与 D 恢复的模板分析入口同一挂载方式）；网络模型下直接打开，不准备记录。返回按钮回 `#basic` 首页 | `PhysicsHome.tsx`（`analysisOpen` 分支复用；`LocalBEMLab` 补 `onReady` 供信号卡片的就绪门禁，与 P4 前口径一致） | `templateExperiment.ts` / `physicalExperiment.ts` 未动 |
+| 对照与回放 | “对照与回放”卡片内联打开 `ExperimentLab`，球形正向模型 fixture 打开时才懒加载一次（`forward-assets/sphere-model.json` + `validateSphereFixture`，失败只禁源定位对照，其余照常，与 P4 前口径一致）；`live` 接线与 P4 前 `App` 挂载一致（`sim` + 选中脑区 + TVB 中心）；`onRestore` 接 `App.syncFromSnapshot`，`onOpenAnalysis` 关对照分支、开内联 EEG 分析（读 `setLiveRecordingStore` 的反馈记录） | `PhysicsHome.tsx`（`experimentActive` / `experimentOpen` 双状态）；`App.tsx` 只加 `onRestore` 一个 prop | `ExperimentLab.tsx` / `nativeFeedback.ts` / Worker 未动 |
+| 分析视图内 More → Comparisons | P4 删掉的旧顶栏 More/Less 开关 + Comparisons 入口只在 `EegAnalysisLab` 内联视图里恢复（`PhysicsHome` 的 `analysisOpen` 分支，返回按钮旁；P4 前口径：`shell.more` / `shell.less` + `shell.experiments`）。点 Comparisons 关分析分支、开对照分支（`setAnalysisOpen(false); setExperimentActive(true); setExperimentOpen(true)`），与 P4 前“打开 ExperimentLab”一致；只此一个入口，不新增其他工具项。`network-comparison-browser.mjs` 全程走此入口（含 `Analyze B EEG` 回分析视图的既有 `onOpenAnalysis` 接线） | `PhysicsHome.tsx`（`labMore` 状态 + 两个按钮）；`App.tsx` / 台子未动 | —（无后端改动） |
+| 关闭语义 | 实验台自己的“关闭”只卸掉实验台（`experimentOpen=false`），不关分支：卸载时 `ExperimentLab` 的清理调用 `configureNativeFeedback(null)`，Worker 报 `stopped`；分支与“返回物理模型”按钮保留，可点返回首页。重开时实验台从 `getNativeFeedback()` 读 Worker  live 状态（快照恢复后为 `restored` 相位带完整 config），不是默认值 | `PhysicsHome.tsx` `closeLabs` / `onClose` | Worker `set_native_feedback`（null → `stopped`）与快照恢复（`restored`）未动 |
+| 控件登记 | 控件面 235 → 237（新增切换按钮 + 选择卡片两个源码控件，`PhysicsHome` 11 → 13，NAV 16 → 18），再 237 → 239（分析视图内 More/Less 开关 + Comparisons 入口两个源码控件，`PhysicsHome` 13 → 15，NAV 18 → 20）；`docs/p0-1b-control-register.json` 与两处计数断言（`tests/p0-1/control-flow.test.mjs`、`tests/ui/design-system-i18n.test.mjs`）同步更新，计数逻辑未动 | 同左 | — |
 
 ## 2. 坐标系
 

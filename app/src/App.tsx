@@ -318,6 +318,7 @@ export default function App() {
     onReset={() => { const id = selectedId; handleBackgroundMode(DEFAULT_BACKGROUND_MODE); handleReset(); setSelectedId(id); }}
     onPause={handlePlayPause} paused={paused} background={bgMode} onBackground={handleBackgroundMode}
     response={resp.summary} onRecover={() => handleRestoreSnapshot('pulse-baseline')}
+    onRestore={syncFromSnapshot}
     networkView={data ? <BrainScene pointerStimulates={false} data={data} autoRotate={false}
       showConnections={true} selectedId={selectedId} resetSignal={resetSignal} onSelect={setSelectedId}
       sim={simRef.current} onPulse={handlePulse} onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd}

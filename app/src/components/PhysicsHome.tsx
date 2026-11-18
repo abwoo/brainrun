@@ -2,10 +2,15 @@ import NetworkStatePanel from './NetworkStatePanel';
 import {getHeadModelSelection,subscribeHeadModelSelection,setHeadModelSelection} from '../lib/headModelSelection';
 import LocalBEMLab from './LocalBEMLab';
 import EegAnalysisLab from './EegAnalysisLab';
-import { useSyncExternalStore,useState, type ReactNode } from 'react';
+import ExperimentLab from './ExperimentLab';
+import {prepareTemplateAnalysis} from '../lib/templateExperiment';
+import {preparePhysicalAnalysis,physicalFixtureReady,subscribePhysicalSource} from '../lib/physicalExperiment';
+import type { SphereFixture } from '../lib/sphereForward';
+import {validateSphereFixture} from '../lib/sphereForward';
+import { useEffect,useSyncExternalStore,useState, type ReactNode } from 'react';
 import { useI18n } from '../lib/i18n';
 import type { BrainData } from '../lib/brainData';
-import type { BackgroundMode, ResponseSummary } from '../lib/simClient';
+import type { BackgroundMode, ResponseSummary, SnapshotSummary } from '../lib/simClient';
 import HeadSphereLab from './HeadSphereLab';
 import ActivityChart from './ActivityChart';
 import type { SimClient } from '../lib/simClient';
@@ -15,36 +20,89 @@ import { ControlField, RangeControl } from './ui/ControlField';
 
 export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,ready,error,
  strength,durationMs,onStrength,onDuration,onPulse,onReset,onPause,paused,background,onBackground,
- response,onRecover}:{
+ response,onRecover,onRestore}:{
  networkView:ReactNode; data:BrainData|null; selectedId:number|null; onSelect:(id:number)=>void;
  sim:SimClient|null; ready:boolean; error:string|null; strength:number; durationMs:number;
  onStrength:(v:number)=>void;onDuration:(v:number)=>void;onPulse:()=>void;onReset:()=>void;
  onPause:()=>void;paused:boolean;background:BackgroundMode;onBackground:(mode:BackgroundMode)=>void;
- onRecover:()=>void;
+ onRecover:()=>void;onRestore?:(summary:SnapshotSummary)=>void;
  response:ResponseSummary|null;
 }) {
- const {locale}=useI18n();
+ const {locale,t}=useI18n();
  const text=(zh:string,en:string)=>locale==='zh-CN'?zh:en;
  const [model,setModel]=useState<'electric'|'network'>('electric');
  const headModel=useSyncExternalStore(subscribeHeadModelSelection,getHeadModelSelection);
  const setHeadModel=setHeadModelSelection;
+ const physicalReady=useSyncExternalStore(subscribePhysicalSource,physicalFixtureReady);
+ const [templateReady,setTemplateReady]=useState(false);
  const [help,setHelp]=useState(false);
+ const [advanced,setAdvanced]=useState(false);
+ // Option A restore (2026-11-18): the Advanced labs nav returns to #basic
+ // with exactly two destinations — signals and comparison. The other five
+ // pre-P4 destinations stay cut. The bench is still the only default entry.
+ const choices:Array<{key:'signals'|'comparison';zh:string;en:string;hintZh:string;hintEn:string}>=[
+  {key:'signals',zh:'信号分析',en:'Signal analysis',hintZh:'查看脑电波形、频谱与事件响应',hintEn:'Inspect recordings, spectra and event responses'},
+  {key:'comparison',zh:'对照与回放',en:'Compare and replay',hintZh:'比较参数变化，检查保存的状态',hintEn:'Compare parameters and inspect saved states'},
+ ];
  // Template-dipole analysis entry (restored after P4): LocalBEMLab's
  // "Analyze this template experiment" opens the EEG lab inline, replacing
  // the home exactly as the old #advanced signals flow did; the back button
  // below returns to the template home. The bench has no equivalent for
  // this template-dipole experiment flow, so the entry lives here in #basic.
  const [analysisOpen,setAnalysisOpen]=useState(false);
+ // Option A restore (2026-11-18), More → Comparisons: pre-P4 the old App
+ // topbar had a More/Less toggle whose tools row held a Comparisons chip
+ // opening ExperimentLab. P4 deleted it; the network-comparison browser
+ // test still drives that path (analysis view → More → Comparisons →
+ // Compare A/B). Restored here, inside the analysis branch only: the
+ // toggle's accessible name starts with "More" in English, the chip uses
+ // shell.experiments ("Comparisons" / "对照实验"), and clicking it closes
+ // the analysis branch and opens the comparison branch — same as pre-P4.
+ const [labMore,setLabMore]=useState(false);
+ // Comparison entry: experimentActive keeps the lab branch (and its back
+ // button) mounted while experimentOpen tracks whether the lab itself is
+ // mounted. The lab's own Close only unmounts the lab: unmounting stops
+ // the live feedback controller (Worker reports phase 'stopped'), while
+ // the back button stays clickable to return home. Reopening remounts
+ // the lab, which reads the live Worker feedback state on mount instead
+ // of defaults. The two flags must not be collapsed into one.
+ const [experimentActive,setExperimentActive]=useState(false);
+ const [experimentOpen,setExperimentOpen]=useState(false);
+ const [expFixture,setExpFixture]=useState<SphereFixture|null>(null);
+ const [expFixtureError,setExpFixtureError]=useState<string|null>(null);
+ useEffect(()=>{
+  if(!experimentActive||expFixture||expFixtureError)return;
+  const controller=new AbortController();
+  fetch(import.meta.env.BASE_URL+'forward-assets/sphere-model.json',{signal:controller.signal})
+   .then(async r=>{if(!r.ok)throw new Error('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py');
+    const data=(await r.json()) as SphereFixture;validateSphereFixture(data);setExpFixture(data);})
+   .catch(e=>{if(!controller.signal.aborted)setExpFixtureError(String(e));});
+  return ()=>controller.abort();
+ },[experimentActive,expFixture,expFixtureError]);
+ const closeLabs=()=>{setLabMore(false);setAnalysisOpen(false);setExperimentActive(false);setExperimentOpen(false);};
+ const openAnalysisFromExperiment=()=>{setExperimentActive(false);setExperimentOpen(false);setAnalysisOpen(true);};
  const selected=selectedId!==null&&data?data.regions[selectedId]:null;
- if(analysisOpen)return <div className="physics-home" data-testid="physics-home">
+ if(analysisOpen||experimentActive)return <div className="physics-home" data-testid="physics-home">
   <header className="physics-header">
    <a className="physics-brand" href="#" aria-label="BrainRun">BrainRun<span>{text('交互物理仿真','Interactive physics')}</span></a>
    <div className="physics-header-actions"><LanguageSwitch/></div>
   </header>
   <main className="physics-main">
-   <button type="button" className="ui-button" onClick={()=>setAnalysisOpen(false)}>{text('返回物理模型','Back to physical models')}</button>
-   <EegAnalysisLab inline initialTab="eeg" onClose={()=>setAnalysisOpen(false)}
-    liveSource={{sim,node:selectedId,regionLabel:selected?.label??null,positionMm:selected?selected.centre:null}}/>
+   <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+    <button type="button" className="ui-button" onClick={closeLabs}>{text('返回物理模型','Back to physical models')}</button>
+    {analysisOpen&&<button type="button" className="ui-button" aria-pressed={labMore} onClick={()=>setLabMore(v=>!v)}>{t(labMore?'shell.less':'shell.more')} {labMore?'▲':'▼'}</button>}
+   </div>
+   {analysisOpen&&labMore&&<div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'8px'}}>
+    <button type="button" className="ui-button" onClick={()=>{setLabMore(false);setAnalysisOpen(false);setExperimentActive(true);setExperimentOpen(true);}}>{t('shell.experiments')}</button>
+   </div>}
+   {analysisOpen&&<EegAnalysisLab inline initialTab="eeg" onClose={()=>setAnalysisOpen(false)}
+    liveSource={{sim,node:selectedId,regionLabel:selected?.label??null,positionMm:selected?selected.centre:null}}/>}
+   {experimentActive&&experimentOpen&&<>
+    {expFixtureError&&<p className="panel-text" style={{color:'#ffb340'}}>球形正向模型未加载（{expFixtureError}）：源定位对照不可用，双脑数值比较与时间机器、闭环照常可用。</p>}
+    <ExperimentLab fixture={expFixture} onRestore={onRestore} onOpenAnalysis={openAnalysisFromExperiment}
+     onClose={()=>setExperimentOpen(false)}
+     live={{sim,node:selectedId,label:selected?.label??null,positionMm:selected?selected.centre:null}}/>
+   </>}
   </main>
  </div>;
  return <div className="physics-home" data-testid="physics-home">
@@ -53,6 +111,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
    <div className="physics-header-actions">
     <LanguageSwitch/>
     <button className="ui-button" type="button" aria-expanded={help} onClick={()=>setHelp(v=>!v)}>{text('操作帮助','How to use')}</button>
+    <button className="ui-button" type="button" aria-expanded={advanced} onClick={()=>setAdvanced(v=>!v)}>{text('高级实验','Advanced labs')} <span aria-hidden="true">{advanced?'−':'+'}</span></button>
    </div>
   </header>
   {help&&<section className="physics-help" role="region" aria-label={text('操作帮助','How to use')}>
@@ -60,6 +119,15 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
    <p>{model==='electric'?text('拖动橙色电流源，或调整右侧的位置和强度。头皮上的测量点和下方数字会一起更新。拖动空白处旋转视角。','Drag the orange current source, or change its position and strength with the controls. Sensor readings update immediately. Drag empty space to rotate the view.'):
     text('点击大脑选择位置，再按“施加刺激”。调整强度和持续时间，比较活动曲线。单纯选择和旋转不会施加刺激。','Select a location on the brain, then apply an input. Adjust its strength and duration and compare the trace. Selecting and rotating do not stimulate the model.')}</p>
   </section>}
+  {advanced&&<nav className="physics-advanced" aria-label={text('高级实验分类','Advanced lab categories')}>
+   {choices.map(item=><button type="button" className="advanced-card" key={item.key} disabled={item.key==='signals'&&model==='electric'&&!(headModel==='sphere'?physicalReady:templateReady)} onClick={()=>{
+    setAdvanced(false);
+    if(item.key==='signals'){if(model==='electric'){if(headModel==='bem')prepareTemplateAnalysis();else preparePhysicalAnalysis();}setAnalysisOpen(true);}
+    else{setExperimentActive(true);setExperimentOpen(true);}
+   }}>
+    <strong>{text(item.zh,item.en)}</strong><span>{text(item.hintZh,item.hintEn)}</span>
+   </button>)}
+  </nav>}
   <main className="physics-main">
    <div className="physics-intro">
     <div><p className="eyebrow">{text('由你操作，即时计算','Your controls. Live calculations.')}</p>
@@ -77,7 +145,7 @@ export default function PhysicsHome({networkView,data,selectedId,onSelect,sim,re
       <option value="bem">{text('真实模板 BEM：选择皮层位置','Anatomical template BEM: choose a cortical location')}</option>
      </Dropdown>
     </details>
-    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}} onAnalysis={()=>setAnalysisOpen(true)}/>}
+    {headModel==='sphere'?<HeadSphereLab embedded onClose={()=>{}}/>:<LocalBEMLab embedded onClose={()=>{}} onReady={setTemplateReady} onAnalysis={()=>setAnalysisOpen(true)}/>}
    </>:
     <div className="manual-network" data-testid="manual-network">
      <section className="manual-network-view">

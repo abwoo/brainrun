@@ -58,9 +58,11 @@ test('workspace layout: #advanced stage/focus controls are cut; App is bench/bas
 test('control audit is updated, not weakened by migrating 36 selects',()=>{
  const c=JSON.parse(read('docs/p0-1b-control-register.json'));
  // Phase 4 重数：235（257 − App 48 − PhysicsHome 2 + 台子 27 + 模板分析返回按钮 1），
+ // Option A（2026-11-18）恢复高级实验导航 +2 → 237，PhysicsHome 13，NAV 18；
+ // Option A 补项（2026-11-18）分析视图内恢复 More/Less + Comparisons +2 → 239，PhysicsHome 15，NAV 20。
  // Dropdown 57（48 + 台子 9）。
- assert.equal(c.counts.total,235);
- assert.equal(c.entries.length,235);
+ assert.equal(c.counts.total,239);
+ assert.equal(c.entries.length,239);
  assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,57);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
