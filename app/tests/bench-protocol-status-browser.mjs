@@ -1,7 +1,7 @@
 /**
  * Bench protocol-status browser test (2026-11-19 修：协议状态误标回归；
- * 2026-11-19 简化改写：协议下拉改成四个大按钮，状态只剩主视图一条人话
- * 状态行，顶栏按钮与样本数读数进“详情 / 诊断”面板）。
+ * 2026-11-19 图解改写：诊断面板删除，顶栏按钮（暂停/继续/重置/恢复
+ * 快照）常驻瘦顶栏，样本数/模型时间读数进测试电脑 drill-down）。
  *
  * 缺陷：协议状态文案只看 `protocolRunning`——停过的协议也显示“已暂停”，
  * 用户会以为顶栏的“恢复”能续跑协议；它只是恢复脉冲基线快照（模型时间
@@ -102,19 +102,21 @@ try {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  // 协议按钮（四个大按钮，取代旧下拉）与主视图状态行；诊断面板里的
-  // 顶栏按钮与记录读数（样本数 / 模型时间）另见下文 openDiag。
+  // 协议按钮（控制条四个大按钮）与主视图状态行；顶栏按钮常驻瘦顶栏，
+  // 记录读数（样本数 / 模型时间）在测试电脑 drill-down 里。
   const oddballBtn = page.locator('.bench-protocol-btn', { hasText: '稀有刺激' });
   const statusLine = page.getByTestId('bench-status-line');
-  const diagToggle = page.getByTestId('bench-diagnostics-toggle');
-  const openDiag = async () => {
-    if (!(await page.getByTestId('bench-diagnostics').count())) {
-      await diagToggle.click();
-      await page.getByTestId('bench-diagnostics').waitFor({ timeout: 15000 });
-    }
+  const openNode = async (node) => {
+    await page.getByTestId(`pict-node-${node}`).focus();
+    await page.keyboard.press('Enter');
+    await page.getByTestId('bench-drilldown').waitFor({ timeout: 15000 });
   };
-  const diag = page.getByTestId('bench-diagnostics');
-  const recordingReadout = diag.locator('section[aria-label="记录"] .bench-readout');
+  const closeDrill = async () => {
+    await page.getByTestId('bench-drilldown-back').click();
+    await page.getByTestId('bench-drilldown').waitFor({ state: 'detached', timeout: 15000 });
+  };
+  // 测试电脑 drill-down 里的记录读数（含“样本数”的那个 .bench-readout）。
+  const recordingReadout = page.getByTestId('bench-drilldown').locator('.bench-readout', { hasText: '样本数' });
 
   // 协议按钮：引擎就绪前禁用、就绪后可用。WASM 引擎启动要几秒，所以
   // 挂载后立刻采样一定能看到禁用态；采样到可用态才算就绪（60 秒上限）。
@@ -131,14 +133,21 @@ try {
   assert.ok(enabled, 'protocol button must become enabled once the engine is ready');
   console.log('protocol button: disabled before ready, enabled after ready');
 
-  // 等自动采集出一份记录（诊断面板记录读数“样本数 N>0”），再开始断言状态。
-  await openDiag();
+  // 等自动采集出一份记录（测试电脑记录读数“样本数 N>0”），再开始断言状态。
+  await openNode('test');
   await recordingReadout.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
+  await closeDrill();
 
-  // Strip buttons (run/stop) live far above the diagnostics panel: after a
-  // panel click the viewport is scrolled down, so scroll the button back
-  // into view and let the ~1fps renderer settle before clicking.
+  // Strip buttons (run/stop) live below the picture: scroll the button
+  // back into view and let the ~1fps renderer settle before clicking.
+  // 注意：drill-down 打开时会盖住页面，点控制条/顶栏前必须先关掉它。
   const clickStripButton = async (name) => {
+    const btn = page.getByRole('button', { name, exact: true });
+    await btn.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1500);
+    await btn.click({ timeout: 60000 });
+  };
+  const clickTopButton = async (name) => {
     const btn = page.getByRole('button', { name, exact: true });
     await btn.scrollIntoViewIfNeeded();
     await page.waitForTimeout(1500);
@@ -178,25 +187,27 @@ try {
   assert.ok(status.includes('稀有刺激'), `status line must name the running protocol; status: ${status}`);
   console.log('running:', status);
 
-  // 全局暂停（诊断面板里的“暂停”）：协议仍在跑、模型时钟冻住 → “已暂停”
+  // 全局暂停（瘦顶栏里的“暂停”）：协议仍在跑、模型时钟冻住 → “已暂停”
   // （修前仍显示“运行中”，是同根的第二处误标）。模型时间 4 秒内
   // 分毫不差才算冻住。注意：无头渲染约 1 fps，暂停后立刻读到的
   // DOM 可能是暂停前的旧渲染（实测：立刻读 7431，4 秒后读 7619——
   // 不是时间在走，是旧渲染被冻住的新值 7619 追上），所以先等 5 秒
   // 让一次带冻住值的新渲染落定，再读两次、隔 4 秒断言相等。
-  await diag.getByRole('button', { name: '暂停', exact: true }).click();
+  await clickTopButton('暂停');
   status = await waitForStatus('已暂停');
   console.log('globally paused:', status);
   await page.waitForTimeout(5000);
+  await openNode('test');
   const t1 = await readModelTms();
   assert.ok(t1 !== null, `model time must be readable while paused; status: ${status}`);
   await page.waitForTimeout(4000);
   const t2 = await readModelTms();
   assert.equal(t2, t1, `model time must freeze while globally paused, got ${t1} -> ${t2}`);
   console.log(`model time frozen at ${t1} ms across 4 s`);
+  await closeDrill();
 
   // 继续 → 回到“正在运行”。
-  await diag.getByRole('button', { name: '继续', exact: true }).click();
+  await clickTopButton('继续');
   status = await waitForStatus('正在运行');
   console.log('resumed:', status);
 
@@ -206,9 +217,9 @@ try {
   status = await waitForStatus('已停止');
   console.log('stopped:', status);
 
-  // 点诊断面板里的“恢复快照”：只是恢复脉冲基线快照，不续跑协议，状态仍是
+  // 点顶栏里的“恢复快照”：只是恢复脉冲基线快照，不续跑协议，状态仍是
   // “已停止”。（按钮已由“恢复”改名“恢复快照”，旧名断言不到。）
-  await diag.getByRole('button', { name: '恢复快照', exact: true }).click();
+  await clickTopButton('恢复快照');
   await page.waitForTimeout(3000);
   status = await readStatus();
   assert.ok(status.includes('已停止'),
