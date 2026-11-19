@@ -88,6 +88,7 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('crash', () => errors.push('PAGE CRASHED'));
 
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
@@ -100,6 +101,21 @@ try {
     assert.ok(!txt.includes('(unconfirmed)'), `${where}: page must not show "(unconfirmed)"; body: ${txt.slice(0, 400)}`);
   };
   const openNode = async (node) => {
+    if (node === 'cap') {
+      // The cap is the 7th logical node, but it lives inside the 3D head
+      // (no SVG <g>): open it by clicking a real disc — Cz projected to
+      // screen coordinates through the debug bridge.
+      const pos = await page.evaluate(() => {
+        const p = window.__pictorialHead?.projectDisc?.('Cz');
+        if (!p) return null;
+        const rect = document.querySelector('.pict-head-slot canvas').getBoundingClientRect();
+        return { x: rect.left + p.x, y: rect.top + p.y };
+      });
+      assert.ok(pos, 'Cz disc must project to a screen position');
+      await page.mouse.click(pos.x, pos.y);
+      await page.getByTestId('bench-drilldown').waitFor({ timeout: 15000 });
+      return;
+    }
     await page.getByTestId(`pict-node-${node}`).focus();
     await page.keyboard.press('Enter');
     await page.getByTestId('bench-drilldown').waitFor({ timeout: 15000 });
@@ -137,8 +153,10 @@ try {
   await page.waitForFunction(() => window.__brainSim?.getParams, null, { timeout: 30000 });
 
   // ---- (1) 图完整 ----
-  assert.equal(await page.locator('[data-testid^="pict-node-"]').count(), 7,
-    'picture must have exactly 7 nodes');
+  // 7 个逻辑节点：6 个 SVG 节点 + 帽（第 7 个，活在 Three.js 头里，
+  // 没有 SVG <g>；它的存在由 64 个圆盘证明）。
+  assert.equal(await page.locator('[data-testid^="pict-node-"]').count(), 6,
+    'picture must have 6 SVG nodes (brain, peripheral, amplifier, test, experiment, stimulator)');
   assert.ok(await page.locator('.pict-head-slot canvas').isVisible(),
     'head node must hold the Three.js canvas');
   const discs = await page.evaluate(() => window.__pictorialHead?.getElectrodeDiscs?.() ?? null);
@@ -151,7 +169,7 @@ try {
     'no disc may carry the old green-dot colour #2fd47a');
   assert.ok(await page.locator('.pict-thumb canvas').isVisible(),
     'recording-PC screen must show the waveform thumbnail');
-  console.log('(1) picture complete: 7 nodes, 64 cylinder discs #c8d2dc');
+  console.log('(1) picture complete: 6 SVG nodes + cap (64 cylinder discs #c8d2dc) = 7 nodes');
 
   // ---- (2) 每个节点打开都有真控件 + (5) 每个 drill-down 都没有确认标记 ----
   const nodeChecks = [
@@ -231,13 +249,25 @@ try {
   // ---- (4)+(3)+(6b)+(8)：跑一轮 oddball ----
   await oddballBtn.click();
   // 手下压只有 250 ms：运行一开始就用 100 ms 轮询等它出现。
+  // 先挂 .catch：测试中途若因别的原因退出，未 await 的它不得以未处理
+  // 拒绝炸掉进程、盖住真正的错误；(8) 处 await 时仍会正常抛出。
   const handPressed = page.waitForFunction(
     () => document.querySelector('.hand-pressing'), null,
     { timeout: 180000, polling: 100 });
+  handPressed.catch(() => {});
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
+  console.log(`[${new Date().toISOString()}] run clicked`);
   const statusLine = page.getByTestId('bench-status-line');
   const readStatus = async () =>
     ((await statusLine.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  // 先确认协议真的跑起来了，再看高亮/脉冲（跑不起来是另一回事）。
+  const runDeadline = Date.now() + 60000;
+  for (;;) {
+    if ((await readStatus()).includes('正在运行')) break;
+    if (Date.now() > runDeadline) assert.fail(`protocol never started; status: ${await readStatus()}`);
+    await page.waitForTimeout(1000);
+  }
+  console.log(`[${new Date().toISOString()}] status is 正在运行`);
   // (4) 节点高亮 + 边脉冲 + 运行状态。
   await page.waitForFunction(
     () => document.querySelectorAll('.pict-node-active').length >= 1

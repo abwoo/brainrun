@@ -605,6 +605,24 @@ export default function PictorialHead(props: PictorialHeadProps) {
         if (!sc) return null;
         return [sc.camera.position.x, sc.camera.position.y, sc.camera.position.z];
       },
+      /** Project one disc to canvas CSS pixels (for tests: click a real
+       *  disc to open the cap drill-down). Null when the disc is behind
+       *  the camera or the scene is not ready. */
+      projectDisc: (label: string) => {
+        const sc = sceneRef.current;
+        if (!sc) return null;
+        const disc = sc.discGroup.children.find((c) =>
+          c instanceof THREE.Mesh && (c as THREE.Mesh).userData.isDisc
+          && (c as THREE.Mesh).userData.electrodeLabel === label);
+        if (!disc) return null;
+        const v = new THREE.Vector3();
+        (disc as THREE.Mesh).getWorldPosition(v);
+        v.project(sc.camera);
+        if (v.z > 1) return null;
+        const w = sc.renderer.domElement.clientWidth;
+        const h = sc.renderer.domElement.clientHeight;
+        return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
+      },
     };
 
     return () => {

@@ -1296,7 +1296,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             <button className="ui-button ui-button-primary" type="button"
               onClick={runProtocol} disabled={!engineReady || protocolRunning}
               title={!engineReady ? notReadyReason : undefined}>
-              <span className="pict-step-badge-inline">2</span> {t('bench.runProtocol')}
+              <span className="pict-step-badge-inline" aria-hidden="true">2</span> {t('bench.runProtocol')}
             </button>
             <button className="ui-button" type="button"
               onClick={stopProtocol} disabled={!engineReady || !protocolRunning}>

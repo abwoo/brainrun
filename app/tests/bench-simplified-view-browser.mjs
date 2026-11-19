@@ -127,10 +127,10 @@ try {
     await page.waitForTimeout(250);
   }
 
-  // ---- 主视图是一张回路图：7 个节点 + 头节点画布 + 圆盘 ----
+  // ---- 主视图是一张回路图：7 个逻辑节点（6 个 SVG 节点 + 帽）+ 头节点画布 + 圆盘 ----
   await page.getByTestId('pictorial-loop').waitFor({ timeout: 15000 });
-  assert.equal(await page.locator('[data-testid^="pict-node-"]').count(), 7,
-    'picture must have exactly 7 nodes');
+  assert.equal(await page.locator('[data-testid^="pict-node-"]').count(), 6,
+    'picture must have 6 SVG nodes (brain, peripheral, amplifier, test, experiment, stimulator); the cap is the 7th node, inside the 3D head');
   assert.ok(await page.locator('.pict-head-slot canvas').isVisible(),
     'head node must hold the Three.js canvas');
   assert.ok(await page.locator('.pict-thumb canvas').isVisible(),
