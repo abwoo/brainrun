@@ -40,14 +40,12 @@ const CONTROL_FILES = [
   // Phase 4：台子是唯一入口，全部控件都须进网；Dropdown.tsx 本体不列入——
   // 它的 <select {...selectProps}> 经展开转发 handler，字面量上无 onChange，
   // 列入会误报；各调用点的 <Dropdown onChange=…> 已在网内。
-  'app/src/components/ClosedLoopBench.tsx',
-  // Pictorial bench（2026-11-19）：台子改成一张回路图 + drill-down；
-  // 三个新文件进网。SimulatedHand 的手是 SVG <g role="button">，不在
-  // 本扫描的字面量口径内（只扫 button/input/select/textarea/Dropdown），
-  // 记 0 行；它的键盘可达性由浏览器测试钉住。
-  'app/src/components/PictorialLoop.tsx',
-  'app/src/components/BenchDrillDown.tsx',
-  'app/src/components/SimulatedHand.tsx',
+  // 最小 3D 闭环（2026-11-19）：旧台子展示（ClosedLoopBench /
+  // PictorialLoop / BenchDrillDown / SimulatedHand）已删除，改由
+  // MinimalLoop.tsx 进网（运行/停止 + 两个回到回路图 + 通道网格按钮，
+  // 共 4 个）；场景点按是原生 canvas 指针事件，不在字面量口径内（与
+  // BrainScene 同款，见 P0-1B 段）。
+  'app/src/components/MinimalLoop.tsx',
 ];
 function source(p) { return readFileSync(join(ROOT, p), 'utf8'); }
 // TypeScript 7 uses a native compiler and does not expose the historical
@@ -91,21 +89,13 @@ function scan() {
 
 test('P0-1 surface: all native JSX controls have a bound interaction handler', () => {
   const rows = scan();
-  // Phase 4 实测 235（旧 257 − App 砍掉的 48 − PhysicsHome 砍掉的 2 + 台子 27 + 模板分析返回按钮 1）；
-  // Option A（2026-11-18）：#basic 恢复高级实验导航（切换按钮 + 信号/对照两个选择卡片），+2 → 237；
-  // Option A 补项（2026-11-18）：分析视图内恢复 More/Less 开关 + Comparisons 入口，+2 → 239。
-  // 简化（2026-11-19）：台子 27 → 28，+1 → 240（协议下拉改 4 个按钮 +3、
-  // 诊断总开关 +1、放大器浮层开关 −1、波形/分析视图切换 −2）。
-  // 高状态说明（2026-11-19）：q 读数旁加重置按钮，台子 28 → 29，+1 → 241。
-  // 图解台子（2026-11-19）：台子 29 → 27（主视图 4 协议按钮 + 运行 +
-  // 停止 + q 重置移入 PictorialLoop −7、诊断开关 −1、背景下拉 −1；
-  // 新增大脑 drill-down q 重置 + 发送刺激 +2、帽通道网格 +1、背景分
-  // 段 map +1、恢复默认被试 +1、实验电脑 drill-down 运行/停止镜像
-  // +2）；PictorialLoop +4（q 芯片重置 + 协议 map + 运行 + 停止）、
-  // BenchDrillDown +1（回到回路图）→ 244。SVG 节点 <g role="button">
-  // 不在字面量口径内，不计入。
+  // 最小 3D 闭环实测 216（旧 244 − 台子 27 − PictorialLoop 4 −
+  // BenchDrillDown 1 − SimulatedHand 0 + MinimalLoop 4：运行/停止 +
+  // 波形放大回到回路图 + 通道视图回到回路图 + 通道网格按钮）。
+  // 场景点按是原生 canvas 指针事件，不在字面量口径内（与 BrainScene
+  // 同款，见 P0-1B 段）；SVG 节点 <g role="button"> 已随旧台子删除。
   // 下限即实测值，入口再删须同步改这里与台账，不得悄悄放宽。
-  assert.ok(rows.length >= 244, `Unexpectedly small control surface: ${rows.length}`);
+  assert.ok(rows.length >= 216, `Unexpectedly small control surface: ${rows.length}`);
   for (const c of rows) {
     const handler = c.name === 'button' ? 'onClick' : 'onChange';
     assert.ok(c.attrs.includes(handler),
@@ -115,19 +105,27 @@ test('P0-1 surface: all native JSX controls have a bound interaction handler', (
   console.log('P0-1 JSX control inventory:', JSON.stringify({ total: rows.length, counts }));
 });
 
-test('C01: bench selection writes App selectedId shared by scene and bench', () => {
-  // Phase 4：EXPLORE 模式与 ExplorePanel 入口删除；选区仍是 App 的
-  // selectedId，由台子（props）与 BrainScene 网络视图共享；ActivityChart
-  // 只留在 #basic 回退（PhysicsHome）里，不再是台子的一部分。
+test('C01: minimal loop is the only bench entry; region selection stays in #basic', () => {
+  // 最小 3D 闭环（2026-11-19）：旧台子展示删除，App 的 bench 分支只挂
+  // MinimalLoop；最小版里没有脑区选区（点大脑开 64 通道视图，不选脑
+  // 区），选区只剩 #basic 回退（PhysicsHome 的 BrainScene 网络视图）
+  // 还在用 App 的 selectedId。
   const app = source('app/src/App.tsx');
-  const bench = source('app/src/components/ClosedLoopBench.tsx');
+  const minimal = source('app/src/components/MinimalLoop.tsx');
   assert.doesNotMatch(app, /ExplorePanel/);
-  assert.doesNotMatch(bench, /ExplorePanel/);
-  assert.match(bench, /selectedId: number \| null; onSelect: \(id: number\) => void;/);
-  assert.match(app, /selectedId=\{selectedId\} onSelect=\{setSelectedId\}/);
+  assert.doesNotMatch(minimal, /ExplorePanel/);
+  // Mount/import forms only: the App header comment names the deleted
+  // files as documentation, which must not trip this test.
+  assert.doesNotMatch(app, /<ClosedLoopBench/);
+  assert.doesNotMatch(app, /<PictorialLoop/);
+  assert.doesNotMatch(app, /<BenchDrillDown/);
+  assert.doesNotMatch(app, /<PictorialHead/);
+  assert.doesNotMatch(app, /<SimulatedHand/);
+  assert.doesNotMatch(app, /from '\.\/components\/ClosedLoopBench'/);
+  assert.match(app, /<MinimalLoop/);
+  assert.doesNotMatch(minimal, /selectedId/);
   assert.match(app, /<BrainScene[\s\S]*?selectedId=\{selectedId\}/);
   assert.match(app, /<BrainScene[\s\S]*?onSelect=\{setSelectedId\}/);
-  assert.match(bench, /onSelect\(Number\(e\.target\.value\)\)/);
 });
 
 test('C02/C03: mapped live currents trigger the actual LIF/HH solvers on the same click', () => {
@@ -145,9 +143,9 @@ test('C04: scenario launcher entry is cut; scenarios lib stays with no UI entry'
   // Phase 4：一键场景启动器随 #advanced 删除；场景定义（lib/scenarios.ts）
   // 未动，全仓无 UI 入口（App.tsx 头注释已写明）。
   const app = source('app/src/App.tsx');
-  const bench = source('app/src/components/ClosedLoopBench.tsx');
+  const minimal = source('app/src/components/MinimalLoop.tsx');
   assert.doesNotMatch(app, /ScenarioLauncher/);
-  assert.doesNotMatch(bench, /ScenarioLauncher/);
+  assert.doesNotMatch(minimal, /ScenarioLauncher/);
   assert.match(app, /scenarios\.ts etc\. stay, with no UI entry/);
 });
 
@@ -198,7 +196,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 244, 'Phase 4 recount 235 + Option A restore 2 (Advanced labs toggle + signals/comparison choice) + More/Comparisons restore 2 + 2026-11-19 bench simplification 1 (protocol dropdown -> 4 buttons, diagnostics toggle, minus amplifier popover toggle and wave/analysis view toggles) + 2026-11-19 q high-state note reset button 1 + 2026-11-19 pictorial bench 3 (bench 29 -> 27, PictorialLoop 4, BenchDrillDown 1)');
+  assert.equal(actual.length, 216, '最小 3D 闭环重数：244 − 台子 27 − PictorialLoop 4 − BenchDrillDown 1 − SimulatedHand 0 + MinimalLoop 4');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');

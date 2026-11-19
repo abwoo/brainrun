@@ -32,11 +32,15 @@ test('i18n has stable key coverage and separate saved locale choice',()=>{
  assert.match(i,/document.documentElement.lang = locale/);
  const app=read('app/src/App.tsx');
  assert.match(app,/useI18n\(\)/);
- // Phase 4：语言切换不在 App 顶栏，改由台子自己渲染；bench.openAdvanced
- // 键随 #advanced 一起从 i18n 字典删除。
+ // 最小 3D 闭环（2026-11-19）：语言切换不在最小版里（设计删除项），
+ // App 与 MinimalLoop 均不渲染 LanguageSwitch；它只剩 #basic 回退
+ // （PhysicsHome）还在用。bench.openAdvanced 键随 #advanced 一起从
+ // i18n 字典删除（Phase 4 已删）。
  assert.doesNotMatch(app,/<LanguageSwitch/);
- const bench=read('app/src/components/ClosedLoopBench.tsx');
- assert.match(bench,/<LanguageSwitch/);
+ const minimal=read('app/src/components/MinimalLoop.tsx');
+ assert.doesNotMatch(minimal,/<LanguageSwitch/);
+ const physics=read('app/src/components/PhysicsHome.tsx');
+ assert.match(physics,/<LanguageSwitch/);
  assert.doesNotMatch(i,/bench\.openAdvanced/);
  const language=read('app/src/components/ui/LanguageSwitch.tsx');
  assert.ok(language.includes("setLocale('en-US')"));
@@ -63,9 +67,10 @@ test('control audit is updated, not weakened by migrating 36 selects',()=>{
  // 简化（2026-11-19）台子 27 → 28，+1 → 240；Dropdown 56（57 − 协议下拉）。
  // 高状态说明（2026-11-19）q 读数旁加重置按钮，台子 28 → 29，+1 → 241。
  // 图解台子（2026-11-19）台子 29 → 27、PictorialLoop +4、BenchDrillDown +1 → 244；Dropdown 55（56 − 背景下拉改分段按钮）。
- assert.equal(c.counts.total,244);
- assert.equal(c.entries.length,244);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,55);
+ // 最小 3D 闭环（2026-11-19）台子 27 + PictorialLoop 4 + BenchDrillDown 1 → 0，MinimalLoop +4 → 216；Dropdown 48（55 − 台子 7 个 Dropdown）。
+ assert.equal(c.counts.total,216);
+ assert.equal(c.entries.length,216);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,48);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
 
