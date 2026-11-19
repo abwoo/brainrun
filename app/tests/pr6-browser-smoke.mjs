@@ -50,7 +50,7 @@ import { chromium } from 'playwright';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const appDir = join(root, 'app');
-const PORT = 4173;
+const PORT = Number(process.env.BENCH_PREVIEW_PORT ?? 4173);
 const BASE = `http://127.0.0.1:${PORT}/`;
 
 async function reachable(url) {
@@ -79,7 +79,7 @@ assert.ok(existsSync(join(appDir, 'dist', 'index.html')),
 assert.ok(existsSync(join(appDir, 'dist', 'forward-assets', 'sphere-model.json')),
   'dist lacks the sphere fixture: regenerate the fixture, then `npm run build` again');
 
-// 3. 预览服务器：先探活 4173，死了重起。
+// 3. 预览服务器：先探活（默认 4173，BENCH_PREVIEW_PORT 可改），死了重起。
 let serverProc = null;
 if (await reachable(BASE)) {
   console.log(`reusing preview server on ${BASE}`);
@@ -92,7 +92,7 @@ if (await reachable(BASE)) {
   while (!(await reachable(BASE))) {
     if (Date.now() > deadline) {
       serverProc.kill();
-      throw new Error('vite preview did not come up on 4173 within 30 s');
+      throw new Error(`vite preview did not come up on ${PORT} within 30 s`);
     }
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -218,7 +218,7 @@ try {
 
   // 5. B2 新 tab 冒烟：跑 oddball 协议攒出 standard + oddball 试次，
   // 立刻重组记录（协议仍在跑：10 s 窗口里始终有新鲜脉冲），再看 ERP。
-  await page.locator('.bench-protocol-btn', { hasText: 'oddball' }).click();
+  await page.locator('.bench-protocol-btn', { hasText: '稀有刺激' }).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
   const trialRe = /试次数[:：]?\s*(\d+)/;
   const trialDeadline = Date.now() + 240000;

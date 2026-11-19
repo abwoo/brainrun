@@ -154,7 +154,7 @@ try{
 
  // 8. 跑一次 oddball 再导出：台子组装时自动切分试次，epochs 不再是 null
  //    （旧“epochs 为 null”只在无脉冲时成立；有脉冲即自动出 EpochSet）。
- await page.locator('.bench-protocol-btn',{hasText:'oddball'}).click();
+ await page.locator('.bench-protocol-btn',{hasText:'稀有刺激'}).click();
  await page.getByRole('button',{name:'运行协议',exact:true}).click();
  const trials=await waitTrials(page,6,240000);
  console.log('oddball trials fired:',trials);

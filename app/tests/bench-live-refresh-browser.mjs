@@ -27,7 +27,7 @@ import { chromium } from 'playwright';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const appDir = join(root, 'app');
-const PORT = 4173;
+const PORT = Number(process.env.BENCH_PREVIEW_PORT ?? 4173);
 const BASE = `http://127.0.0.1:${PORT}/`;
 
 async function reachable(url) {
@@ -57,7 +57,7 @@ assert.ok(existsSync(join(appDir, 'dist', 'index.html')),
 assert.ok(existsSync(join(appDir, 'dist', 'forward-assets', 'sphere-model.json')),
   'dist lacks the sphere fixture: regenerate the fixture, then `npm run build` again');
 
-// 3. 预览服务器：先探活 4173，死了重起。
+// 3. 预览服务器：先探活（默认 4173，BENCH_PREVIEW_PORT 可改），死了重起。
 let serverProc = null;
 if (await reachable(BASE)) {
   console.log(`reusing preview server on ${BASE}`);
@@ -70,7 +70,7 @@ if (await reachable(BASE)) {
   while (!(await reachable(BASE))) {
     if (Date.now() > deadline) {
       serverProc.kill();
-      throw new Error('vite preview did not come up on 4173 within 30 s');
+      throw new Error(`vite preview did not come up on ${PORT} within 30 s`);
     }
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -125,7 +125,7 @@ try {
   console.log('baseline:', baseline.txt);
 
   // 跑 oddball：10 次试次保证 2 个 oddball（每 5 次一次）+ 8 个 standard。
-  await page.locator('.bench-protocol-btn', { hasText: 'oddball' }).click();
+  await page.locator('.bench-protocol-btn', { hasText: '稀有刺激' }).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
 
   // 轮询直到三条同时成立（240 秒上限；无头渲染慢，只认增长量）：

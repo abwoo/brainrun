@@ -111,6 +111,66 @@ test('flicker 脉冲周期正确：10 Hz → 每 100 ms 给 lV1/rV1 各发一次
   assert.ok(stimuli.every((s) => s.amplitude === 1.0));
 });
 
+test('stimulus-sent 带 dispatchTms 与 marker：命令日志凭它们做 ACK 匹配（2026-11-19 修）', () => {
+  // 命令日志以前只记手动刺激：协议刺激发了也不进日志。修法是引擎在
+  // stimulus-sent 里同时带上 dispatchTms（发刺激那次 tick 的快照时间，
+  // 即 marker 的 provisional t_ms）与 marker 对象本身，组件凭引用确认
+  // ACK，不会套住邻试次的 marker。tMs 仍是计划时间，不动。
+  const { engine, events, markers, clock } = harnessWithReturnedMarkers();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
+  clock.now = 0; engine.tick(0);
+  // 快照合并：下一次 tick 到 2500 才来，只发最新到期的试次 3（计划 2000），
+  // 试次 2 记为跳过；dispatchTms 是 tick 时间 2500，不是计划时间 2000。
+  clock.now = 2500; engine.tick(2500);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(stimuli.length, 2);
+  assert.equal(stimuli[0].tMs, 0);
+  assert.equal(stimuli[0].dispatchTms, 0);
+  assert.equal(stimuli[0].marker, markers[0]);
+  assert.equal(stimuli[1].tMs, 2000);
+  assert.equal(stimuli[1].trialIndex, 2);
+  assert.equal(stimuli[1].dispatchTms, 2500);
+  assert.equal(stimuli[1].marker, markers[1]);
+  assert.equal(stimuli[1].marker.t_ms, 2500);
+});
+
+test('stimulus-sent 不返回 marker 时仍带 dispatchTms（窗口匹配回退）', () => {
+  // 假 pulseAt 故意不返回 marker（见 harness 注释）：事件仍须带
+  // dispatchTms，组件回退到 findAckMarker 窗口匹配。
+  const { engine, events } = harness();
+  engine.start('oddball', { isiMs: 1000, oddballEvery: 5, durationMs: 20000 }, 0);
+  engine.tick(0);
+  engine.tick(2500);
+  const stimuli = events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(stimuli.length, 2);
+  assert.equal(stimuli[0].dispatchTms, 0);
+  assert.equal(stimuli[0].marker, undefined);
+  assert.equal(stimuli[1].tMs, 2000);
+  assert.equal(stimuli[1].dispatchTms, 2500);
+  assert.equal(stimuli[1].marker, undefined);
+});
+
+test('flicker / single-pulse 的 stimulus-sent 也带 dispatchTms 与 marker', () => {
+  const { engine, events, markers, clock } = harnessWithReturnedMarkers();
+  engine.start('flicker', { frequencyHz: 10, durationMs: 1000 }, 5000);
+  clock.now = 5000; engine.tick(5000);
+  const flicker = events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(flicker.length, 2);
+  assert.ok(flicker.every((s) => s.tMs === 5000 && s.dispatchTms === 5000));
+  assert.equal(flicker[0].marker, markers[0]);
+  assert.equal(flicker[1].marker, markers[1]);
+  assert.notEqual(flicker[0].marker, flicker[1].marker);
+
+  const single = harnessWithReturnedMarkers();
+  single.clock.now = 1000;
+  single.engine.start('single-pulse', { node: 12, amplitude: 1.5, durationMs: 100 }, 1000);
+  const one = single.events.filter((e) => e.kind === 'stimulus-sent');
+  assert.equal(one.length, 1);
+  assert.equal(one[0].tMs, 1000);
+  assert.equal(one[0].dispatchTms, 1000);
+  assert.equal(one[0].marker, single.markers[0]);
+});
+
 test('single-pulse 只发一次，随后 running=false 并发 completed', () => {
   const { engine, pulses, events } = harness();
   engine.start('single-pulse', { node: 12, amplitude: 1.5, durationMs: 100 }, 1000);

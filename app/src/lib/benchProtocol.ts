@@ -110,6 +110,16 @@ export interface BenchProtocolParams {
 export interface BenchProtocolEvent {
   kind: 'protocol-started' | 'stimulus-sent' | 'response' | 'feedback-detected' | 'feedback-applied' | 'feedback-suppressed' | 'trial-skipped' | 'protocol-stopped';
   tMs: number;
+  /** 发刺激那次 tick/start 的快照时间（模型 ms）：marker 创建时的
+   * provisional t_ms，与 tMs（计划时间）不同——命令日志凭它做 ACK
+   * 匹配（见 findAckMarker），否则 provisional marker 会被误认成
+   * 已确认。仅 'stimulus-sent'。 */
+  dispatchTms?: number;
+  /** 本次刺激的 marker 对象（pulseAt 返回值，与 SimClient 数组里
+   * 同一引用）：命令日志凭引用确认 ACK，不会套住邻试次的 marker。
+   * 假 pulseAt 不返回值时为 undefined，调用方回退到窗口匹配。
+   * 仅 'stimulus-sent'。 */
+  marker?: StimulusMarker;
   trialIndex?: number;
   condition?: 'standard' | 'oddball';
   node?: number;
@@ -382,6 +392,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       kind: 'stimulus-sent', tMs: scheduledTms, trialIndex,
       condition: isOddball ? 'oddball' : 'standard',
       node: oddballNode, amplitude, durationMs: oddballDurationMs,
+      dispatchTms: tickTms, marker,
     });
     if (isOddball) {
       const resp = deps.subject.nextOddballResponse(trialIndex, scheduledTms);
@@ -393,13 +404,14 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
     }
   };
 
-  const fireFlickerCycle = (scheduledTms: number): void => {
+  const fireFlickerCycle = (scheduledTms: number, tickTms: number): void => {
     trialIndex++;
     for (const node of flickerNodes) {
-      deps.pulseAt(node, flickerAmp, flickerDurationMs);
+      const marker = deps.pulseAt(node, flickerAmp, flickerDurationMs);
       deps.onEvent({
         kind: 'stimulus-sent', tMs: scheduledTms, trialIndex,
         node, amplitude: flickerAmp, durationMs: flickerDurationMs,
+        dispatchTms: tickTms, marker,
       });
     }
   };
@@ -428,10 +440,11 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
         running = true;
         deps.onEvent({ kind: 'protocol-started', tMs: startT });
         trialIndex = 1;
-        deps.pulseAt(sp.node, amplitude, dur);
+        const marker = deps.pulseAt(sp.node, amplitude, dur);
         deps.onEvent({
           kind: 'stimulus-sent', tMs: startT, trialIndex: 1,
           node: sp.node, amplitude, durationMs: dur,
+          dispatchTms: startT, marker,
         });
         stopInternal('completed');
         return;
@@ -508,7 +521,7 @@ export function createBenchProtocolEngine(deps: BenchProtocolDeps): BenchProtoco
       } else if (protocol === 'flicker') {
         const { due, latestDue } = countDue(tMs, flickerPeriodMs);
         if (due > 0) {
-          fireFlickerCycle(latestDue);
+          fireFlickerCycle(latestDue, tMs);
           recordSkipped(due - 1, tMs);
         }
       }

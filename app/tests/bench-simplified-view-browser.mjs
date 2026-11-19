@@ -29,7 +29,7 @@ import { chromium } from 'playwright';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const appDir = join(root, 'app');
-const PORT = 4173;
+const PORT = Number(process.env.BENCH_PREVIEW_PORT ?? 4173);
 const BASE = `http://127.0.0.1:${PORT}/`;
 
 async function reachable(url) {
@@ -59,7 +59,7 @@ assert.ok(existsSync(join(appDir, 'dist', 'index.html')),
 assert.ok(existsSync(join(appDir, 'dist', 'forward-assets', 'sphere-model.json')),
   'dist lacks the sphere fixture: regenerate the fixture, then `npm run build` again');
 
-// 3. 预览服务器：先探活 4173，死了重起。
+// 3. 预览服务器：先探活（默认 4173，BENCH_PREVIEW_PORT 可改），死了重起。
 let serverProc = null;
 if (await reachable(BASE)) {
   console.log(`reusing preview server on ${BASE}`);
@@ -72,7 +72,7 @@ if (await reachable(BASE)) {
   while (!(await reachable(BASE))) {
     if (Date.now() > deadline) {
       serverProc.kill();
-      throw new Error('vite preview did not come up on 4173 within 30 s');
+      throw new Error(`vite preview did not come up on ${PORT} within 30 s`);
     }
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -107,7 +107,7 @@ try {
   };
 
   // ---- 引擎就绪：协议按钮可用 ----
-  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: 'oddball' });
+  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: '稀有刺激' });
   const btnDeadline = Date.now() + 60000;
   for (;;) {
     if (!(await oddballBtn.isDisabled())) break;
@@ -120,7 +120,7 @@ try {
     'diagnostics panel must start closed');
   assert.equal(await page.locator('.bench-protocol-btn').count(), 4,
     'main view must show exactly 4 protocol buttons');
-  for (const name of ['单脉冲', 'oddball', '闪烁', '闭环触发']) {
+  for (const name of ['单脉冲', '稀有刺激', '闪烁', '闭环触发']) {
     assert.ok(await page.locator('.bench-protocol-btn').getByText(name, { exact: true }).count() >= 1,
       `protocol button ${name} must be visible in the main view`);
   }
