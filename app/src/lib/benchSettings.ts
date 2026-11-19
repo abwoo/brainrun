@@ -62,6 +62,14 @@ export interface BenchSettings {
   clMaxTriggers: number;
   /** Stimulator target override; null means "follow the selected region". */
   stimTarget: number | null;
+  /** Subject composer (pictorial bench, design §5): real WC / background
+   * parameters only. Ranges are the engine's hard boundaries
+   * (see benchSubjects.ts COMPOSER_SLIDERS). */
+  g: number;
+  cEi: number;
+  ouSigma: number;
+  extSineAmp: number;
+  extSineFreqHz: number;
 }
 
 /** Phase 1 defaults, unchanged — every value matches the old useState initial. */
@@ -103,6 +111,11 @@ export const BENCH_SETTINGS_DEFAULTS: BenchSettings = {
   clCooldownMs: 500,
   clMaxTriggers: 100,
   stimTarget: null,
+  g: 0.35,
+  cEi: 4.0,
+  ouSigma: 0.10,
+  extSineAmp: 0,
+  extSineFreqHz: 10,
 };
 
 let settings: BenchSettings = { ...BENCH_SETTINGS_DEFAULTS };
@@ -138,6 +151,24 @@ export function setBenchSettings(patch: Partial<BenchSettings>): void {
   }
   if (patch.clFeature !== undefined && patch.clFeature !== 'instant' && patch.clFeature !== 'rms') {
     throw new RangeError(`Unknown closed-loop feature: ${patch.clFeature}`);
+  }
+  // Composer fields: out-of-range values throw (same style as the enum
+  // checks above), never silently clamped — the ranges are engine hard
+  // boundaries (benchSubjects.ts).
+  if (patch.g !== undefined && (!Number.isFinite(patch.g) || patch.g < 0 || patch.g > 0.4)) {
+    throw new RangeError(`g out of range 0–0.4: ${patch.g}`);
+  }
+  if (patch.cEi !== undefined && (!Number.isFinite(patch.cEi) || patch.cEi < 3 || patch.cEi > 8)) {
+    throw new RangeError(`cEi out of range 3–8: ${patch.cEi}`);
+  }
+  if (patch.ouSigma !== undefined && (!Number.isFinite(patch.ouSigma) || patch.ouSigma < 0.02 || patch.ouSigma > 0.15)) {
+    throw new RangeError(`ouSigma out of range 0.02–0.15: ${patch.ouSigma}`);
+  }
+  if (patch.extSineAmp !== undefined && (!Number.isFinite(patch.extSineAmp) || patch.extSineAmp < 0 || patch.extSineAmp > 0.4)) {
+    throw new RangeError(`extSineAmp out of range 0–0.4: ${patch.extSineAmp}`);
+  }
+  if (patch.extSineFreqHz !== undefined && (!Number.isFinite(patch.extSineFreqHz) || patch.extSineFreqHz < 1 || patch.extSineFreqHz > 30)) {
+    throw new RangeError(`extSineFreqHz out of range 1–30: ${patch.extSineFreqHz}`);
   }
   let changed = false;
   for (const key of Object.keys(patch) as (keyof BenchSettings)[]) {
