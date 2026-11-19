@@ -1,5 +1,7 @@
 /**
- * Bench protocol-status browser test (2026-11-19 修：协议状态误标回归）。
+ * Bench protocol-status browser test (2026-11-19 修：协议状态误标回归；
+ * 2026-11-19 简化改写：协议下拉改成四个大按钮，状态只剩主视图一条人话
+ * 状态行，顶栏按钮与样本数读数进“详情 / 诊断”面板）。
  *
  * 缺陷：协议状态文案只看 `protocolRunning`——停过的协议也显示“已暂停”，
  * 用户会以为顶栏的“恢复”能续跑协议；它只是恢复脉冲基线快照（模型时间
@@ -9,10 +11,10 @@
  * 未开始 / 运行中 / 已暂停（运行中 + 全局暂停）/ 已停止（停过）；
  * 顶栏按钮改名“恢复快照”。
  *
- * 本测试断言全序列：协议下拉引擎就绪前禁用、就绪后可用；状态“未开始”
- * → 跑 oddball →“运行中”→ 全局暂停 →“已暂停”且模型时间冻住
- * → 继续 →“运行中”→ 停止协议 →“已停止”→ 点“恢复快照”仍是
- * “已停止”→ 再跑一次 →“运行中”。
+ * 本测试断言全序列：协议按钮引擎就绪前禁用、就绪后可用；状态“还没开始”
+ * → 跑 oddball →“正在运行”→ 全局暂停 →“已暂停”且模型时间冻住
+ * → 继续 →“正在运行”→ 停止协议 →“已停止”→ 点“恢复快照”仍是
+ * “已停止”→ 再跑一次 →“正在运行”。
  *
  * 跑法：node app/tests/bench-protocol-status-browser.mjs
  * 前置：`npm run build` 已跑过（dist 须含最新代码 + 球形 fixture；
@@ -100,34 +102,52 @@ try {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  const header = page.locator('.bench-header');
-  const protocolSelect = page.getByRole('combobox', { name: '协议', exact: true });
-  const rolesLine = page.locator('.bench-roles');
-  const waveStage = page.locator('.bench-stage-side');
+  // 协议按钮（四个大按钮，取代旧下拉）与主视图状态行；诊断面板里的
+  // 顶栏按钮与记录读数（样本数 / 模型时间）另见下文 openDiag。
+  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: 'oddball' });
+  const statusLine = page.getByTestId('bench-status-line');
+  const diagToggle = page.getByTestId('bench-diagnostics-toggle');
+  const openDiag = async () => {
+    if (!(await page.getByTestId('bench-diagnostics').count())) {
+      await diagToggle.click();
+      await page.getByTestId('bench-diagnostics').waitFor({ timeout: 15000 });
+    }
+  };
+  const diag = page.getByTestId('bench-diagnostics');
+  const recordingReadout = diag.locator('section[aria-label="记录"] .bench-readout');
 
-  // 协议下拉：引擎就绪前禁用、就绪后可用。WASM 引擎启动要几秒，所以
+  // 协议按钮：引擎就绪前禁用、就绪后可用。WASM 引擎启动要几秒，所以
   // 挂载后立刻采样一定能看到禁用态；采样到可用态才算就绪（60 秒上限）。
-  // 修前修后这条都应通过（下拉本身没动）；它是序列的起点锚点。
   let sawDisabled = false;
   let enabled = false;
   const selectDeadline = Date.now() + 60000;
   for (;;) {
-    if (await protocolSelect.isDisabled()) sawDisabled = true;
+    if (await oddballBtn.isDisabled()) sawDisabled = true;
     else { enabled = true; break; }
     if (Date.now() > selectDeadline) break;
     await page.waitForTimeout(250);
   }
-  assert.ok(sawDisabled, 'protocol select must be disabled before the engine is ready');
-  assert.ok(enabled, 'protocol select must become enabled once the engine is ready');
-  console.log('protocol select: disabled before ready, enabled after ready');
+  assert.ok(sawDisabled, 'protocol button must be disabled before the engine is ready');
+  assert.ok(enabled, 'protocol button must become enabled once the engine is ready');
+  console.log('protocol button: disabled before ready, enabled after ready');
 
-  // 等自动采集出一份记录（波形视图读数“样本数 N>0”），再开始断言状态。
-  await waveStage.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
+  // 等自动采集出一份记录（诊断面板记录读数“样本数 N>0”），再开始断言状态。
+  await openDiag();
+  await recordingReadout.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
 
-  const readRoles = async () =>
-    ((await rolesLine.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  // Strip buttons (run/stop) live far above the diagnostics panel: after a
+  // panel click the viewport is scrolled down, so scroll the button back
+  // into view and let the ~1fps renderer settle before clicking.
+  const clickStripButton = async (name) => {
+    const btn = page.getByRole('button', { name, exact: true });
+    await btn.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1500);
+    await btn.click({ timeout: 60000 });
+  };
+  const readStatus = async () =>
+    ((await statusLine.textContent()) ?? '').replace(/\s+/g, ' ').trim();
   const readModelTms = async () => {
-    const txt = (await waveStage.locator('.bench-readout').first().textContent() ?? '')
+    const txt = (await recordingReadout.textContent() ?? '')
       .replace(/\s+/g, ' ').trim();
     return num(txt, /模型时间\s+([\d,]+)/);
   };
@@ -135,72 +155,74 @@ try {
     const deadline = Date.now() + timeoutMs;
     let last = '';
     for (;;) {
-      last = await readRoles();
+      last = await readStatus();
       if (last.includes(status)) return last;
       if (Date.now() > deadline) break;
       await page.waitForTimeout(1000);
     }
-    assert.fail(`protocol status never became “${status}”; roles line: ${last}`);
+    assert.fail(`protocol status never became “${status}”; status line: ${last}`);
   };
 
-  // 换 oddball：从未跑过 → “未开始”（修前这里是“已暂停”，是本缺陷的
+  // 换 oddball：从未跑过 → “还没开始”（修前这里是“已暂停”，是本缺陷的
   // 第一处误标：什么都没跑过，谈不上暂停）。
-  await protocolSelect.selectOption('oddball');
-  let roles = await readRoles();
-  assert.ok(roles.includes('未开始'), `status must be “未开始” before any run; roles: ${roles}`);
-  assert.ok(roles.includes('oddball'), `roles line must name the selected protocol; roles: ${roles}`);
-  console.log('before run:', roles);
+  await oddballBtn.click();
+  assert.equal(await oddballBtn.getAttribute('aria-pressed'), 'true',
+    'oddball button must be pressed after selecting it');
+  let status = await readStatus();
+  assert.ok(status.includes('还没开始'), `status must be “还没开始” before any run; status: ${status}`);
+  console.log('before run:', status);
 
-  // 跑 oddball → “运行中”。
-  await page.getByRole('button', { name: '运行协议', exact: true }).click();
-  roles = await waitForStatus('运行中');
-  console.log('running:', roles);
+  // 跑 oddball → “正在运行”。
+  await clickStripButton('运行协议');
+  status = await waitForStatus('正在运行');
+  assert.ok(status.includes('oddball'), `status line must name the running protocol; status: ${status}`);
+  console.log('running:', status);
 
-  // 全局暂停（顶栏“暂停”）：协议仍在跑、模型时钟冻住 → “已暂停”
+  // 全局暂停（诊断面板里的“暂停”）：协议仍在跑、模型时钟冻住 → “已暂停”
   // （修前仍显示“运行中”，是同根的第二处误标）。模型时间 4 秒内
   // 分毫不差才算冻住。注意：无头渲染约 1 fps，暂停后立刻读到的
   // DOM 可能是暂停前的旧渲染（实测：立刻读 7431，4 秒后读 7619——
   // 不是时间在走，是旧渲染被冻住的新值 7619 追上），所以先等 5 秒
   // 让一次带冻住值的新渲染落定，再读两次、隔 4 秒断言相等。
-  await header.getByRole('button', { name: '暂停', exact: true }).click();
-  roles = await waitForStatus('已暂停');
-  console.log('globally paused:', roles);
+  await diag.getByRole('button', { name: '暂停', exact: true }).click();
+  status = await waitForStatus('已暂停');
+  console.log('globally paused:', status);
   await page.waitForTimeout(5000);
   const t1 = await readModelTms();
-  assert.ok(t1 !== null, `model time must be readable while paused; roles: ${roles}`);
+  assert.ok(t1 !== null, `model time must be readable while paused; status: ${status}`);
   await page.waitForTimeout(4000);
   const t2 = await readModelTms();
   assert.equal(t2, t1, `model time must freeze while globally paused, got ${t1} -> ${t2}`);
   console.log(`model time frozen at ${t1} ms across 4 s`);
 
-  // 继续 → 回到“运行中”。
-  await header.getByRole('button', { name: '继续', exact: true }).click();
-  roles = await waitForStatus('运行中');
-  console.log('resumed:', roles);
+  // 继续 → 回到“正在运行”。
+  await diag.getByRole('button', { name: '继续', exact: true }).click();
+  status = await waitForStatus('正在运行');
+  console.log('resumed:', status);
 
   // 停止协议 → “已停止”（修前这里是“已暂停”，是本缺陷的核心误标：
   // 停了就是停了，顶栏的恢复快照并不能续跑它）。
-  await page.getByRole('button', { name: '停止协议', exact: true }).click();
-  roles = await waitForStatus('已停止');
-  console.log('stopped:', roles);
+  await clickStripButton('停止协议');
+  status = await waitForStatus('已停止');
+  console.log('stopped:', status);
 
-  // 点顶栏“恢复快照”：只是恢复脉冲基线快照，不续跑协议，状态仍是
+  // 点诊断面板里的“恢复快照”：只是恢复脉冲基线快照，不续跑协议，状态仍是
   // “已停止”。（按钮已由“恢复”改名“恢复快照”，旧名断言不到。）
-  await header.getByRole('button', { name: '恢复快照', exact: true }).click();
+  await diag.getByRole('button', { name: '恢复快照', exact: true }).click();
   await page.waitForTimeout(3000);
-  roles = await readRoles();
-  assert.ok(roles.includes('已停止'),
-    `status must stay “已停止” after Restore snapshot; roles: ${roles}`);
-  assert.ok(!roles.includes('运行中') && !roles.includes('已暂停'),
-    `status must not flip back to running/paused after Restore snapshot; roles: ${roles}`);
-  console.log('after restore snapshot:', roles);
+  status = await readStatus();
+  assert.ok(status.includes('已停止'),
+    `status must stay “已停止” after Restore snapshot; status: ${status}`);
+  assert.ok(!status.includes('正在运行') && !status.includes('已暂停'),
+    `status must not flip back to running/paused after Restore snapshot; status: ${status}`);
+  console.log('after restore snapshot:', status);
 
-  // 再点“运行协议” → 回到“运行中”（续跑协议的唯一办法）。
-  await page.getByRole('button', { name: '运行协议', exact: true }).click();
-  roles = await waitForStatus('运行中');
-  console.log('re-run:', roles);
+  // 再点“运行协议” → 回到“正在运行”（续跑协议的唯一办法）。
+  await clickStripButton('运行协议');
+  status = await waitForStatus('正在运行');
+  console.log('re-run:', status);
 
-  console.log(`PASS bench protocol-status: 未开始 -> 运行中 -> 已暂停 (frozen ${t1} ms) -> 运行中 -> 已停止 -> 恢复快照仍已停止 -> 运行中, pageErrors=${errors.length}`);
+  console.log(`PASS bench protocol-status: 还没开始 -> 正在运行 -> 已暂停 (frozen ${t1} ms) -> 正在运行 -> 已停止 -> 恢复快照仍已停止 -> 正在运行, pageErrors=${errors.length}`);
   assert.equal(errors.length, 0, `page/console errors: ${errors.join(' ;; ')}`);
 } finally {
   await browser?.close().catch(() => {});

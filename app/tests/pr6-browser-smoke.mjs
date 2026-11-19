@@ -1,5 +1,7 @@
 /**
- * PR6 浏览器冒烟（bench 版；2026-11-18 P4 后重写，旧 EEG 实验页已砍）。
+ * PR6 浏览器冒烟（bench 版；2026-11-18 P4 后重写，旧 EEG 实验页已砍；
+ * 2026-11-19 简化改写：协议下拉改成四个大按钮，样本数/参考/种子/
+ * 记录分析进“详情 / 诊断”面板；先开面板再操作）。
  *
  * 跑法：node app/tests/pr6-browser-smoke.mjs
  * 前置：`npm run build` 已跑过（dist 须含最新代码 + 球形 fixture；
@@ -29,8 +31,8 @@
  *   '运行协议'（ERP 一节用 oddball 协议攒试次）。
  * - 'eeg-waveform' 里 Pz polyline y 值范围 → WavesTab 的 Welch PSD
  *   polyline y 值范围（同一口径：像素 y-range > 1）。
- * - 'eeg-summary' 的 '19 通道' / '平均参考' → 回路行 '64 通道'
- *   （默认帽预设 10-10-64）与放大器读数 '参考: 平均'。
+ * - 'eeg-summary' 的 '19 通道' / '平均参考' → 诊断面板头部与脑电帽区
+ *   '64 通道'（默认帽预设 10-10-64）与放大器读数 '参考: 平均'。
  * - 参考 'infinity' / 'electrode' + '参考电极 Cz' → 放大器 popover 里
  *   单个 '参考' combobox：average / cz / m1（三档各不相同，沿用旧口径）。
  * - '噪声种子' + 开噪声后波形变 → 无等价物（台子无噪声开关；记录种子
@@ -111,31 +113,34 @@ try {
 
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  // 等自动采集出一份记录（波形视图读数 “样本数 N>0”；旧 eeg-empty 的等价等待）。
+  // 诊断面板先打开、一直开着：样本数读数、参考、种子、记录分析都在里面。
+  const diagToggle = page.getByTestId('bench-diagnostics-toggle');
+  const openDiag = async () => {
+    if (!(await page.getByTestId('bench-diagnostics').count())) {
+      await diagToggle.click();
+      await page.getByTestId('bench-diagnostics').waitFor({ timeout: 15000 });
+    }
+  };
+  await openDiag();
+  const diag = page.getByTestId('bench-diagnostics');
+  const waveStage = diag.locator('section[aria-label="记录"]');
+  // 等自动采集出一份记录（诊断面板记录读数 “样本数 N>0”；旧 eeg-empty 的等价等待）。
   // 本地无头 Chromium 很慢（SwiftShader ~1fps），放宽到 180 s。
-  const waveStage = page.locator('.bench-stage-side');
   await waveStage.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
   await page.locator('canvas.bench-wave').waitFor({ timeout: 30000 });
-  // 旧 eeg-summary 的等价物：回路行默认帽预设 10-10-64（64 通道）。
-  const roles = await page.locator('.bench-roles').textContent();
-  assert.ok(roles?.includes('10-10-64'), `roles line must show default cap preset 10-10-64, got ${roles}`);
-  assert.ok(roles?.includes('64 通道'), `roles line must show 64 channels, got ${roles}`);
+  // 旧 eeg-summary 的等价物：头部与脑电帽区默认帽预设 10-10-64（64 通道）。
+  const capNote = await diag.locator('section[aria-label="头部与脑电帽"]').textContent();
+  assert.ok(capNote?.includes('10-10'), `cap note must show default montage 10-10, got ${capNote}`);
+  assert.ok(capNote?.includes('64 通道'), `cap note must show 64 channels, got ${capNote}`);
   console.log('recording present:', await waveStage.locator('.bench-readout').first().textContent());
 
-  // 放大器 popover：参考 combobox + 读数（旧 '参考方式' / '平均参考' 的等价物）。
-  // 注意：getByLabel('参考') 会同时命中 ControlField 的 group 与 select，
-  // 必须用 combobox 角色定位；popover 盖住舞台，操作完要关掉再点别的。
-  const ampToggle = page.getByRole('button', { name: /放大器设置/ });
-  const openAmp = async () => {
-    if (!(await page.locator('.bench-popover').count())) await ampToggle.click();
-    await page.locator('.bench-popover').waitFor({ timeout: 15000 });
-  };
-  const closeAmp = async () => {
-    if (await page.locator('.bench-popover').count()) await ampToggle.click();
-    await page.locator('.bench-popover').waitFor({ state: 'detached', timeout: 15000 });
-  };
+  // 放大器区（诊断面板里，不再是浮层）：参考 combobox + 读数（旧 '参考方式' /
+  // '平均参考' 的等价物）。注意：getByLabel('参考') 会同时命中 ControlField
+  // 的 group 与 select，必须用 combobox 角色定位。
   const refSel = page.getByRole('combobox', { name: '参考', exact: true });
-  const ampReadout = page.locator('.bench-popover .bench-readout');
+  const ampReadout = page.locator('section[aria-label="放大器"] .bench-readout');
+  const openAmp = async () => { await openDiag(); };
+  const closeAmp = async () => {};
   await openAmp();
   assert.equal(await refSel.inputValue(), 'average', 'default reference must be average');
   assert.ok((await ampReadout.textContent())?.includes('参考: 平均'),
@@ -149,7 +154,7 @@ try {
     return Math.max(...ys) - Math.min(...ys);
   };
   const openWavesTab = async () => {
-    await page.getByRole('button', { name: '记录分析', exact: true }).click();
+    await openDiag();
     await page.getByRole('tab', { name: '频谱', exact: true }).click();
     await page.getByText('频段 / PSD（WAVES）').waitFor({ timeout: 60000 });
     await page.getByText('Alpha 探索', { exact: false }).waitFor({ timeout: 60000 });
@@ -203,10 +208,8 @@ try {
 
   // 种子控件（实验电脑 details 里的“种子” RangeControl）：填 2 即生效。
   // 旧断言“换种子 + 开噪声后波形变”无等价物（见 DROPPED），只断言控件本身。
-  const expDetails = page.locator('details[aria-label="实验电脑"]');
-  if (!(await expDetails.evaluate((el) => el.open))) {
-    await expDetails.locator('summary').click();
-  }
+  const expDetails = page.locator('[data-testid="bench-experiment-computer"]');
+  await openDiag();
   const seedNum = page.locator('input.range-number[aria-label="种子 "]');
   await seedNum.fill('2');
   await seedNum.press('Enter');
@@ -215,7 +218,7 @@ try {
 
   // 5. B2 新 tab 冒烟：跑 oddball 协议攒出 standard + oddball 试次，
   // 立刻重组记录（协议仍在跑：10 s 窗口里始终有新鲜脉冲），再看 ERP。
-  await page.getByRole('combobox', { name: '协议', exact: true }).selectOption('oddball');
+  await page.locator('.bench-protocol-btn', { hasText: 'oddball' }).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
   const trialRe = /试次数[:：]?\s*(\d+)/;
   const trialDeadline = Date.now() + 240000;
@@ -230,11 +233,9 @@ try {
   }
   console.log('oddball trials fired:', trials);
   // 先重组记录再停协议：停协议不重组记录，晚点窗口就滑过这批脉冲。
-  await page.getByRole('button', { name: '实时 EEG 波形', exact: true }).click();
   await page.getByRole('button', { name: '更新记录', exact: true }).click();
   await page.getByRole('button', { name: '停止协议', exact: true }).click();
   // 记录事件表：脉冲与受试者响应都在（种子 2 的受试者答过 oddball）。
-  await page.getByRole('button', { name: '记录分析', exact: true }).click();
   await page.getByTestId('bench-recording-events').waitFor({ timeout: 60000 });
   const eventsNote = await page.locator('[data-testid="bench-recording-events"] p').textContent();
   const pulseM = eventsNote?.match(/pulse\s+(\d+)/);

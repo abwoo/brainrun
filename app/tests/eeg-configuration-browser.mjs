@@ -1,5 +1,7 @@
 /**
- * EEG 配置与导出一致性（bench 版；2026-11-18 P4 后重写，旧 EEG 实验页已砍）。
+ * EEG 配置与导出一致性（bench 版；2026-11-18 P4 后重写，旧 EEG 实验页已砍；
+ * 2026-11-19 简化改写：协议下拉改成四个大按钮，帽预设 / 参考 / 带通 /
+ * 种子 / 样本数读数 / 导出全部进“详情 / 诊断”面板；先开面板再操作）。
  *
  * 覆盖：待定配置 vs 活动记录、切页后草稿保持、参考的实际取值、导出 lineage
  *（导联、种子、参考、dataRevision、epochs、Cz 通道全零）。
@@ -9,16 +11,16 @@
  *   是 10 s 原生历史），已删。
  * - '#eeg-montage' → 脑电帽预设 combobox（预设即导联）：
  *   '10-10-32' → montage '10-10'，'10-5-128' → montage '10-05'。
- * - '#eeg-seed' → 实验电脑 details 里的“种子” RangeControl（受试者
+ * - '#eeg-seed' → 实验电脑区里的“种子” RangeControl（受试者
  *   反应时种子）；填 17，跨页保持。
- * - '#eeg-reference' + '#eeg-reference-electrode' → 放大器 popover 里
+ * - '#eeg-reference' + '#eeg-reference-electrode' → 放大器区里
  *   单个“参考” combobox：'cz' 即 {mode:'electrode', label:'Cz'}。
  * - 待定 vs 活动（旧：改导联后活动记录仍是旧导联、configuration-status
  *   data-pending=true）→ 台子对帽预设/种子/参考没有“草稿”语义，改了
  *   立即应用；台子真正的草稿语义只在放大器带通（下限/上限 draft，点
  *   “应用带通”才生效），本测试用带通草稿覆盖“待定 vs 活动”这一项。
  * - 'active-recording' / 'configuration-status' / 'eeg-summary' testid →
- *   无等价物；等价证据是回路行（活动记录的预设/通道数）与导出 JSON。
+ *   无等价物；等价证据是诊断面板头部与脑电帽区的导联说明与导出 JSON。
  * - 模式按钮 play/eeg 往返 → #basic（物理模型页）往返；台子设置存在
  *   外部 store 里，切页不丢，回来后按保持的设置重组记录。
  * - 导出 lineage：montage / reference / parameters.reference /
@@ -30,10 +32,6 @@ import {chromium} from 'playwright';
 import {preview} from 'vite';
 const server=await preview({preview:{port:0,host:'127.0.0.1'},logLevel:'error'});
 
-async function openDetails(page,label){
-  const details=page.locator(`details[aria-label="${label}"]`);
-  if(!(await details.evaluate((el)=>el.open))) await details.locator('summary').click();
-}
 async function exportJson(page){
   const ready=page.waitForEvent('download',{timeout:30000});
   await page.getByRole('button',{name:'导出 JSON',exact:true}).click();
@@ -45,7 +43,7 @@ async function waitTrials(page,min,timeoutMs){
   const trialRe=/试次数[:：]?\s*(\d+)/;
   const deadline=Date.now()+timeoutMs;let trials=0;
   for(;;){
-    const txt=await page.locator('details[aria-label="实验电脑"] .bench-readout').first().textContent();
+    const txt=await page.locator('[data-testid="bench-experiment-computer"] .bench-readout').first().textContent();
     const m=txt?.match(trialRe);trials=m?Number(m[1]):0;
     if(trials>=min)return trials;
     if(Date.now()>deadline)throw new Error(`oddball protocol produced only ${trials} trials in ${timeoutMs/1000} s`);
@@ -60,32 +58,34 @@ try{
  // 台子是默认入口（任何非 #basic 的 hash 都进台子）。
  await page.goto(server.resolvedUrls.local[0],{waitUntil:'domcontentloaded'});
  await page.getByTestId('closed-loop-bench').waitFor({timeout:60000});
+ // 诊断面板先打开、一直开着：帽预设 / 参考 / 带通 / 种子 / 样本数 /
+ // 导出都在里面；切页回来要重开（面板状态随组件卸载丢弃）。
+ const openDiag=async()=>{
+   if(!(await page.getByTestId('bench-diagnostics').count())){
+     await page.getByTestId('bench-diagnostics-toggle').click();
+     await page.getByTestId('bench-diagnostics').waitFor({timeout:15000});
+   }
+ };
+ const diag=()=>page.getByTestId('bench-diagnostics');
  // 等自动采集出一份记录（本地无头 Chromium 很慢，放宽到 180 s）。
- await page.locator('.bench-stage-side').getByText(/样本数\s+[1-9]\d*/).first().waitFor({timeout:180000});
+ await openDiag();
+ await diag().locator('section[aria-label="记录"]').getByText(/样本数\s+[1-9]\d*/).first().waitFor({timeout:180000});
  const presetSel=page.getByRole('combobox',{name:'脑电帽预设',exact:true});
  const refSel=page.getByRole('combobox',{name:'参考',exact:true});
- const ampToggle=page.getByRole('button',{name:/放大器设置/});
- const ampReadout=page.locator('.bench-popover .bench-readout');
- const openAmp=async()=>{
-   if(!(await page.locator('.bench-popover').count()))await ampToggle.click();
-   await page.locator('.bench-popover').waitFor({timeout:15000});
- };
- const closeAmp=async()=>{
-   if(await page.locator('.bench-popover').count())await ampToggle.click();
-   await page.locator('.bench-popover').waitFor({state:'detached',timeout:15000});
- };
+ const ampReadout=page.locator('section[aria-label="放大器"] .bench-readout');
+ const capNote=()=>diag().locator('section[aria-label="头部与脑电帽"]');
 
  // 1. 帽预设改 10-10-32（montage 10-10）：台子无待定态，改了立即应用，
- //    点“更新记录”重组后回路行即为新预设。
+ //    点“更新记录”重组后头部与脑电帽区的导联说明即为新预设。
  await presetSel.selectOption('10-10-32');
  await page.getByRole('button',{name:'更新记录',exact:true}).click();
- await page.locator('.bench-roles').getByText('10-10-32',{exact:false}).waitFor({timeout:60000});
- assert.ok((await page.locator('.bench-roles').textContent())?.includes('32 通道'),
+ await capNote().getByText('32 通道',{exact:false}).waitFor({timeout:60000});
+ assert.ok((await capNote().textContent())?.includes('10-10'),
    'active recording must follow the applied 10-10-32 preset');
+ assert.equal(await presetSel.inputValue(),'10-10-32');
 
  // 2. 待定 vs 活动（台子唯一的草稿语义：放大器带通 draft）。
  //    改 draft 不动已应用的滤波，点“应用带通”才生效。
- await openAmp();
  const loNum=page.locator('input.range-number[aria-label="带通下限 Hz"]');
  const hiNum=page.locator('input.range-number[aria-label="带通上限 Hz"]');
  await loNum.fill('1');await loNum.press('Enter');
@@ -105,10 +105,8 @@ try{
  await page.waitForTimeout(2000);
  assert.ok((await ampReadout.textContent())?.includes('参考: Cz'),
    `amplifier readout must show Cz reference, got ${await ampReadout.textContent()}`);
- await closeAmp();
 
  // 4. 种子填 17（受试者反应时种子）。
- await openDetails(page,'实验电脑');
  const seedNum=page.locator('input.range-number[aria-label="种子 "]');
  await seedNum.fill('17');await seedNum.press('Enter');
  assert.equal(await seedNum.inputValue(),'17');
@@ -121,19 +119,17 @@ try{
  await page.getByRole('link',{name:'BrainRun'}).first().waitFor({timeout:30000});
  await page.evaluate(()=>{window.location.hash='bench';});
  await page.getByTestId('closed-loop-bench').waitFor({timeout:60000});
- await page.locator('.bench-stage-side').getByText(/样本数\s+[1-9]\d*/).first().waitFor({timeout:180000});
+ await openDiag();
+ await diag().locator('section[aria-label="记录"]').getByText(/样本数\s+[1-9]\d*/).first().waitFor({timeout:180000});
  assert.equal(await presetSel.inputValue(),'10-10-32','cap preset survives navigation');
- await openDetails(page,'实验电脑');
  assert.equal(await page.locator('input.range-number[aria-label="种子 "]').inputValue(),'17','seed survives navigation');
- assert.ok((await page.locator('.bench-roles').textContent())?.includes('32 通道'),
+ assert.ok((await capNote().textContent())?.includes('32 通道'),
    're-assembled recording after navigation must follow the kept preset');
- await openAmp();
  assert.equal(await refSel.inputValue(),'cz','reference survives navigation');
  assert.ok((await ampReadout.textContent())?.includes('带通 1–30 Hz'),
    'applied band-pass survives navigation');
  assert.ok((await ampReadout.textContent())?.includes('参考: Cz'),
    'reference readout survives navigation');
- await closeAmp();
  console.log('navigation: preset/seed/reference/band-pass all survive the #basic round-trip');
 
  // 6. 导出 #1（尚未跑任何协议）：lineage 与旧断言一致；epochs 为 null
@@ -158,11 +154,10 @@ try{
 
  // 8. 跑一次 oddball 再导出：台子组装时自动切分试次，epochs 不再是 null
  //    （旧“epochs 为 null”只在无脉冲时成立；有脉冲即自动出 EpochSet）。
- await page.getByRole('combobox',{name:'协议',exact:true}).selectOption('oddball');
+ await page.locator('.bench-protocol-btn',{hasText:'oddball'}).click();
  await page.getByRole('button',{name:'运行协议',exact:true}).click();
  const trials=await waitTrials(page,6,240000);
  console.log('oddball trials fired:',trials);
- await page.getByRole('button',{name:'实时 EEG 波形',exact:true}).click();
  await page.getByRole('button',{name:'更新记录',exact:true}).click();
  await page.getByRole('button',{name:'停止协议',exact:true}).click();
  const rec3=await exportJson(page);
@@ -179,7 +174,7 @@ try{
 //   data-pending='true'、'eeg-summary' 文本不变：台子对帽预设无待定态，改了
 //   立即应用；待定 vs 活动的覆盖改走带通草稿（第 2 节）。
 // - 'active-recording' / 'configuration-status' / 'eeg-summary' testid：台子
-//   没有这些 testid；等价证据是回路行与导出 JSON。
+//   没有这些 testid；等价证据是诊断面板头部与脑电帽区的导联说明与导出 JSON。
 // - 导出 'rec.seed === 17'：记录种子恒为 1（runNativeExperiment 写死），
 //   不取受试者种子；种子 17 的保持由第 4–5 节的控件值断言覆盖。
 // - 导出 'rec.epochs === null'（有脉冲时）：台子组装时自动切分试次，有脉冲

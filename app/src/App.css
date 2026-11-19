@@ -1483,35 +1483,41 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .bench-subtitle { color:#8ebcda; font-size:13px; margin:6px 0 0; }
 .bench-header-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .bench-error { color:#ffcc9b; padding:10px 12px; border:1px solid #79563a; border-radius:5px; font-size:13px; }
-/* Phase 4 single stage: the strip + flow indicator + one stage (head + trace
-   as the hero). The six-box loop grid and the box grid are gone. */
+/* Simplification (2026-11-19): the strip holds four protocol buttons +
+   run/stop + one plain-language status line; everything else lives behind
+   the single diagnostics toggle. The amplifier popover, the six-role line
+   and the stage-tools row are gone with the controls they held. */
 .bench-strip { display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px 16px; padding:14px 16px; margin:16px 0; border:1px solid #2b4254; border-radius:10px; background:#0d1824; }
-.bench-strip .control-field { min-width:180px; }
+.bench-protocols { display:flex; gap:8px; flex-wrap:wrap; flex:1; min-width:280px; }
+.bench-protocol-btn { flex:1; min-width:150px; text-align:left; padding:10px 12px; border:1px solid #2b4254; border-radius:8px; background:#08121c; color:#dcecf5; cursor:pointer; }
+.bench-protocol-btn:hover:not(:disabled) { border-color:#22d3ee; }
+.bench-protocol-btn[aria-pressed="true"] { border-color:#22d3ee; background:#0e2233; }
+.bench-protocol-btn:disabled { opacity:.55; cursor:not-allowed; }
+.bench-protocol-name { display:block; font-size:14px; font-weight:600; }
+.bench-protocol-desc { display:block; font-size:12px; color:#9fb6c6; margin-top:2px; line-height:1.4; }
 .bench-strip-run { display:flex; gap:8px; align-items:center; }
+.bench-status { flex-basis:100%; margin:0; font-size:14px; color:#d7e5ef; }
 .bench-strip-timing { font-size:13px; color:#9fb6c6; padding-bottom:10px; }
-.bench-amp-wrap { position:relative; }
-.bench-popover { position:absolute; top:calc(100% + 8px); left:0; z-index:20; width:min(420px,90vw); display:flex; flex-direction:column; gap:12px; padding:16px; border:1px solid #2b4254; border-radius:10px; background:#0d1824; box-shadow:0 12px 32px rgba(0,0,0,.5); }
+.bench-q { margin:0; font-size:13px; color:#c6dce9; }
+.bench-diag { margin-top:8px; }
+.bench-diag-panel { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:16px 20px; margin-top:12px; display:flex; flex-direction:column; gap:20px; }
+.bench-diag-section { display:flex; flex-direction:column; gap:12px; padding-top:16px; border-top:1px solid #203545; }
+.bench-diag-section:first-of-type { border-top:0; padding-top:0; }
+.bench-diag-section>h3 { margin:0; font-size:15px; font-weight:600; color:#d9e6ee; }
+.bench-diag-section .control-field { width:100%; }
 .bench-flow { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:14px 16px; margin-bottom:24px; display:flex; flex-direction:column; gap:10px; }
 .bench-flow-now { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; }
 .bench-flow-label { color:#9fb6c6; font-size:13px; }
 .bench-flow-hops { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0; }
 .bench-flow-hop { border:1px solid #284255; border-radius:999px; padding:4px 10px; font-size:12px; color:#9fb6c6; background:#08121c; }
 .bench-flow-hop-now { border-color:#22d3ee; color:#d7e5ef; }
-.bench-roles { margin:0; font-size:13px; line-height:1.7; color:#9fb6c6; overflow-wrap:anywhere; }
 .bench-stage { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:24px; align-items:start; margin-bottom:24px; }
 .bench-stage-head { min-width:0; display:flex; flex-direction:column; gap:12px; }
 .bench-stage-head>h2 { margin:0; font-size:16px; font-weight:600; }
-.bench-stage-tools { display:flex; flex-wrap:wrap; gap:12px 16px; }
-.bench-stage-tools .control-field { min-width:180px; flex:1; }
 .bench-stage-side { min-width:0; display:flex; flex-direction:column; gap:14px; }
 .bench-stage-side>h2 { margin:0; font-size:16px; font-weight:600; }
 .bench-stage-side>h3 { margin:4px 0 0; font-size:14px; font-weight:600; color:#c6dce9; }
 .bench-view-toggle { display:flex; gap:8px; flex-wrap:wrap; }
-.bench-details { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:16px 20px; margin-bottom:16px; }
-.bench-details summary { cursor:pointer; font-size:15px; font-weight:600; color:#d9e6ee; }
-.bench-details-body { display:flex; flex-direction:column; gap:14px; padding-top:14px; }
-.bench-details-body>h3 { margin:4px 0 0; font-size:14px; font-weight:600; color:#c6dce9; }
-.bench-details-body .control-field { width:100%; }
 .bench-network { min-height:360px; border:1px solid #283f51; border-radius:10px; background:#070e16; overflow:hidden; }
 .bench-network .manual-brain { height:clamp(360px,52vh,560px); }
 .bench-note { color:#9fb6c6; font-size:13px; line-height:1.65; margin:0; }
@@ -1528,6 +1534,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 @media(max-width:1100px) { .bench-stage { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:900px) {
   .bench-header-actions { width:100%; }
-  .bench-details { padding:14px 16px; }
+  .bench-diag-panel { padding:14px 16px; }
   .bench-wave { height:180px; }
 }

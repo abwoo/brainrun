@@ -9,10 +9,11 @@
  * PhysicsHome (#basic) stays as the fallback for now, including its
  * embedded head-model views; its navigation into #advanced is removed.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import PhysicsHome from './components/PhysicsHome';
 import ClosedLoopBench from './components/ClosedLoopBench';
 import { useI18n } from './lib/i18n';
+import { getBenchSettings, subscribeBenchSettings } from './lib/benchSettings';
 import BrainScene from './components/BrainScene';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData } from './lib/brainData';
@@ -182,30 +183,32 @@ export default function App() {
   // PR8-LINK：HEAD/DIPOLE 直播偶极矩的基线——选区切换时捕获该脑区当时的
   // E/I（静息参考）；q 由 live E/I 经 PR5 假设链算（equivalentMomentNAm）。
   // 基线只在选区变化时重捕，不随快照漂移；未捕获到之前 moment 为 null。
+  // 简化（2026-11-19）：q 跟的脑区 = 点选的脑区 ?? 刺激器目标 ?? 0 号脑区。
+  // 点选优先，点了大脑 q 就跟过去；没点过也有刺激器目标/0 号兜底，从一
+  // 开始就有值，不再出现永久的 "q = —"。0 号是刺激器本来的默认目标
+  // （ClosedLoopBench stimNode 同款回退），不是凭空捏的脑区。
+  const benchSettings = useSyncExternalStore(subscribeBenchSettings, getBenchSettings);
+  const qNode = selectedId ?? benchSettings.stimTarget ?? 0;
   const liveQBaselineRef = useRef<{ node: number; e: number; i: number } | null>(null);
   useEffect(() => {
-    if (selectedId === null) {
-      liveQBaselineRef.current = null;
-      return;
-    }
-    if (snap && liveQBaselineRef.current?.node !== selectedId) {
+    if (snap && liveQBaselineRef.current?.node !== qNode) {
       liveQBaselineRef.current = {
-        node: selectedId,
-        e: snap.e[selectedId],
-        i: snap.i[selectedId],
+        node: qNode,
+        e: snap.e[qNode],
+        i: snap.i[qNode],
       };
     }
-  }, [selectedId, snap]);
+  }, [qNode, snap]);
   const liveMomentNAm = useMemo(() => {
-    if (selectedId === null || snap === null) return null;
+    if (snap === null) return null;
     const b = liveQBaselineRef.current;
-    if (!b || b.node !== selectedId) return null;
+    if (!b || b.node !== qNode) return null;
     try {
-      return equivalentMomentNAm(snap.e[selectedId], snap.i[selectedId], b.e, b.i);
+      return equivalentMomentNAm(snap.e[qNode], snap.i[qNode], b.e, b.i);
     } catch {
       return null;
     }
-  }, [snap, selectedId]);
+  }, [snap, qNode]);
 
   const handlePulse = useCallback((node: number) => {
     simRef.current?.pulse(node);

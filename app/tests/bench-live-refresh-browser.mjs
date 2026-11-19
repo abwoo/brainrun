@@ -1,5 +1,7 @@
 /**
  * Bench live-refresh browser test (fix for the frozen 样本数/波形/事件数).
+ * 2026-11-19 简化改写：协议下拉改成四个大按钮，样本数/事件数读数与
+ * 记录分析进“详情 / 诊断”面板；先开面板再读数。
  *
  * 回归：样本数/波形/事件数都读同一份记录，记录只在引擎就绪时组装一次，
  * 运行中不刷新（除非手动点“更新记录”），导致运行中样本数卡住、波形是
@@ -94,8 +96,14 @@ try {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  // 等自动采集出一份记录（波形视图读数 “样本数 N>0”）。
-  const waveStage = page.locator('.bench-stage-side');
+  // 诊断面板先打开、一直开着：样本数/事件数读数与记录分析都在里面。
+  const diagToggle = page.getByTestId('bench-diagnostics-toggle');
+  await diagToggle.click();
+  const diag = page.getByTestId('bench-diagnostics');
+  await diag.waitFor({ timeout: 15000 });
+  const waveStage = diag.locator('section[aria-label="记录"]');
+
+  // 等自动采集出一份记录（诊断面板记录读数 “样本数 N>0”）。
   await waveStage.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
 
   const readWave = async () => {
@@ -117,7 +125,7 @@ try {
   console.log('baseline:', baseline.txt);
 
   // 跑 oddball：10 次试次保证 2 个 oddball（每 5 次一次）+ 8 个 standard。
-  await page.getByRole('combobox', { name: '协议', exact: true }).selectOption('oddball');
+  await page.locator('.bench-protocol-btn', { hasText: 'oddball' }).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
 
   // 轮询直到三条同时成立（240 秒上限；无头渲染慢，只认增长量）：
@@ -149,7 +157,6 @@ try {
     `events must stay > 0 after stop, got ${finalWave.events}`);
   console.log('final wave:', finalWave.txt);
 
-  await page.getByRole('button', { name: '记录分析', exact: true }).click();
   await page.getByTestId('bench-recording-events').waitFor({ timeout: 60000 });
   const eventsNote = await page.locator('[data-testid="bench-recording-events"] p').textContent();
   const respM = eventsNote?.match(/response\s+(\d+)/);

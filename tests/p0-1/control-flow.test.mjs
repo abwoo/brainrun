@@ -87,8 +87,10 @@ test('P0-1 surface: all native JSX controls have a bound interaction handler', (
   // Phase 4 实测 235（旧 257 − App 砍掉的 48 − PhysicsHome 砍掉的 2 + 台子 27 + 模板分析返回按钮 1）；
   // Option A（2026-11-18）：#basic 恢复高级实验导航（切换按钮 + 信号/对照两个选择卡片），+2 → 237；
   // Option A 补项（2026-11-18）：分析视图内恢复 More/Less 开关 + Comparisons 入口，+2 → 239。
+  // 简化（2026-11-19）：台子 27 → 28，+1 → 240（协议下拉改 4 个按钮 +3、
+  // 诊断总开关 +1、放大器浮层开关 −1、波形/分析视图切换 −2）。
   // 下限即实测值，入口再删须同步改这里与台账，不得悄悄放宽。
-  assert.ok(rows.length >= 239, `Unexpectedly small control surface: ${rows.length}`);
+  assert.ok(rows.length >= 240, `Unexpectedly small control surface: ${rows.length}`);
   for (const c of rows) {
     const handler = c.name === 'button' ? 'onClick' : 'onChange';
     assert.ok(c.attrs.includes(handler),
@@ -181,7 +183,7 @@ test('P0-1B: every native JSX control has a scientific-scope entry, not a fabric
   const registry = JSON.parse(source('docs/p0-1b-control-register.json'));
   const actual = scan();
   assert.equal(registry.counts.total, actual.length);
-  assert.equal(actual.length, 239, 'Phase 4 recount 235 + Option A restore 2 (Advanced labs toggle + signals/comparison choice) + More/Comparisons restore 2');
+  assert.equal(actual.length, 240, 'Phase 4 recount 235 + Option A restore 2 (Advanced labs toggle + signals/comparison choice) + More/Comparisons restore 2 + 2026-11-19 bench simplification 1 (protocol dropdown -> 4 buttons, diagnostics toggle, minus amplifier popover toggle and wave/analysis view toggles)');
   assert.equal(registry.entries.length, actual.length);
   assert.equal(new Set(registry.entries.map(c => c.controlId)).size, actual.length,
     'every JSX control needs a distinct audit ID');
