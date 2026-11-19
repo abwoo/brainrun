@@ -1,20 +1,18 @@
 /**
- * BrainRun — single entry: the closed-loop bench (default) + #basic fallback.
+ * BrainRun — single entry: the minimal 3D closed-loop scene (default) +
+ * #basic fallback (PhysicsHome, reachable only via the #basic hash; no UI
+ * path leads there from the minimal page).
  *
- * Phase 4 cut the old entries: the four modes (PLAY/WAVES/EEG/EXPLORE), the
- * 15 one-click scenarios, the six standalone labs (cellular / dipole / EEG
- * analysis / experiment / head-sphere / local BEM) and the #advanced
- * workspace are gone; their functions live in the bench now. lib/ code is
+ * The minimal page is one full-page 3D loop, one run/stop button, one
+ * status line, one honesty footer line — see MinimalLoop.tsx. The old
+ * bench presentation (ClosedLoopBench / PictorialLoop / BenchDrillDown /
+ * PictorialHead / SimulatedHand) is deleted, not patched. lib/ code is
  * untouched by the cut (scenarios.ts etc. stay, with no UI entry).
- * PhysicsHome (#basic) stays as the fallback for now, including its
- * embedded head-model views; its navigation into #advanced is removed.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import PhysicsHome from './components/PhysicsHome';
-import ClosedLoopBench from './components/ClosedLoopBench';
-import PictorialHead from './components/PictorialHead';
+import MinimalLoop from './components/MinimalLoop';
 import { useI18n } from './lib/i18n';
-import { getBenchSettings, subscribeBenchSettings } from './lib/benchSettings';
 import BrainScene from './components/BrainScene';
 import type { BrainData } from './lib/brainData';
 import { loadBrainData } from './lib/brainData';
@@ -26,7 +24,6 @@ import type {
   ResponseWindow,
 } from './lib/simClient';
 import { DEFAULT_BACKGROUND_MODE } from './lib/simClient';
-import { equivalentMomentNAm } from './lib/localCorticalColumn';
 import type { Snapshot } from './worker/protocol';
 import type { SnapshotSummary } from './lib/simClient';
 import './App.css';
@@ -47,9 +44,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
   const [simReady, setSimReady] = useState(false);
-  const [runOverview, setRunOverview] = useState<{
-    runId: string; tMs: number | null; confirmed: number;
-  } | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -106,11 +100,6 @@ export default function App() {
     sim.attachDebugBridge();
     sim.onReady(() => {
       setSimReady(true);
-      const session = sim.getExperimentSession();
-      setRunOverview({
-        runId: session.provenance.runId,
-        tMs: session.lastModelTimeMs, confirmed: session.commands.length,
-      });
     });
     sim.start(data.connectivity.weights, data.connectivity.lengths);
     // 约 15 Hz 更新 React 面板（时间、读数）；快照本身 60 Hz，
@@ -121,11 +110,6 @@ export default function App() {
         lastUiUpdateRef.current = now;
         setSnap(s);
         setPaused(s.paused);
-        const session = sim.getExperimentSession();
-        setRunOverview({
-          runId: session.provenance.runId,
-          tMs: session.lastModelTimeMs, confirmed: session.commands.length,
-        });
       }
       if (s.diverged) setSimError(s.divergence_detail);
     });
@@ -138,7 +122,6 @@ export default function App() {
       unsub();
       sim.stop();
       simRef.current = null;
-      setRunOverview(null);
     };
   }, [data]);
 
@@ -181,36 +164,8 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [data, simReady]);
 
-  // PR8-LINK：HEAD/DIPOLE 直播偶极矩的基线——选区切换时捕获该脑区当时的
-  // E/I（静息参考）；q 由 live E/I 经 PR5 假设链算（equivalentMomentNAm）。
-  // 基线只在选区变化时重捕，不随快照漂移；未捕获到之前 moment 为 null。
-  // 简化（2026-11-19）：q 跟的脑区 = 点选的脑区 ?? 刺激器目标 ?? 0 号脑区。
-  // 点选优先，点了大脑 q 就跟过去；没点过也有刺激器目标/0 号兜底，从一
-  // 开始就有值，不再出现永久的 "q = —"。0 号是刺激器本来的默认目标
-  // （ClosedLoopBench stimNode 同款回退），不是凭空捏的脑区。
-  const benchSettings = useSyncExternalStore(subscribeBenchSettings, getBenchSettings);
-  const qNode = selectedId ?? benchSettings.stimTarget ?? 0;
-  const liveQBaselineRef = useRef<{ node: number; e: number; i: number } | null>(null);
-  useEffect(() => {
-    if (snap && liveQBaselineRef.current?.node !== qNode) {
-      liveQBaselineRef.current = {
-        node: qNode,
-        e: snap.e[qNode],
-        i: snap.i[qNode],
-      };
-    }
-  }, [qNode, snap]);
-  const liveMomentNAm = useMemo(() => {
-    if (snap === null) return null;
-    const b = liveQBaselineRef.current;
-    if (!b || b.node !== qNode) return null;
-    try {
-      return equivalentMomentNAm(snap.e[qNode], snap.i[qNode], b.e, b.i);
-    } catch {
-      return null;
-    }
-  }, [snap, qNode]);
-
+  // The minimal loop shows no q readout (diagnostic readouts are deleted
+  // with the old bench); #basic keeps its own response display via `resp`.
   const handlePulse = useCallback((node: number) => {
     simRef.current?.pulse(node);
   }, []);
@@ -292,23 +247,9 @@ export default function App() {
     setResetSignal((n) => n + 1);
   };
 
-  if (workspace === 'bench') return <ClosedLoopBench
-    data={data} selectedId={selectedId} onSelect={setSelectedId}
-    sim={simRef.current} ready={simReady} error={simError ?? loadError}
-    snap={snap} paused={paused} onPause={handlePlayPause}
-    background={bgMode} onBackground={handleBackgroundMode}
-    strength={Number(KNOB_MAP.stimulusAmplitude(kStim).toFixed(2))} durationMs={Math.round(KNOB_MAP.durationMs(kDur))}
-    onStrength={value => { setKStim(KNOB_MAP.stimulusK(value)); simRef.current?.setParams({ stim_amplitude: value }); }}
-    onDuration={value => { setKDur(KNOB_MAP.durationK(value)); simRef.current?.setParams({ stim_duration_ms: value }); }}
-    onPulse={() => { if (selectedId !== null) handlePulse(selectedId); }}
-    response={resp.summary} liveMomentNAm={liveMomentNAm} runId={runOverview?.runId ?? null}
-    onReset={() => { const id = selectedId; handleBackgroundMode(DEFAULT_BACKGROUND_MODE); handleReset(); setSelectedId(id); }}
-    onRecover={() => handleRestoreSnapshot('pulse-baseline')}
-    onExitToPhysicsHome={() => { window.location.hash = 'basic'; setWorkspace('basic'); }}
-    networkView={data ? <PictorialHead data={data}
-      sim={simRef.current} selectedId={selectedId} onSelect={setSelectedId}
-      selectedChannel={benchSettings.selectedChannel} /> :
-      <p className="model-loading">{locale === 'zh-CN' ? '正在加载脑区模型…' : 'Loading the region model…'}</p>}
+  if (workspace === 'bench') return <MinimalLoop
+    data={data} sim={simRef.current} ready={simReady}
+    error={simError ?? loadError} snap={snap}
   />;
   return <PhysicsHome
     data={data} selectedId={selectedId} onSelect={setSelectedId}

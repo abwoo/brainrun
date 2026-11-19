@@ -136,21 +136,24 @@ test('四滑杆：KNOB_MAP 端点 = UI 数字框范围 = 引擎 clamp', () => {
     near(KNOB_MAP.c_eiK(KNOB_MAP.c_ei(k)), k);
     near(KNOB_MAP.gK(KNOB_MAP.g(k)), k);
   }
-  // UI 数字框 min/max：Phase 4 后只剩刺激强度与持续时间两档进台子，
-  // 由台子（ClosedLoopBench.tsx 的 RangeControl，主刺激区）渲染，不再经
-  // App.tsx；两档范围仍与 KNOB_MAP 端点一致。
-  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
-  assert.ok(benchTsx.includes('value={strength} min={0.5} max={2}'),
-    '台子主刺激强度范围须为 0.5–2.0');
-  assert.ok(benchTsx.includes('value={durationMs} min={20} max={500}'),
-    '台子主刺激持续时间范围须为 20–500 ms');
+  // UI 数字框 min/max：最小 3D 闭环（2026-11-19）后台子不再有任何滑杆
+  // 或数字框——刺激强度与持续时间不再是 UI 档位，固定 oddball 参数
+  // 以字面量写在 MinimalLoop.tsx 的 engine.start 调用里（标准幅度 1、
+  // oddball 幅度 2、ISI 1000 ms、每 5 个出 1 个、脉冲 100 ms），与
+  // KNOB_MAP 端点 / 引擎 clamp 的对应关系改由本测试下面直接断言。
+  const minimalTsx = src('app/src/components/MinimalLoop.tsx');
+  assert.ok(minimalTsx.includes('standardAmplitude: 1, oddballAmplitude: 2,'),
+    '最小版固定 oddball 幅度须为标准 1 / oddball 2');
+  assert.ok(minimalTsx.includes('isiMs: 1000, oddballEvery: 5, pulseDurationMs: 100,'),
+    '最小版固定 oddball 时序须为 ISI 1000 ms、每 5 个出 1 个、脉冲 100 ms');
+  assert.ok(!minimalTsx.includes('RangeControl'), '最小版不应再有任何滑杆');
   // c_ei / G 的滑杆随 #advanced 一起砍掉：台子与 App 均无这两档的 UI
   // 入口（KNOB_MAP 与引擎 clamp 在上文仍断言，未动）。只按 c_ei 的
-  // 3–8 与 G 的 0.4 上限断言缺失，不按 min={0} 断言（台子闭环阈值
+  // 3–8 与 G 的 0.4 上限断言缺失，不按 min={0} 断言（旧台子闭环阈值
   // 本身就是 min={0}，与 G 无关）。
-  assert.ok(!benchTsx.includes('min={3}') && !benchTsx.includes('max={8}'),
-    '台子不应再有 c_ei 滑杆');
-  assert.ok(!benchTsx.includes('max={0.4}'), '台子不应再有 G 滑杆');
+  assert.ok(!minimalTsx.includes('min={3}') && !minimalTsx.includes('max={8}'),
+    '最小版不应再有 c_ei 滑杆');
+  assert.ok(!minimalTsx.includes('max={0.4}'), '最小版不应再有 G 滑杆');
   assert.ok(!appTsx.includes('min={3}') && !appTsx.includes('max={8}'),
     'App 不应再有 c_ei 滑杆');
   assert.ok(!appTsx.includes('max={0.4}'), 'App 不应再有 G 滑杆');
@@ -242,9 +245,9 @@ test('权重/偏置 clamp 前后端一致，偏置开启默认值在范围内', 
   assert.ok(contract.includes('入口随 `#advanced` 删除'), '契约 §5.3 U6 须写明入口删除原因');
   assert.ok(!appTsx.includes('WEIGHT_MIN') && !appTsx.includes('BIAS_MIN'),
     'App 不应再有权重/偏置 UI 入口');
-  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
-  assert.ok(!benchTsx.includes('WEIGHT_MIN') && !benchTsx.includes('BIAS_MIN'),
-    '台子不应有权重/偏置 UI 入口');
+  const minimalTsx = src('app/src/components/MinimalLoop.tsx');
+  assert.ok(!minimalTsx.includes('WEIGHT_MIN') && !minimalTsx.includes('BIAS_MIN'),
+    '最小版不应有权重/偏置 UI 入口');
 });
 
 test('锁定/按住/响应/快照频率常量前后一致', () => {
@@ -607,15 +610,19 @@ test('R4：电极参考已有 UI 入口（EEG 分析实验）；App 入口与六
   }
 });
 
-test('R4（Phase 4）：EEG 分析入口随 #advanced 删除，分析 tab 与 electrode 参考改由台子挂载', () => {
-  // 从原 R4 测试里单拆出来：原测试在 chip 断言处失败（基线遗留），
-  // P4 的断言放里面永远跑不到；单拆后这组断言在 CI 里真实执行。
+test('R4（最小 3D 闭环）：分析 tab 随旧台子删除；参考固定为平均', () => {
+  // 最小 3D 闭环（2026-11-19）：ERP/时频/地形/源定位/频谱分析页与
+  // electrode 参考入口随旧台子一起删除，不再有任何分析 tab 挂载点；
+  // 参考固定为平均参考（MinimalLoop 里 reReferenceRecording 的
+  // { mode: 'average' }），没有参考切换控件。
   assert.ok(!appTsx.includes('<EegAnalysisLab'), 'P4 后 App 不应再挂载 EegAnalysisLab');
   assert.ok(!appTsx.includes("import EegAnalysisLab from './components/EegAnalysisLab'"));
-  const benchTsx = src('app/src/components/ClosedLoopBench.tsx');
-  assert.ok(benchTsx.includes('<ErpTab'), '台子应挂载 ErpTab');
-  assert.ok(benchTsx.includes('<TopoTab'), '台子应挂载 TopoTab');
-  assert.ok(benchTsx.includes("mode: 'electrode'"), '台子应有 electrode 参考模式（R4 入口的新位置）');
+  const minimalTsx = src('app/src/components/MinimalLoop.tsx');
+  assert.ok(!minimalTsx.includes('<ErpTab'), '最小版不应挂载 ErpTab');
+  assert.ok(!minimalTsx.includes('<TopoTab'), '最小版不应挂载 TopoTab');
+  assert.ok(!minimalTsx.includes('<EegAnalysisLab'), '最小版不应挂载 EegAnalysisLab');
+  assert.ok(!minimalTsx.includes("mode: 'electrode'"), '最小版不应有 electrode 参考模式');
+  assert.ok(minimalTsx.includes("mode: 'average'"), '最小版参考固定为平均');
 });
 
 test('PR6 时频/地形/逆解（B3）：TS 默认 = Python 对照 = UI 初始值；契约 §1.7 已登记', () => {
@@ -886,22 +893,20 @@ test('PR8-LINK §4.1 统一仿真状态：App→台子接线前后一致；契�
   assert.ok(eegTs.includes('export function deriveLiveMoments'));
   assert.ok(eegTs.includes('export function clampSourcePositionMm'));
   assert.ok(eegTs.includes('export function sensoryTargetNodes'));
-  // 3. App 把直播接线传进台子（Phase 4：六台入口删除，唯一入口是台子；
-  // 只加 props，不改布局结构——台子是单舞台，App 只做接线）。
-  assert.ok(appTsx.includes('<ClosedLoopBench'), 'App 应挂载台子');
+  // 3. App 把最小接线传进最小版台子（2026-11-19：旧台子删除，唯一
+  // 入口是 MinimalLoop；固定被试、固定 oddball，不再传选区、刺激
+  // 强度、持续时间、直播偶极矩、网络视图或背景模式进台子——那些接线
+  // 只剩 #basic 回退还在用）。
+  assert.ok(appTsx.includes('<MinimalLoop'), 'App 应挂载最小版台子');
+  assert.ok(!appTsx.includes('<ClosedLoopBench'), 'App 不应再挂载旧台子');
   assert.ok(!appTsx.includes('<CellularLab') && !appTsx.includes('<StimLab')
     && !appTsx.includes('<ExperimentLab') && !appTsx.includes('<EegAnalysisLab')
     && !appTsx.includes('<HeadSphereLab') && !appTsx.includes('<DipoleLab'),
     'P4 后 App 不应再挂载六台中的任何一台');
   assert.ok(appTsx.includes('selectedId={selectedId} onSelect={setSelectedId}'),
-    'App 应把选区接进台子');
-  assert.ok(appTsx.includes('onStrength={'), 'App 应把刺激强度接进台子');
-  assert.ok(appTsx.includes('onDuration={'), 'App 应把持续时间接进台子');
-  assert.ok(appTsx.includes('liveMomentNAm={liveMomentNAm}'), 'App 应把直播偶极矩传进台子');
-  assert.ok(appTsx.includes('onPulse={() =>'), 'App 应把刺激传进台子');
-  assert.ok(appTsx.includes('networkView={'), 'App 应把 BrainScene 网络视图传进台子');
-  assert.ok(appTsx.includes('background={bgMode} onBackground={handleBackgroundMode}'),
-    'App 应把背景模式接进台子');
+    'App 应把选区接进 #basic 的 BrainScene 网络视图');
+  assert.ok(!appTsx.includes('liveMomentNAm={liveMomentNAm}'), '最小版不再传直播偶极矩进台子');
+  assert.ok(appTsx.includes('networkView={'), 'App 应把 BrainScene 网络视图传进 #basic');
   // 4. 接不通的部分标“独立演示”（源码级存在性）。
   assert.ok(src('app/src/components/HeadSphereLab.tsx').includes('独立演示'));
   assert.ok(src('app/src/components/DipoleLab.tsx').includes('独立演示'));

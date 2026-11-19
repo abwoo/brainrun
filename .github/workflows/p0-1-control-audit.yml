@@ -23,6 +23,8 @@ jobs:
         run: npm ci
       - name: Exhaustive JSX control-handler inventory + targeted causality contracts
         run: node --test tests/p0-1/control-flow.test.mjs
+      - name: Minimal 3D loop invariants (no focus theft, fixed protocol/subject, deleted bench stays deleted)
+        run: node --test tests/minimal-3d/minimal-loop.test.mjs
       - name: TypeScript typecheck
         working-directory: app
         run: npx tsc -b

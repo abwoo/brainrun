@@ -7,8 +7,9 @@ name: PR6 EEG Analysis Checks
 # 全部测试文件，wave-2 新增的测试文件自动被跑到，无需改本文件。
 # Playwright 安装绝不用 --with-deps（PR5 已证实 runner apt DNS 是坏的，
 # azure.archive.ubuntu.com 解析失败）；只装浏览器二进制。
-# 注意：app/tests/pr6-browser-smoke.mjs 由 wave-2 创建；本文件引用它时
-# 带存在性保护——文件不存在则跳过该步并明确输出原因，不让 CI 变红。
+# 注意：app/tests/pr6-browser-smoke.mjs 与 bench-* 浏览器测试随最小
+# 3D 闭环重建（2026-11-19）删除，由 app/tests/minimal-3d-browser.mjs
+# 接替；本文件只跑最小版浏览器测试。
 
 on:
   pull_request:
@@ -93,30 +94,10 @@ jobs:
           done
           echo "Playwright Chromium install failed after 3 attempts" >&2
           exit 1
-      - name: Browser smoke test of EEG analysis lab
+      - name: Minimal 3D closed-loop browser test (desktop + mobile touch)
         working-directory: app
-        # wave-2 才建 app/tests/pr6-browser-smoke.mjs；文件不存在时跳过
-        # 本步（明确输出原因），不让 CI 因此变红。
-        run: |
-          if [ -f tests/pr6-browser-smoke.mjs ]; then
-            node tests/pr6-browser-smoke.mjs
-          else
-            echo "SKIP: app/tests/pr6-browser-smoke.mjs does not exist yet (created by wave-2); skipping browser smoke test."
-          fi
-
-      - name: Bench live-refresh browser test
-        working-directory: app
-        # 样本数冻结回归：协议运行中记录须自动刷新（每 5 秒 + 停止时），
-        # 否则样本数/波形/事件数全冻在引擎就绪那一刻。
-        run: node tests/bench-live-refresh-browser.mjs
-
-      - name: Bench protocol-status browser test
-        working-directory: app
-        # 协议状态文案回归（2026-11-19）：未开始 / 运行中 / 已暂停 /
-        # 已停止四态 + “恢复快照”不续跑协议；停过的协议误标“已暂停”
-        # 会让用户以为恢复能续跑协议。
-        run: node tests/bench-protocol-status-browser.mjs
-
-      - name: EEG configuration and export consistency
-        working-directory: app
-        run: node tests/eeg-configuration-browser.mjs
+        # 最小 3D 闭环（2026-11-19）：旧台子展示删除，bench-* 与
+        # pr6-browser-smoke（钻取/分析页专属）随之删除；本步覆盖
+        # 场景加载、oddball 运行、多通道波形、大脑点按开 64 通道、
+        # 点按切换、焦点不动、桌面 + 移动端触摸。
+        run: node tests/minimal-3d-browser.mjs
