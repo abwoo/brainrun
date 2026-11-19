@@ -28,8 +28,14 @@
  *   one finger rotates, two finger pinch zooms (OrbitControls).
  *
  * No focus management anywhere in this file: no .focus() call, no
- * auto-focus effect (PR #45 iron rule). Taps are pointerdown/up with a
- * 6 px move threshold so drags never fire a tap.
+ * auto-focus effect (PR #45 iron rule). Taps are pointerdown + click
+ * with a 6 px move threshold so drags never fire a tap. The overlay
+ * opens on click, not pointerup: on touch the browser synthesizes
+ * compatibility mouse events after pointerup, and if the overlay were
+ * already mounted the synthesized mousedown would land on whatever
+ * overlay element sits under the tap point and focus it (PR #46 CI:
+ * the TP8 channel chip). Click is the last event of the gesture, so
+ * opening on click leaves no later event to be retargeted.
  */
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
@@ -694,7 +700,15 @@ export default function MinimalScene(props: MinimalSceneProps) {
     let downX = 0;
     let downY = 0;
     const onPointerDown = (e: PointerEvent) => { downX = e.clientX; downY = e.clientY; };
-    const onPointerUp = (e: PointerEvent) => {
+    // Overlays open on click, not pointerup (PR #46 CI failure): on touch,
+    // the browser synthesizes mousedown/mouseup/click after pointerup. If
+    // the overlay mounted on pointerup, the synthesized mousedown would be
+    // hit-tested against the already-open overlay and could land on (and
+    // focus) a channel chip under the tap point. Click is the last event of
+    // the gesture, so by the time the overlay mounts the click has already
+    // been consumed by the canvas and nothing can be retargeted onto a
+    // chip. The pointerdown position is kept so drags still never fire.
+    const onClick = (e: MouseEvent) => {
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > CLICK_MOVE_THRESHOLD_PX) return;
       const hit = pick(e.clientX, e.clientY);
       if (hit === null) return;
@@ -704,7 +718,7 @@ export default function MinimalScene(props: MinimalSceneProps) {
     };
     const onDoubleClick = () => { fitCamera(); };
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
-    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('click', onClick);
     renderer.domElement.addEventListener('dblclick', onDoubleClick);
 
     const resizeObserver = new ResizeObserver(() => { fitCamera(); });
@@ -851,7 +865,7 @@ export default function MinimalScene(props: MinimalSceneProps) {
       delete (window as unknown as { __minimalLoop?: unknown }).__minimalLoop;
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('click', onClick);
       renderer.domElement.removeEventListener('dblclick', onDoubleClick);
       controls.dispose();
       geometry.dispose();
