@@ -7,6 +7,13 @@
  * trace auto-scaled to its peak, peak label. Display only — never the
  * recorded µV (gain/band-pass are applied by the caller before passing
  * the series in).
+ *
+ * Auto-scale floor is 1e-6 µV, the same as drawMultiChannelWaveform:
+ * the model output is ~0.001 µV (R-05), so a 1 µV floor would pin the
+ * trace to a flat line at mid-height while the label still read
+ * "±1.0 µV" — exactly the flat big-channel view reported live
+ * 2026-11-19. The peak label prints the true peak (adaptive precision),
+ * so a tiny model amplitude stays honest instead of rounding to 0.0.
  */
 export function drawWaveform(
   canvas: HTMLCanvasElement,
@@ -32,7 +39,9 @@ export function drawWaveform(
     ctx.stroke();
   }
   if (series.length === 0) return;
-  const peak = Math.max(1, ...series.map((v) => Math.abs(v)));
+  // Same floor as drawMultiChannelWaveform: the trace must auto-scale to
+  // the data, however small the model amplitude is (see header comment).
+  const peak = Math.max(1e-6, ...series.map((v) => Math.abs(v)));
   ctx.strokeStyle = opts?.stroke ?? '#8bd3ff';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -46,7 +55,11 @@ export function drawWaveform(
   if (opts?.peakLabel !== false) {
     ctx.fillStyle = '#9db5c8';
     ctx.font = '11px monospace';
-    ctx.fillText(`±${peak.toFixed(1)} µV`, 6, 14);
+    // Honest peak: toFixed(1) would print "±0.0 µV" for the ~0.001 µV
+    // model signal. Normal amplitudes keep one decimal; tiny peaks
+    // keep two significant digits so the true scale stays visible.
+    const peakText = peak >= 0.1 ? peak.toFixed(1) : peak.toPrecision(2);
+    ctx.fillText(`±${peakText} µV`, 6, 14);
   }
 }
 
