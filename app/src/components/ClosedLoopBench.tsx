@@ -59,6 +59,7 @@ import {
   type BenchProtocolParams,
 } from '../lib/benchProtocol';
 import { createBenchTrace, type BenchTraceEvent } from '../lib/benchTrace';
+import { isBenchQHighState } from '../lib/benchHighState';
 import {
   assembleBenchRecording, benchRecordingToStoreValue,
   type AmplifierConfig, type BenchRecording,
@@ -853,6 +854,12 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   // 用同一份 qNode 取标签，两边不会各说各话。
   const qNode = selectedId ?? stimTarget ?? 0;
   const qRegion = data?.regions.find((r) => r.id === qNode) ?? null;
+  // 高状态说明（2026-11-19 stuck-q）：网络翻进高活动态后 q 会停在一个
+  // 数上不动——那是真实的高稳态，不是卡住了。信号直接用 Worker 自己的
+  // 锁定闩（lib/benchHighState.ts），阈值是引擎的 0.15，不是现编的。
+  // 说明只在 q 读数有真值时才出现，并把已有的重置（onReset）放到同一
+  // 处，点了就能回到安静状态；诊断面板里的重置按钮原样不动。
+  const qHighState = liveMomentNAm !== null && isBenchQHighState(snap, qNode);
 
   // ---------- test-computer views: live waveform + recording analysis ----------
   // The six old analysis tabs are two views of the ONE shared bench recording:
@@ -998,6 +1005,17 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             <p className="bench-q" data-testid="bench-brain-q">
               {t('bench.qLabel')} = {fmt(liveMomentNAm, 3)} nA·m
               {qRegion ? ` · ${qRegion.label} #${qRegion.id}` : ` · #${qNode}`}
+            </p>
+          )}
+          {/* 高状态说明：只在网络锁定、q 停住时出现；文案讲清“不是卡住
+              了”，重置按钮就放在同一行，点了回到安静状态。 */}
+          {qHighState && (
+            <p className="bench-q-high" data-testid="bench-q-high-state">
+              {t('bench.qHighState')}{' '}
+              <button type="button" className="ui-button" onClick={onReset}
+                disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+                {t('bench.qHighStateReset')}
+              </button>
             </p>
           )}
           <p className="bench-note">
