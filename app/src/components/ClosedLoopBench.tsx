@@ -1,11 +1,19 @@
 import {
-  cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type ReactElement, type ReactNode,
+  useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
+  type ReactNode,
 } from 'react';
 import { useI18n } from '../lib/i18n';
 import Dropdown from './ui/Dropdown';
 import { ControlField, RangeControl } from './ui/ControlField';
 import LanguageSwitch from './ui/LanguageSwitch';
+import PictorialLoop, { type PictorialNodeId } from './PictorialLoop';
+import BenchDrillDown from './BenchDrillDown';
+import { drawWaveform } from '../lib/benchWaveform';
+import { useSphereFixture } from '../lib/benchFixture';
+import {
+  EPILEPSY_DIRECTIONS, summarizeCombination, subjectSummaryLine,
+  type ComposerState,
+} from '../lib/benchSubjects';
 import type { BrainData } from '../lib/brainData';
 import type {
   BackgroundMode, ResponseSummary, SimClient, StimulusMarker,
@@ -24,9 +32,6 @@ import {
   capturePhysicalProjection, physicalProjectionReady,
 } from '../lib/physicalProjection';
 import { setPhysicalSource } from '../lib/physicalExperiment.ts';
-import {
-  validateSphereFixture, type SphereFixture,
-} from '../lib/sphereForward';
 import type { EegEvent, EegRecording, EegReference, EpochSet } from '../lib/eegData';
 import ErpTab from './ErpTab';
 import TfrTab from './TfrTab';
@@ -46,11 +51,6 @@ import {
   BENCH_CAP_PRESETS, selectBenchCapChannels,
   type BenchCapPreset, type BenchCapSelection,
 } from '../lib/benchCap';
-import { getTemplateModel } from '../lib/fsaverageBEM';
-import {
-  selectBenchElectrodes,
-  type BenchElectrodeDirection,
-} from '../lib/benchElectrodes';
 import { bandpassFilter, validateBandpassParams } from '../lib/signalProcessing';
 import { createSimulatedSubject } from '../lib/benchSubject';
 import {
@@ -131,22 +131,10 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const notReadyReason = text('引擎未就绪：等待 Worker 启动。', 'Engine not ready: waiting for the Worker to start.');
 
   // ---------- shared head-model store + sphere fixture ----------
+  // The fixture is fetched once, module-level cached (benchFixture.ts):
+  // PictorialHead fetches it too, for its own cap electrodes.
   const headModel = useSyncExternalStore(subscribeHeadModelSelection, getHeadModelSelection);
-  const [fixture, setFixture] = useState<SphereFixture | null>(null);
-  const [fixtureError, setFixtureError] = useState<string | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(import.meta.env.BASE_URL + 'forward-assets/sphere-model.json', { signal: controller.signal })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(text('模型资源缺失：请先运行 scientific/forward/generate_sphere_model.py', 'Model asset missing: run scientific/forward/generate_sphere_model.py first'));
-        const loaded = (await r.json()) as SphereFixture;
-        validateSphereFixture(loaded);
-        setFixture(loaded);
-      })
-      .catch((e) => { if (!controller.signal.aborted) setFixtureError(String(e)); });
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { fixture, fixtureError } = useSphereFixture();
 
   // ---------- bench settings (external store; survives workspace switches) ----------
   // Phase 2: every bench setting lives in app/src/lib/benchSettings.ts and is
@@ -162,6 +150,7 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     oddballDurationMs, flickerFreqHz, flickerAmp, flickerDurationMs,
     clFeature, clThreshold, clAmplitude, clDurationMs, clPeriodMs,
     clCooldownMs, clMaxTriggers, stimTarget,
+    g, cEi, ouSigma, extSineAmp, extSineFreqHz,
   } = settings;
 
   // ---------- cap preset ----------
@@ -197,20 +186,95 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   // from LocalBEMLab (another workspace, which unmounts this component),
   // so a remount re-reads it; nothing registers it while the bench stays
   // mounted.
-  const bemModel = headModel === 'bem' ? getTemplateModel() : null;
-  const benchElectrodes = useMemo(() => selectBenchElectrodes({
-    headModel, fixture, capSelection, bemModel,
-  }), [headModel, fixture, capSelection, bemModel]);
-  // networkView is created by App.tsx without electrodes; clone it with the
-  // bench's electrode directions. BrainScene stays mounted across clones
-  // (same type), so a preset change only rebuilds the marker group.
-  const networkViewWithElectrodes = useMemo(() => {
-    if (!isValidElement(networkView)) return networkView;
-    return cloneElement(
-      networkView as ReactElement<{ electrodes?: BenchElectrodeDirection[] | null }>,
-      { electrodes: benchElectrodes?.electrodes ?? null },
-    );
-  }, [networkView, benchElectrodes]);
+  // ---------- drill-down + hand state (pictorial bench) ----------
+  // Which node overlay is open; null = the picture itself. The bench
+  // (engine, protocol, recording) never unmounts while one is open.
+  const [drill, setDrill] = useState<
+    null | 'brain' | 'cap' | 'experiment' | 'test' | 'amplifier' | 'stimulator'
+  >(null);
+  const [peripheralOpen, setPeripheralOpen] = useState(false);
+  const [handPressing, setHandPressing] = useState(false);
+  const handTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (handTimer.current !== null) window.clearTimeout(handTimer.current);
+  }, []);
+
+  const openNode = useCallback((node: PictorialNodeId) => {
+    if (node === 'peripheral') { setPeripheralOpen(true); return; }
+    setDrill(node);
+  }, []);
+  // PictorialHead fires these on cap/brain clicks (its own picking decides
+  // which part was hit); the bench opens the matching drill-down.
+  useEffect(() => {
+    const onCap = () => setDrill('cap');
+    const onBrain = () => setDrill('brain');
+    window.addEventListener('pictorial-open-cap', onCap);
+    window.addEventListener('pictorial-open-brain', onBrain);
+    return () => {
+      window.removeEventListener('pictorial-open-cap', onCap);
+      window.removeEventListener('pictorial-open-brain', onBrain);
+    };
+  }, []);
+
+  // ---------- subject composer (design §5): real WC/model parameters ----------
+  // A1/A2/B2–B4 write benchSettings AND the live engine via setParams.
+  // The composer fields have no defaults in the engine; benchSettings is
+  // the single source of truth for what the sliders say.
+  const setComposerG = useCallback((v: number) => {
+    setBenchSettings({ g: v });
+    sim?.setParams({ g: v });
+  }, [sim]);
+  const setComposerCEi = useCallback((v: number) => {
+    setBenchSettings({ cEi: v });
+    sim?.setParams({ c_ei: v });
+  }, [sim]);
+  const setComposerOuSigma = useCallback((v: number) => {
+    setBenchSettings({ ouSigma: v });
+    sim?.setParams({ ou_sigma: v });
+  }, [sim]);
+  const setComposerExtSineAmp = useCallback((v: number) => {
+    setBenchSettings({ extSineAmp: v });
+    sim?.setParams({ ext_sine_amp: v });
+  }, [sim]);
+  const setComposerExtSineFreqHz = useCallback((v: number) => {
+    setBenchSettings({ extSineFreqHz: v });
+    sim?.setParams({ ext_sine_freq_hz: v });
+  }, [sim]);
+  // B1: switching to oscillatory mode resets the engine's sine drive to
+  // 0.30 / 10 Hz (Rust set_background_mode); mirror that reset into the
+  // composer fields so the sliders never lie about the live values.
+  const handleBackgroundMode = useCallback((mode: BackgroundMode) => {
+    onBackground(mode);
+    if (mode === 'oscillatory') {
+      setBenchSettings({ extSineAmp: 0.30, extSineFreqHz: 10 });
+    }
+  }, [onBackground]);
+  const resetSubject = useCallback(() => {
+    setBenchSettings({
+      g: 0.35, cEi: 4.0, ouSigma: 0.10, extSineAmp: 0, extSineFreqHz: 10,
+      subjectSeed: 1, rtMinMs: 320, rtMaxMs: 440,
+    });
+    sim?.setParams({
+      g: 0.35, c_ei: 4.0, ou_sigma: 0.10, ext_sine_amp: 0, ext_sine_freq_hz: 10,
+    });
+    onBackground('spontaneous');
+  }, [sim, onBackground]);
+  // Global reset also restores the composer fields: App's onReset restores
+  // the ENGINE params to DEFAULT_PARAMS, so the sliders must follow.
+  const handleResetAll = useCallback(() => {
+    setBenchSettings({
+      g: 0.35, cEi: 4.0, ouSigma: 0.10, extSineAmp: 0, extSineFreqHz: 10,
+    });
+    onReset();
+  }, [onReset]);
+  const composerState: ComposerState = {
+    g, cEi, ouSigma, extSineAmp, extSineFreqHz, background,
+    rtMinMs, rtMaxMs,
+  };
+  const composerSummary = useMemo(
+    () => subjectSummaryLine(composerState, locale),
+    [composerState, locale],
+  );
 
   // ---------- amplifier state ----------
   const setSampleRate = (v: 250 | 500) => setBenchSettings({ sampleRate: v });
@@ -486,6 +550,10 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
       appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'response',
         label: text('受试者按键 Space', 'Subject pressed Space'),
         value: `RT ${fmt(rt, 0)} ms`, confirmed: e.confirmed ?? false });
+      // The simulated hand presses on the response (design §3).
+      setHandPressing(true);
+      if (handTimer.current !== null) window.clearTimeout(handTimer.current);
+      handTimer.current = window.setTimeout(() => setHandPressing(false), 250);
     } else if (e.kind === 'feedback-detected') {
       appendTrace({ tMs: e.tMs, hop: 'experiment-computer', kind: 'feedback-detected',
         label: text('闭环特征检出', 'Closed-loop feature detected'),
@@ -749,39 +817,16 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   }, [displayedSeries, acquisition]);
 
   // ---------- waveform canvas (last 5 s, selected channel) ----------
+  // Shared drawWaveform helper (benchWaveform.ts) — the test-computer
+  // drill-down canvas and the recording-PC thumbnail in PictorialLoop
+  // draw the same series through it. `drill` is a dep so the canvas
+  // redraws when the drill-down opens (its <canvas> remounts).
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !waveSeries || !acquisition) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.clientWidth || 600;
-    const h = canvas.clientHeight || 160;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    ctx.fillStyle = '#070e16';
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = '#1c3041';
-    ctx.lineWidth = 1;
-    for (let gy = 1; gy < 4; gy++) {
-      ctx.beginPath(); ctx.moveTo(0, (h * gy) / 4); ctx.lineTo(w, (h * gy) / 4); ctx.stroke();
-    }
-    const peak = Math.max(1, ...waveSeries.map((v) => Math.abs(v)));
-    ctx.strokeStyle = '#8bd3ff';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    waveSeries.forEach((v, j) => {
-      const x = (j / Math.max(1, waveSeries.length - 1)) * w;
-      const y = h / 2 - (v / peak) * (h / 2 - 8);
-      if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-    ctx.fillStyle = '#9db5c8';
-    ctx.font = '11px monospace';
-    ctx.fillText(`±${peak.toFixed(1)} µV`, 6, 14);
-  }, [waveSeries, acquisition]);
+    drawWaveform(canvas, waveSeries);
+  }, [waveSeries, acquisition, drill]);
 
   // ---------- protocol run / stop (a second run layer, distinct from global pause) ----------
   const auditoryNodes = useMemo(
@@ -929,22 +974,45 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
     }
     setEpochsOverride(ep);
   }, [text]);
-  // 简化（2026-11-19）：诊断面板一个开关。主视图只留 5 秒能看懂的东西，
-  // 其余全部进面板；面板平时不渲染（条件渲染），主视图里就不存在。
-  const [diagOpen, setDiagOpen] = useState(false);
-
   // ---------- loop flow: which ring the signal is in now + last few hops ----------
   // The trace list is the same benchTrace function; only its presentation
   // changed — a flow indicator, not a 200-row log table.
   const flowHops = traceList.slice(-5);
   const flowNow = traceList.at(-1) ?? null;
+  // q line: ONE derivation, shown in the head-node chip (PictorialLoop,
+  // testid bench-brain-q) and again in the brain drill-down (distinct
+  // testid bench-brain-q-drilldown — two elements must not share a testid).
+  const qText = liveMomentNAm !== null
+    ? `${t('bench.qLabel')} = ${fmt(liveMomentNAm, 3)} nA·m${qRegion ? ` · ${qRegion.label} #${qRegion.id}` : ` · #${qNode}`}`
+    : null;
+  const composerSummaryFull = summarizeCombination(composerState, locale);
 
   return (
     <div className="bench" data-testid="closed-loop-bench">
-      <header className="bench-header">
+      {/* Slim top bar: title + the workspace actions (were in the diagnostics
+          panel; the panel is deleted, so they live here now). */}
+      <header className="bench-header bench-header-slim">
         <div>
           <h1>{t('bench.title')}</h1>
           <p className="bench-subtitle">{t('bench.subtitle')}</p>
+        </div>
+        <div className="bench-header-actions">
+          <LanguageSwitch />
+          <button className="ui-button" type="button" onClick={onExitToPhysicsHome}>
+            {t('bench.backToPhysics')}
+          </button>
+          <button className="ui-button" type="button" onClick={onPause}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {paused ? t('shell.resume') : t('shell.pause')}
+          </button>
+          <button className="ui-button" type="button" onClick={handleResetAll}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {t('shell.reset')}
+          </button>
+          <button className="ui-button" type="button" onClick={onRecover}
+            disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
+            {text('恢复快照', 'Restore snapshot')}
+          </button>
         </div>
       </header>
       {error && <p className="bench-error" role="alert">{error}</p>}
@@ -954,121 +1022,337 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
         </p>
       )}
 
-      {/* ---- main controls: four protocol buttons + run/stop + one status line ---- */}
-      {/* 协议下拉改成四个大按钮：四个选项一次全看见，点一下就行；也顺带
-          终结了原生下拉在自动化里鼠标点不开的老问题（键盘能选、鼠标点选
-          屡次失败，选项本身从未被 DOM 禁用）。按钮与下拉走同一条线：
-          setProtocolId → benchSettings store → benchProtocol 引擎。 */}
-      <div className="bench-strip">
-        <div className="bench-protocols" role="group" aria-label={text('协议', 'Protocol')}>
-          <button type="button" className="bench-protocol-btn"
-            aria-pressed={protocolId === 'single-pulse'}
-            disabled={!engineReady || protocolRunning}
-            title={!engineReady ? notReadyReason : protocolRunning ? text('协议运行中，停下后再换', 'Stop the protocol before switching') : undefined}
-            onClick={() => setProtocolId('single-pulse')}>
-            <span className="bench-protocol-name">{t('bench.protocol.single-pulse')}</span>
-            <span className="bench-protocol-desc">{t('bench.protocolDesc.single-pulse')}</span>
-          </button>
-          <button type="button" className="bench-protocol-btn"
-            aria-pressed={protocolId === 'oddball'}
-            disabled={!engineReady || protocolRunning}
-            title={!engineReady ? notReadyReason : protocolRunning ? text('协议运行中，停下后再换', 'Stop the protocol before switching') : undefined}
-            onClick={() => setProtocolId('oddball')}>
-            <span className="bench-protocol-name">{t('bench.protocol.oddball')}</span>
-            <span className="bench-protocol-desc">{t('bench.protocolDesc.oddball')}</span>
-          </button>
-          <button type="button" className="bench-protocol-btn"
-            aria-pressed={protocolId === 'flicker'}
-            disabled={!engineReady || protocolRunning}
-            title={!engineReady ? notReadyReason : protocolRunning ? text('协议运行中，停下后再换', 'Stop the protocol before switching') : undefined}
-            onClick={() => setProtocolId('flicker')}>
-            <span className="bench-protocol-name">{t('bench.protocol.flicker')}</span>
-            <span className="bench-protocol-desc">{t('bench.protocolDesc.flicker')}</span>
-          </button>
-          <button type="button" className="bench-protocol-btn"
-            aria-pressed={protocolId === 'closed-loop'}
-            disabled={!engineReady || protocolRunning}
-            title={!engineReady ? notReadyReason : protocolRunning ? text('协议运行中，停下后再换', 'Stop the protocol before switching') : undefined}
-            onClick={() => setProtocolId('closed-loop')}>
-            <span className="bench-protocol-name">{t('bench.protocol.closed-loop')}</span>
-            <span className="bench-protocol-desc">{t('bench.protocolDesc.closed-loop')}</span>
-          </button>
-        </div>
-        <div className="bench-strip-run">
-          <button className="ui-button ui-button-primary" type="button"
-            onClick={runProtocol} disabled={!engineReady || protocolRunning}
-            title={!engineReady ? notReadyReason : undefined}>
-            {t('bench.runProtocol')}
-          </button>
-          <button className="ui-button" type="button"
-            onClick={stopProtocol} disabled={!engineReady || !protocolRunning}>
-            {t('bench.stopProtocol')}
-          </button>
-        </div>
-        <p className="bench-status" data-testid="bench-status-line" role="status">{statusText}</p>
-      </div>
+      {/* The picture: one big closed-loop diagram + control bar + status. */}
+      <PictorialLoop
+        headView={networkView}
+        flowNow={flowNow}
+        protocolRunning={protocolRunning}
+        qText={qText}
+        qHigh={qHighState}
+        onQReset={handleResetAll}
+        subjectSummary={composerSummary}
+        waveSeries={waveSeries}
+        selectedChannel={selectedChannel}
+        protocolId={protocolId}
+        onProtocolSelect={setProtocolId}
+        engineReady={engineReady}
+        notReadyReason={notReadyReason}
+        onRun={runProtocol}
+        onStop={stopProtocol}
+        statusText={statusText}
+        onOpenNode={openNode}
+        handPressing={handPressing}
+        footerText={t('bench.footer')}
+      />
 
-      {/* ---- loop flow: one line — where the signal is right now ---- */}
-      {/* 最近 5 跳、六角色长行、Worker 确认图例全部进诊断面板；主视图只留
-          这一行：信号现在在哪一环。确认态（confirmed）仍记在追踪数据里，
-          只是再也不渲染确认标记——一条跳出现就是它发生了，不出现就是
-          没发生；内部 ACK 记账不对用户露脸。 */}
-      <section className="bench-flow" aria-label={t('bench.trace')}>
-        <div className="bench-flow-now">
-          <span className="bench-flow-label">{text('信号现在在', 'Signal now at')}</span>
-          <strong>{flowNow ? `${flowNow.hop} · ${flowNow.label}` : text('尚未流动', 'Not flowing yet')}</strong>
-          {flowNow && <span className="mono">t={fmt(flowNow.tMs, 0)} ms</span>}
-        </div>
-      </section>
-
-      {/* ---- single stage: 3D head + live trace are the hero ---- */}
-      {/* 背景活动 / 头模型两个下拉、帽预设说明、“外周传感器接口”占位（无后
-          端，纯文字）全部进诊断面板；占位文字直接删除，不进面板。主视图
-          只留：3D 头 + 电极说明 + 大脑 q（模型估计）+ 点脑区提示、波形 +
-          波形通道。 */}
-      <div className="bench-stage">
-        <section className="bench-stage-head" aria-label={t('bench.signalDetection')}>
-          <div className="bench-network"><div className="manual-brain">{networkViewWithElectrodes}</div></div>
-          <p className="bench-note">
-            {benchElectrodes
-              ? text(
-                `绿色圆点为${benchElectrodes.source === 'bem' ? '模板 BEM 自带电极' : '所选帽预设的电极'}（${benchElectrodes.electrodes.length} 个）；电极位置为头模型方向示意，未与演示网络解剖配准。`,
-                `Green dots are the ${benchElectrodes.source === 'bem' ? 'template BEM electrodes' : 'selected cap preset electrodes'} (${benchElectrodes.electrodes.length}); electrode positions are a head-model direction sketch, not anatomically registered to the demo network.`)
-              : headModel === 'bem'
-                ? text('模板 BEM 模型未加载，电极未显示（需先在物理模型页加载模板模型文件）。',
-                  'Template BEM model not loaded; electrodes not shown (load the template model on the physical model page first).')
-                : text('脑电帽电极尚未加载。', 'Cap electrodes not loaded yet.')}
-          </p>
-          {/* 大脑 q：跟点选脑区（没点过就跟刺激器目标，再没有就 0 号），从一开
-              始就有值，不再是永久的 "—"。标签写明是模型估计（PR5 假设链算
-              的等效偶极矩），不是测到的量；引擎未就绪、还没有快照时整行
-              不显示，而不是挂一个破折号。 */}
-          {liveMomentNAm !== null && (
-            <p className="bench-q" data-testid="bench-brain-q">
-              {t('bench.qLabel')} = {fmt(liveMomentNAm, 3)} nA·m
-              {qRegion ? ` · ${qRegion.label} #${qRegion.id}` : ` · #${qNode}`}
-            </p>
+      {/* ================= drill-downs ================= */}
+      {drill === 'brain' && (
+        <BenchDrillDown title={t('bench.brain')} drill="brain" onClose={() => setDrill(null)}>
+          {qText !== null && (
+            <p className="bench-q" data-testid="bench-brain-q-drilldown">{qText}</p>
           )}
-          {/* 高状态说明：只在网络锁定、q 停住时出现；文案讲清“不是卡住
-              了”，重置按钮就放在同一行，点了回到安静状态。 */}
           {qHighState && (
-            <p className="bench-q-high" data-testid="bench-q-high-state">
+            <p className="bench-q-high" data-testid="bench-q-high-state-drilldown">
               {t('bench.qHighState')}{' '}
-              <button type="button" className="ui-button" onClick={onReset}
+              <button type="button" className="ui-button" onClick={handleResetAll}
                 disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
                 {t('bench.qHighStateReset')}
               </button>
             </p>
           )}
+          <p className="bench-note">{t('bench.drill.brainNote')}</p>
           <p className="bench-note">
             {selectedRegion
               ? `${selectedRegion.label} #${selectedRegion.id} · ${text('已选脑区', 'selected region')}`
-              : text('点击大脑选择一个脑区；拖动旋转，滚轮缩放。', 'Click the brain to select a region; drag to rotate, scroll to zoom.')}
+              : text('尚未选择脑区。', 'No region selected yet.')}
           </p>
-        </section>
+          <h3>{t('bench.drill.manualStim')}</h3>
+          <p className="bench-note">{t('bench.drill.manualStimNote')}</p>
+          <button className="ui-button ui-button-primary" type="button"
+            onClick={sendPulse} disabled={!engineReady}
+            title={!engineReady ? notReadyReason : undefined}>
+            {t('bench.sendPulse')}
+          </button>
+          <p className="bench-note">
+            {text('目标、幅度与时长在刺激器里调；这里只发送一次。',
+              'Target, amplitude and duration are set in the stimulator; this only sends one stimulus.')}
+          </p>
+        </BenchDrillDown>
+      )}
 
-        <section className="bench-stage-side" aria-label={t('bench.testComputer')}>
-          <h2>{t('bench.testComputer')} · {t('bench.waveform')}</h2>
+      {drill === 'cap' && (
+        <BenchDrillDown title={t('bench.cap')} drill="cap" onClose={() => setDrill(null)}>
+          <ControlField label={text('脑电帽预设', 'Cap preset')}
+            hint={fixtureError ?? capError ?? undefined}>
+            <Dropdown value={capPreset} disabled={!fixture || !engineReady || headModel === 'bem'}
+              title={headModel === 'bem'
+                ? text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')
+                : !fixture ? text('头模型资源未加载', 'Head-model asset not loaded') : !engineReady ? notReadyReason : undefined}
+              onChange={(e) => setCapPreset(e.target.value as BenchCapPreset)}
+              aria-label={text('脑电帽预设', 'Cap preset')}>
+              {BENCH_CAP_PRESETS.map((p) => (
+                <option key={p.preset} value={p.preset}>
+                  {locale === 'zh-CN' ? p.labelZh : p.labelEn}
+                </option>
+              ))}
+            </Dropdown>
+          </ControlField>
+          <ControlField label={text('头模型', 'Head model')}>
+            <Dropdown value={headModel}
+              onChange={(e) => setHeadModelSelection(e.target.value as 'sphere' | 'bem')}
+              aria-label={text('头模型', 'Head model')}>
+              <option value="sphere">{text('球形', 'Sphere')}</option>
+              <option value="bem">{text('模板 BEM', 'Template BEM')}</option>
+            </Dropdown>
+          </ControlField>
+          {headModel === 'bem' ? (
+            <p className="bench-note">{text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')}</p>
+          ) : capSelection && (
+            <p className="bench-note">
+              {capSelection.montage} · {capSelection.channelCount} {text('通道', 'channels')} · {text('含 Cz', 'includes Cz')}: {capLabels.includes('Cz') ? text('是', 'yes') : text('否', 'no')}
+            </p>
+          )}
+          <p className="bench-note">
+            {text('电极位置为头模型方向示意，未与演示网络解剖配准。',
+              'Electrode positions are a head-model direction sketch, not anatomically registered to the demo network.')}
+          </p>
+          <h3>{text('通道', 'Channels')}</h3>
+          <div className="bench-channel-grid">
+            {capLabels.map((label) => (
+              <button key={label} type="button"
+                className={`chip chip-small${selectedChannel === label ? ' chip-on' : ''}`}
+                aria-pressed={selectedChannel === label}
+                onClick={() => setSelectedChannel(label)}>
+                {label}
+              </button>
+            ))}
+            {capLabels.length === 0 && (
+              <span className="bench-note">{text('脑电帽电极尚未加载。', 'Cap electrodes not loaded yet.')}</span>
+            )}
+          </div>
+        </BenchDrillDown>
+      )}
+
+      {drill === 'experiment' && (
+        <BenchDrillDown title={t('bench.experimentComputer')} drill="experiment" onClose={() => setDrill(null)}>
+          <h3>{t('bench.drill.step1')}</h3>
+          <p className="bench-note">
+            {t(`bench.protocol.${protocolId}`)} · {t(`bench.protocolDesc.${protocolId}`)}
+          </p>
+          {protocolId === 'oddball' && (
+            <>
+              <RangeControl label={text('标准刺激幅度', 'Standard amplitude')} unit=""
+                value={oddballStandardAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballStandardAmp} />
+              <RangeControl label={text('oddball 幅度', 'Oddball amplitude')} unit=""
+                value={oddballAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballAmp} />
+              <RangeControl label={text('试次间隔 ISI', 'Inter-stimulus interval')} unit="ms"
+                value={oddballIsiMs} min={200} max={5000} step={50}
+                disabled={!engineReady || protocolRunning} onChange={setOddballIsiMs} />
+              <RangeControl label={text('每 N 个试次出一个 oddball', 'Oddball every N trials')} unit=""
+                value={oddballEvery} min={2} max={10} step={1}
+                disabled={!engineReady || protocolRunning} onChange={setOddballEvery} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={oddballDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setOddballDurationMs} />
+              <p className="bench-note">
+                {text('听觉节点', 'Auditory nodes')}: {auditoryNodes.length
+                  ? auditoryNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
+                  : text('未找到（检查脑区数据）', 'not found (check region data)')}
+              </p>
+            </>
+          )}
+          {protocolId === 'flicker' && (
+            <>
+              <RangeControl label={text('闪烁频率', 'Flicker frequency')} unit="Hz"
+                value={flickerFreqHz} min={1} max={30} step={0.5}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerFreqHz} />
+              <RangeControl label={text('幅度', 'Amplitude')} unit=""
+                value={flickerAmp} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerAmp} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={flickerDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setFlickerDurationMs} />
+              <p className="bench-note">
+                {text('视觉节点', 'Visual nodes')}: {visualNodes.length
+                  ? visualNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
+                  : text('未找到（检查脑区数据）', 'not found (check region data)')}
+              </p>
+            </>
+          )}
+          {protocolId === 'closed-loop' && (
+            <>
+              <ControlField label={text('特征', 'Feature')}>
+                <Dropdown value={clFeature} disabled={!engineReady || protocolRunning}
+                  onChange={(e) => setClFeature(e.target.value as 'instant' | 'rms')}
+                  aria-label={text('特征', 'Feature')}>
+                  <option value="instant">{text('瞬时值', 'Instant value')}</option>
+                  <option value="rms">{text('均方根', 'RMS')}</option>
+                </Dropdown>
+              </ControlField>
+              <RangeControl label={text('触发阈值', 'Trigger threshold')} unit=""
+                value={clThreshold} min={0} max={1} step={0.001}
+                disabled={!engineReady || protocolRunning} onChange={setClThreshold} />
+              <RangeControl label={text('幅度', 'Amplitude')} unit=""
+                value={clAmplitude} min={0.5} max={2} step={0.1}
+                disabled={!engineReady || protocolRunning} onChange={setClAmplitude} />
+              <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
+                value={clDurationMs} min={20} max={500} step={10}
+                disabled={!engineReady || protocolRunning} onChange={setClDurationMs} />
+              <RangeControl label={text('评估周期', 'Evaluation period')} unit="ms"
+                value={clPeriodMs} min={100} max={5000} step={100}
+                disabled={!engineReady || protocolRunning} onChange={setClPeriodMs} />
+              <RangeControl label={text('冷却时间', 'Cooldown')} unit="ms"
+                value={clCooldownMs} min={0} max={5000} step={100}
+                disabled={!engineReady || protocolRunning} onChange={setClCooldownMs} />
+              <RangeControl label={text('最多触发次数', 'Max triggers')} unit=""
+                value={clMaxTriggers} min={1} max={100} step={1}
+                disabled={!engineReady || protocolRunning} onChange={setClMaxTriggers} />
+            </>
+          )}
+          {protocolId === 'single-pulse' && (
+            <p className="bench-note">
+              {text('单脉冲用刺激器盒的目标、幅度和时长，开始即发一次，随后自动停止。',
+                'Single pulse uses the stimulator box target, amplitude and duration; it fires once on start, then stops itself.')}
+            </p>
+          )}
+
+          <h3>{t('bench.drill.step2')}</h3>
+          <p className="bench-note">{t('bench.composer.modelVariant')}</p>
+          <h4>{t('bench.composer.groupA')}</h4>
+          <RangeControl label={t('bench.composer.g')} unit=""
+            value={g} min={0} max={0.4} step={0.01}
+            disabled={!engineReady} onChange={setComposerG}
+            hint={t('bench.composer.gHint')} />
+          <RangeControl label={t('bench.composer.cEi')} unit=""
+            value={cEi} min={3} max={8} step={0.1}
+            disabled={!engineReady} onChange={setComposerCEi}
+            hint={t('bench.composer.cEiHint')} />
+          <h4>{t('bench.composer.groupB')}</h4>
+          <ControlField label={t('bench.composer.background')}>
+            <div className="bench-segmented" role="group" aria-label={t('bench.composer.background')}>
+              {(['quiet', 'spontaneous', 'oscillatory'] as const).map((mode) => (
+                <button key={mode} type="button"
+                  className={`chip chip-small${background === mode ? ' chip-on' : ''}`}
+                  aria-pressed={background === mode}
+                  disabled={!engineReady}
+                  onClick={() => handleBackgroundMode(mode)}>
+                  {mode === 'quiet' ? text('安静', 'Quiet')
+                    : mode === 'spontaneous' ? text('自发', 'Spontaneous')
+                    : text('振荡', 'Oscillatory')}
+                </button>
+              ))}
+            </div>
+          </ControlField>
+          <RangeControl label={t('bench.composer.ouSigma')} unit=""
+            value={ouSigma} min={0.02} max={0.15} step={0.005}
+            disabled={!engineReady} onChange={setComposerOuSigma}
+            hint={t('bench.composer.ouSigmaHint')} />
+          <RangeControl label={t('bench.composer.extSineAmp')} unit=""
+            value={extSineAmp} min={0} max={0.4} step={0.01}
+            disabled={!engineReady || background !== 'oscillatory'} onChange={setComposerExtSineAmp}
+            hint={t('bench.composer.extSineAmpHint')} />
+          <RangeControl label={t('bench.composer.extSineFreqHz')} unit="Hz"
+            value={extSineFreqHz} min={1} max={30} step={0.5}
+            disabled={!engineReady || background !== 'oscillatory'} onChange={setComposerExtSineFreqHz}
+            hint={t('bench.composer.extSineFreqHzHint')} />
+          <h4>{t('bench.composer.groupC')}</h4>
+          <RangeControl label={t('bench.composer.rtMin')} unit="ms"
+            value={rtMinMs} min={50} max={1000} step={10}
+            disabled={!engineReady || protocolRunning} onChange={setRtMinMs} />
+          <RangeControl label={t('bench.composer.rtMax')} unit="ms"
+            value={rtMaxMs} min={50} max={2000} step={10}
+            disabled={!engineReady || protocolRunning} onChange={setRtMaxMs} />
+          <RangeControl label={t('bench.composer.seed')} unit=""
+            value={subjectSeed} min={1} max={9999} step={1}
+            disabled={!engineReady || protocolRunning} onChange={setSubjectSeed}
+            hint={text('同一种子给出同一串反应时。', 'The same seed gives the same reaction-time sequence.')} />
+          {!rtRangeValid && (
+            <p className="bench-note">{text('反应时范围无效：需满足 50 ≤ 下限 < 上限 ≤ 2000 ms。', 'Invalid RT range: requires 50 ≤ min < max ≤ 2000 ms.')}</p>
+          )}
+          <p className="bench-note">
+            <strong>{t('bench.composer.summaryLabel')}：</strong>{composerSummaryFull}
+          </p>
+          <p className="bench-note">{t('bench.composer.modelVariantShort')}</p>
+          <h4>{t('bench.composer.directionsTitle')}</h4>
+          <ul className="bench-directions">
+            {EPILEPSY_DIRECTIONS.map((d) => (
+              <li key={d.id}>
+                <strong>{locale === 'zh-CN' ? d.titleZh : d.titleEn}</strong>
+                {' '}{locale === 'zh-CN' ? d.bodyZh : d.bodyEn}
+              </li>
+            ))}
+          </ul>
+          <div className="bench-actions">
+            <button className="ui-button" type="button" onClick={resetSubject}
+              disabled={!engineReady}>
+              {t('bench.composer.resetSubject')}
+            </button>
+          </div>
+
+          <h3>{t('bench.drill.step3')}</h3>
+          <div className="bench-actions">
+            <button className="ui-button ui-button-primary" type="button"
+              onClick={runProtocol} disabled={!engineReady || protocolRunning}
+              title={!engineReady ? notReadyReason : undefined}>
+              <span className="pict-step-badge-inline">2</span> {t('bench.runProtocol')}
+            </button>
+            <button className="ui-button" type="button"
+              onClick={stopProtocol} disabled={!engineReady || !protocolRunning}>
+              {t('bench.stopProtocol')}
+            </button>
+          </div>
+          <p className="bench-status" role="status">{statusText}</p>
+          <div className="bench-readout">
+            <p>{text('试次数', 'Trials')}: {trialCount}</p>
+            <p>{text('下一次刺激（模型时间）', 'Next stimulus (model time)')}: {nextStimulusTms !== null ? `${fmt(nextStimulusTms, 0)} ms` : '—'}</p>
+            <p>{text('丢弃的响应', 'Dropped responses')}: {droppedResponses}</p>
+            {loopTimingText !== null && (
+              <p data-testid="bench-loop-timing">
+                {text('闭环延迟', 'Closed-loop latency')}: {loopTimingText}
+              </p>
+            )}
+          </div>
+          <p className="bench-note">
+            {text('全局暂停（顶栏）停的是整个仿真；协议运行/停止只管当前协议，两者不是同一个按钮。',
+              'The header pause stops the whole simulation; protocol run/stop only controls the current protocol. They are not the same button.')}
+          </p>
+          <p className="bench-note">{t('bench.drill.handNote')}</p>
+          <p className="bench-note">
+            {text('模拟受试者只对 oddball 试次按 Space 键；反应时是仿真假设，不是生理测量。',
+              'The simulated subject only presses Space on oddball trials; reaction time is a simulation assumption, not a physiological measurement.')}
+          </p>
+          <div className="bench-table-wrap">
+            <table className="bench-table">
+              <thead>
+                <tr>
+                  <th>{text('试次', 'Trial')}</th><th>{text('刺激 t', 'Stimulus t')}</th>
+                  <th>{text('响应 t', 'Response t')}</th><th>RT</th><th>{text('按键', 'Key')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {responses.length === 0 && (
+                  <tr><td colSpan={5}>{text('暂无按键记录', 'No key presses yet')}</td></tr>
+                )}
+                {responses.slice(-8).map((r) => (
+                  <tr key={`${r.trialIndex}-${r.responseTms}`}>
+                    <td>{r.trialIndex}</td>
+                    <td>{fmt(r.stimulusTms, 0)} ms</td>
+                    <td>{fmt(r.responseTms, 0)} ms</td>
+                    <td>{fmt(r.rtMs, 0)} ms</td>
+                    <td>{r.key}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </BenchDrillDown>
+      )}
+
+      {drill === 'test' && (
+        <BenchDrillDown title={t('bench.testComputer')} drill="test" onClose={() => setDrill(null)}>
+          <h3>{t('bench.waveform')}</h3>
           <p className="bench-note">
             {text('通道', 'Channel')} {selectedChannel} · {sampleRate} Hz · {text('近 5 秒', 'last 5 s')}
             {bandpassOn ? ` · ${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz` : ''}
@@ -1083,214 +1367,34 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             </Dropdown>
           </ControlField>
           <canvas ref={canvasRef} className="bench-wave" aria-label={t('bench.waveform')} />
-        </section>
-      </div>
+          <div className="bench-readout">
+            <p>{text('瞬时值', 'Instant value')} {fmt(latestUv, 2)} µV · {text('选中通道', 'selected channel')} {selectedChannel}</p>
+            <p>{text('均方根', 'RMS')} {fmt(rmsUv, 2)} µV · {sampleRate} Hz</p>
+            <p>{text('瞬时值是最新一个采样点，均方根是整段波形的平均幅度，两者不是同一个数。', 'Instant value is the latest sample; RMS is the average amplitude over the whole trace — two different numbers.')}</p>
+            <p>{text('滤波状态', 'Filter')}: {bandpassOn
+              ? `${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz`
+              : text('直通（无带通）', 'Bypass (no band-pass)')}</p>
+            <p>{text('参考', 'Reference')}: {referenceSel === 'average'
+              ? text('平均', 'average') : referenceSel === 'cz' ? 'Cz' : 'M1'}</p>
+          </div>
+          {displayError && <p className="bench-error" role="alert">{displayError}</p>}
 
-      <footer className="bench-footnote">{t('bench.footer')}</footer>
-
-      {/* ---- diagnostics: one toggle for everything that is not the 5-second story ---- */}
-      {/* 面板平时不渲染（条件渲染），主视图里就不存在这些元素。顺序按回路
-          走：工作区按钮 → 回路追踪 → 放大器 → 头部与脑电帽 → 记录 → 记录
-          分析 → 实验电脑 → 刺激器。确认态只留在记录数据里（trace 事件与
-          响应行的 confirmed 字段、命令日志的 ACK 匹配逻辑都不动），界面
-          上再也不出现确认标记：出现就是发生了。 */}
-      <div className="bench-diag">
-        <button className="ui-button" type="button" aria-expanded={diagOpen}
-          aria-controls="bench-diagnostics" data-testid="bench-diagnostics-toggle"
-          onClick={() => setDiagOpen((v) => !v)}>
-          {diagOpen ? t('bench.diagnosticsHide') : t('bench.diagnostics')}
-        </button>
-        {diagOpen && (
-          <div className="bench-diag-panel" id="bench-diagnostics" data-testid="bench-diagnostics">
-            <div className="bench-header-actions">
-              <LanguageSwitch />
-              <button className="ui-button" type="button" onClick={onExitToPhysicsHome}>
-                {t('bench.backToPhysics')}
-              </button>
-              <button className="ui-button" type="button" onClick={onPause}
-                disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
-                {paused ? t('shell.resume') : t('shell.pause')}
-              </button>
-              <button className="ui-button" type="button" onClick={onReset}
-                disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
-                {t('shell.reset')}
-              </button>
-              <button className="ui-button" type="button" onClick={onRecover}
-                disabled={!engineReady} title={!engineReady ? notReadyReason : undefined}>
-                {text('恢复快照', 'Restore snapshot')}
-              </button>
-            </div>
-            <p className="bench-note">{t('bench.diagnosticsHint')}</p>
-
-            <section className="bench-diag-section" aria-label={t('bench.trace')}>
-              <h3>{t('bench.trace')}</h3>
-              <ol className="bench-flow-hops" aria-label={text('最近几跳', 'Recent hops')}>
-                {flowHops.length === 0 && (
-                  <li className="bench-flow-hop">{text('运行一次协议或发送一次刺激，信号就开始走。', 'Run a protocol or send one stimulus and the signal starts moving.')}</li>
-                )}
-                {flowHops.map((e, i) => (
-                  <li key={e.seq} className={`bench-flow-hop${i === flowHops.length - 1 ? ' bench-flow-hop-now' : ''}`}>
-                    {e.hop} · {e.label} · {fmt(e.tMs, 0)} ms
-                  </li>
-                ))}
-              </ol>
-              <div className="bench-actions">
-                <button className="ui-button" type="button"
-                  onClick={() => { traceRef.current.clear(); setTraceList([]); }}>
-                  {t('bench.clearTrace')}
-                </button>
-                {loopTimingText !== null && (
-                  <span className="bench-strip-timing" data-testid="bench-loop-timing">
-                    {text('闭环延迟', 'Closed-loop latency')}: {loopTimingText}
-                  </span>
-                )}
-              </div>
-            </section>
-
-            <section className="bench-diag-section" aria-label={t('bench.amplifier')}>
-              <h3>{t('bench.amplifier')}</h3>
-              <ControlField label={text('采样率', 'Sample rate')}>
-                <Dropdown value={String(sampleRate)} disabled={!engineReady}
-                  title={!engineReady ? notReadyReason : undefined}
-                  onChange={(e) => setSampleRate(Number(e.target.value) as 250 | 500)}
-                  aria-label={text('采样率', 'Sample rate')}>
-                  <option value="250">250 Hz</option>
-                  <option value="500">500 Hz</option>
-                </Dropdown>
-              </ControlField>
-              <ControlField label={text('参考', 'Reference')}>
-                <Dropdown
-                  value={referenceSel}
-                  disabled={!engineReady}
-                  title={!engineReady ? notReadyReason : undefined}
-                  onChange={(e) => setReferenceSel(e.target.value as BenchReferenceSel)}
-                  aria-label={text('参考', 'Reference')}>
-                  <option value="average">{text('平均参考', 'Average reference')}</option>
-                  <option value="cz">Cz</option>
-                  <option value="m1" disabled={!hasM1}>
-                    {text('乳突 M1（单侧）', 'Mastoid M1 (single-sided)')}
-                  </option>
-                </Dropdown>
-              </ControlField>
-              {!hasM1 && (
-                <p className="bench-note">{text('当前导联无 M1', 'No M1 in the current montage')}</p>
-              )}
-              <ControlField label={text('带通滤波', 'Band-pass filter')}>
-                <button className="ui-button" type="button" disabled={!engineReady}
-                  title={!engineReady ? notReadyReason : undefined}
-                  onClick={() => setBenchSettings({ bandpassOn: !bandpassOn })}>
-                  {bandpassOn ? text('带通：开', 'Band-pass: on') : text('带通：关', 'Band-pass: off')}
-                </button>
-              </ControlField>
-              <RangeControl label={text('带通下限', 'Band-pass low')} unit="Hz"
-                value={lowDraft} min={0.1} max={10} step={0.1}
-                disabled={!engineReady || !bandpassOn}
-                onChange={setLowDraft} />
-              <RangeControl label={text('带通上限', 'Band-pass high')} unit="Hz"
-                value={highDraft} min={10} max={125} step={0.5}
-                disabled={!engineReady || !bandpassOn}
-                onChange={setHighDraft} />
-              <button className="ui-button" type="button"
-                disabled={!engineReady || !bandpassOn || !bandpassValid}
-                title={!bandpassValid ? text('需满足 0 < 低 < 高 < 采样率/2', 'Requires 0 < low < high < sample rate / 2') : undefined}
-                onClick={() => { setLowHz(lowDraft); setHighHz(highDraft); }}>
-                {t('bench.applyBandpass')}
-              </button>
-              {!bandpassValid && (
-                <p className="bench-note">{text('带通无效：需满足低 < 高。', 'Invalid band-pass: low must be below high.')}</p>
-              )}
-              <RangeControl label={text('增益', 'Gain')} unit="×"
-                value={gain} min={0.5} max={5} step={0.1}
-                disabled={!engineReady} onChange={setGain}
-                hint={text('增益只放大显示，不改记录里的 µV。', 'Gain scales the display only, never the recorded µV.')} />
-              {referenceNote && <p className="bench-note">{referenceNote}</p>}
-              <div className="bench-readout">
-                <p>{text('瞬时值', 'Instant value')} {fmt(latestUv, 2)} µV · {text('选中通道', 'selected channel')} {selectedChannel}</p>
-                <p>{text('均方根', 'RMS')} {fmt(rmsUv, 2)} µV · {sampleRate} Hz</p>
-                <p>{text('瞬时值是最新一个采样点，均方根是整段波形的平均幅度，两者不是同一个数。', 'Instant value is the latest sample; RMS is the average amplitude over the whole trace — two different numbers.')}</p>
-                <p>{text('滤波状态', 'Filter')}: {bandpassOn
-                  ? `${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz`
-                  : text('直通（无带通）', 'Bypass (no band-pass)')}</p>
-                <p>{text('参考', 'Reference')}: {referenceSel === 'average'
-                  ? text('平均', 'average') : referenceSel === 'cz' ? 'Cz' : 'M1'}</p>
-              </div>
-              {displayError && <p className="bench-error" role="alert">{displayError}</p>}
-              {acqError && <p className="bench-error" role="alert">{acqError}</p>}
-              <button className="ui-button" type="button" onClick={refreshAll}
-                disabled={!engineReady || acquiring}>
-                {acquiring ? text('采集中…', 'Acquiring…') : t('bench.refreshAcquisition')}
-              </button>
-            </section>
-
-            <section className="bench-diag-section" aria-label={text('头部与脑电帽', 'Head & cap')}>
-              <h3>{text('头部与脑电帽', 'Head & cap')}</h3>
-              <ControlField label={text('背景活动', 'Background activity')}>
-                <Dropdown value={background} disabled={!engineReady}
-                  title={!engineReady ? notReadyReason : undefined}
-                  onChange={(e) => onBackground(e.target.value as BackgroundMode)}
-                  aria-label={text('背景活动', 'Background activity')}>
-                  <option value="quiet">{text('安静', 'Quiet')}</option>
-                  <option value="spontaneous">{text('自发', 'Spontaneous')}</option>
-                  <option value="oscillatory">{text('振荡', 'Oscillatory')}</option>
-                </Dropdown>
-              </ControlField>
-              <ControlField label={text('头模型', 'Head model')}>
-                <Dropdown value={headModel}
-                  onChange={(e) => setHeadModelSelection(e.target.value as 'sphere' | 'bem')}
-                  aria-label={text('头模型', 'Head model')}>
-                  <option value="sphere">{text('球形', 'Sphere')}</option>
-                  <option value="bem">{text('模板 BEM', 'Template BEM')}</option>
-                </Dropdown>
-              </ControlField>
-              <ControlField label={text('脑电帽预设', 'Cap preset')}
-                hint={fixtureError ?? capError ?? undefined}>
-                <Dropdown value={capPreset} disabled={!fixture || !engineReady || headModel === 'bem'}
-                  title={headModel === 'bem'
-                    ? text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')
-                    : !fixture ? text('头模型资源未加载', 'Head-model asset not loaded') : !engineReady ? notReadyReason : undefined}
-                  onChange={(e) => setCapPreset(e.target.value as BenchCapPreset)}
-                  aria-label={text('脑电帽预设', 'Cap preset')}>
-                  {BENCH_CAP_PRESETS.map((p) => (
-                    <option key={p.preset} value={p.preset}>
-                      {locale === 'zh-CN' ? p.labelZh : p.labelEn}
-                    </option>
-                  ))}
-                </Dropdown>
-              </ControlField>
-              {headModel === 'bem' ? (
-                <p className="bench-note">{text('模板 BEM 使用自带电极，帽预设仅适用于球形头模型。', 'The template BEM brings its own electrodes; the cap preset applies to the sphere head model only.')}</p>
-              ) : capSelection && (
-                <p className="bench-note">
-                  {capSelection.montage} · {capSelection.channelCount} {text('通道', 'channels')} · {text('含 Cz', 'includes Cz')}: {capLabels.includes('Cz') ? text('是', 'yes') : text('否', 'no')}
-                </p>
-              )}
-            </section>
-
-            <section className="bench-diag-section" aria-label={t('bench.recording')}>
-              <h3>{t('bench.recording')}</h3>
-              <div className="bench-readout">
-                <p>runId {shortRunId(benchRecording?.runId ?? runId)}</p>
-                <p>{text('模型时间', 'Model time')} {fmt(snap?.t_ms ?? null, 0)} ms</p>
-                <p>{text('样本数', 'Samples')} {totalSamples} · {text('事件数', 'Events')} {totalEvents} · {text('试次数', 'Trials')} {trialCount}</p>
-                <p>{text('协议', 'Protocol')}: {protocolId ? t(`bench.protocol.${protocolId}`) : '—'}</p>
-                <p>{text('头模型', 'Head model')}: {headModel} · {text('脑电帽', 'Cap')}: {capSelection?.preset ?? '—'}</p>
-              </div>
-              <div className="bench-actions">
-                <button className="ui-button" type="button" onClick={() => refreshAll()}
-                  disabled={!engineReady || acquiring}>{t('bench.updateRecording')}</button>
-                <button className="ui-button" type="button" onClick={() => exportRecording('json')}
-                  disabled={!benchRecording && !acquisition}>{t('bench.exportJson')}</button>
-                <button className="ui-button" type="button" onClick={() => exportRecording('csv')}
-                  disabled={!benchRecording && !acquisition}>{t('bench.exportCsv')}</button>
-              </div>
-            </section>
-
-            <section className="bench-diag-section" aria-label={text('记录分析', 'Recording analysis')}>
-              <h3>{text('记录分析', 'Recording analysis')}</h3>
-              <p className="bench-note">
-                {text('同一份共享记录的分析视图：ERP / 时频 / 地形 / 源定位 / 频谱。试次直接取自台子记录，不另跑独立模型。',
-                  'Analysis of the one shared recording: ERP / time-frequency / topography / source localization / spectrum. Trials come straight from the bench recording, not from a separate model run.')}
-              </p>
+          <h3>{t('bench.recording')}</h3>
+          <div className="bench-readout">
+            <p>runId {shortRunId(benchRecording?.runId ?? runId)}</p>
+            <p>{text('模型时间', 'Model time')} {fmt(snap?.t_ms ?? null, 0)} ms</p>
+            <p>{text('样本数', 'Samples')} {totalSamples} · {text('事件数', 'Events')} {totalEvents} · {text('试次数', 'Trials')} {trialCount}</p>
+            <p>{text('协议', 'Protocol')}: {protocolId ? t(`bench.protocol.${protocolId}`) : '—'}</p>
+            <p>{text('头模型', 'Head model')}: {headModel} · {text('脑电帽', 'Cap')}: {capSelection?.preset ?? '—'}</p>
+          </div>
+          <div className="bench-actions">
+            <button className="ui-button" type="button" onClick={() => refreshAll()}
+              disabled={!engineReady || acquiring}>{t('bench.updateRecording')}</button>
+            <button className="ui-button" type="button" onClick={() => exportRecording('json')}
+              disabled={!benchRecording && !acquisition}>{t('bench.exportJson')}</button>
+            <button className="ui-button" type="button" onClick={() => exportRecording('csv')}
+              disabled={!benchRecording && !acquisition}>{t('bench.exportCsv')}</button>
+          </div>
           {benchRecording ? (
             <div className="bench-table-wrap" data-testid="bench-recording-events">
               <p className="bench-note">
@@ -1325,6 +1429,12 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             <p className="bench-note">{text('暂无已组装记录，点击“更新记录”组装当前采集。', 'No assembled recording yet; press “Update recording” to assemble the current acquisition.')}</p>
           )}
           {benchError && <p className="bench-error" role="alert">{benchError}</p>}
+
+          <h3>{text('记录分析', 'Recording analysis')}</h3>
+          <p className="bench-note">
+            {text('同一份共享记录的分析视图：ERP / 时频 / 地形 / 源定位 / 频谱。试次直接取自台子记录，不另跑独立模型。',
+              'Analysis of the one shared recording: ERP / time-frequency / topography / source localization / spectrum. Trials come straight from the bench recording, not from a separate model run.')}
+          </p>
           <div className="bench-view-toggle" role="tablist" aria-label={text('记录分析', 'Recording analysis')}>
             {([
               ['erp', 'ERP'],
@@ -1352,203 +1462,169 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
             <InverseTab recording={analysisRecording} fixture={fixture} atTimeMs={atTimeMs} />
           )}
           {analysisTab === 'waves' && <WavesTab recording={analysisRecording} channel={selectedChannel} />}
-            </section>
 
-            <section className="bench-diag-section" aria-label={t('bench.experimentComputer')} data-testid="bench-experiment-computer">
-              <h3>{t('bench.experimentComputer')} · {t(`bench.protocol.${protocolId}`)}</h3>
-        {protocolId === 'oddball' && (
-          <>
-            <RangeControl label={text('标准刺激幅度', 'Standard amplitude')} unit=""
-              value={oddballStandardAmp} min={0.5} max={2} step={0.1}
-              disabled={!engineReady || protocolRunning} onChange={setOddballStandardAmp} />
-            <RangeControl label={text('oddball 幅度', 'Oddball amplitude')} unit=""
-              value={oddballAmp} min={0.5} max={2} step={0.1}
-              disabled={!engineReady || protocolRunning} onChange={setOddballAmp} />
-            <RangeControl label={text('试次间隔 ISI', 'Inter-stimulus interval')} unit="ms"
-              value={oddballIsiMs} min={200} max={5000} step={50}
-              disabled={!engineReady || protocolRunning} onChange={setOddballIsiMs} />
-            <RangeControl label={text('每 N 个试次出一个 oddball', 'Oddball every N trials')} unit=""
-              value={oddballEvery} min={2} max={10} step={1}
-              disabled={!engineReady || protocolRunning} onChange={setOddballEvery} />
-            <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
-              value={oddballDurationMs} min={20} max={500} step={10}
-              disabled={!engineReady || protocolRunning} onChange={setOddballDurationMs} />
-            <p className="bench-note">
-              {text('听觉节点', 'Auditory nodes')}: {auditoryNodes.length
-                ? auditoryNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
-                : text('未找到（检查脑区数据）', 'not found (check region data)')}
-            </p>
-          </>
-        )}
-        {protocolId === 'flicker' && (
-          <>
-            <RangeControl label={text('闪烁频率', 'Flicker frequency')} unit="Hz"
-              value={flickerFreqHz} min={1} max={30} step={0.5}
-              disabled={!engineReady || protocolRunning} onChange={setFlickerFreqHz} />
-            <RangeControl label={text('幅度', 'Amplitude')} unit=""
-              value={flickerAmp} min={0.5} max={2} step={0.1}
-              disabled={!engineReady || protocolRunning} onChange={setFlickerAmp} />
-            <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
-              value={flickerDurationMs} min={20} max={500} step={10}
-              disabled={!engineReady || protocolRunning} onChange={setFlickerDurationMs} />
-            <p className="bench-note">
-              {text('视觉节点', 'Visual nodes')}: {visualNodes.length
-                ? visualNodes.map((n) => data?.regions[n]?.label ?? String(n)).join(', ')
-                : text('未找到（检查脑区数据）', 'not found (check region data)')}
-            </p>
-          </>
-        )}
-        {protocolId === 'closed-loop' && (
-          <>
-            <ControlField label={text('特征', 'Feature')}>
-              <Dropdown value={clFeature} disabled={!engineReady || protocolRunning}
-                onChange={(e) => setClFeature(e.target.value as 'instant' | 'rms')}
-                aria-label={text('特征', 'Feature')}>
-                <option value="instant">{text('瞬时值', 'Instant value')}</option>
-                <option value="rms">{text('均方根', 'RMS')}</option>
-              </Dropdown>
-            </ControlField>
-            <RangeControl label={text('触发阈值', 'Trigger threshold')} unit=""
-              value={clThreshold} min={0} max={1} step={0.001}
-              disabled={!engineReady || protocolRunning} onChange={setClThreshold} />
-            <RangeControl label={text('幅度', 'Amplitude')} unit=""
-              value={clAmplitude} min={0.5} max={2} step={0.1}
-              disabled={!engineReady || protocolRunning} onChange={setClAmplitude} />
-            <RangeControl label={text('刺激时长', 'Stimulus duration')} unit="ms"
-              value={clDurationMs} min={20} max={500} step={10}
-              disabled={!engineReady || protocolRunning} onChange={setClDurationMs} />
-            <RangeControl label={text('评估周期', 'Evaluation period')} unit="ms"
-              value={clPeriodMs} min={100} max={5000} step={100}
-              disabled={!engineReady || protocolRunning} onChange={setClPeriodMs} />
-            <RangeControl label={text('冷却时间', 'Cooldown')} unit="ms"
-              value={clCooldownMs} min={0} max={5000} step={100}
-              disabled={!engineReady || protocolRunning} onChange={setClCooldownMs} />
-            <RangeControl label={text('最多触发次数', 'Max triggers')} unit=""
-              value={clMaxTriggers} min={1} max={100} step={1}
-              disabled={!engineReady || protocolRunning} onChange={setClMaxTriggers} />
-          </>
-        )}
-        {protocolId === 'single-pulse' && (
-          <p className="bench-note">
-            {text('单脉冲用刺激器盒的目标、幅度和时长，开始即发一次，随后自动停止。',
-              'Single pulse uses the stimulator box target, amplitude and duration; it fires once on start, then stops itself.')}
-          </p>
-        )}
-        <p className="bench-note">
-          {text('全局暂停（顶栏）停的是整个仿真；协议运行/停止只管当前协议，两者不是同一个按钮。',
-            'The header pause stops the whole simulation; protocol run/stop only controls the current protocol. They are not the same button.')}
-        </p>
-        <div className="bench-readout">
-          {/* 协议状态只在主视图状态行出现一次，这里不再重复，只留诊断数字。 */}
-          <p>{text('试次数', 'Trials')}: {trialCount}</p>
-          <p>{text('下一次刺激（模型时间）', 'Next stimulus (model time)')}: {nextStimulusTms !== null ? `${fmt(nextStimulusTms, 0)} ms` : '—'}</p>
-          <p>{text('丢弃的响应', 'Dropped responses')}: {droppedResponses}</p>
-        </div>
-        <h3>{text('模拟受试者', 'Simulated subject')}</h3>
-        <RangeControl label={text('种子', 'Seed')} unit=""
-          value={subjectSeed} min={1} max={9999} step={1}
-          disabled={!engineReady || protocolRunning} onChange={setSubjectSeed}
-          hint={text('同一种子给出同一串反应时。', 'The same seed gives the same reaction-time sequence.')} />
-        <RangeControl label={text('反应时下限', 'Reaction-time minimum')} unit="ms"
-          value={rtMinMs} min={50} max={1000} step={10}
-          disabled={!engineReady || protocolRunning} onChange={setRtMinMs} />
-        <RangeControl label={text('反应时上限', 'Reaction-time maximum')} unit="ms"
-          value={rtMaxMs} min={50} max={2000} step={10}
-          disabled={!engineReady || protocolRunning} onChange={setRtMaxMs} />
-        {!rtRangeValid && (
-          <p className="bench-note">{text('反应时范围无效：需满足 50 ≤ 下限 < 上限 ≤ 2000 ms。', 'Invalid RT range: requires 50 ≤ min < max ≤ 2000 ms.')}</p>
-        )}
-        <p className="bench-note">
-          {text('模拟受试者只对 oddball 试次按 Space 键；反应时是仿真假设，不是生理测量。',
-            'The simulated subject only presses Space on oddball trials; reaction time is a simulation assumption, not a physiological measurement.')}
-        </p>
-        <div className="bench-table-wrap">
-          <table className="bench-table">
-            <thead>
-              <tr>
-                <th>{text('试次', 'Trial')}</th><th>{text('刺激 t', 'Stimulus t')}</th>
-                <th>{text('响应 t', 'Response t')}</th><th>RT</th><th>{text('按键', 'Key')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {responses.length === 0 && (
-                <tr><td colSpan={5}>{text('暂无按键记录', 'No key presses yet')}</td></tr>
-              )}
-              {responses.slice(-8).map((r) => (
-                <tr key={`${r.trialIndex}-${r.responseTms}`}>
-                  <td>{r.trialIndex}</td>
-                  <td>{fmt(r.stimulusTms, 0)} ms</td>
-                  <td>{fmt(r.responseTms, 0)} ms</td>
-                  <td>{fmt(r.rtMs, 0)} ms</td>
-                  <td>{r.key}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-            </section>
-
-            <section className="bench-diag-section" aria-label={t('bench.stimulator')} data-testid="bench-stimulator">
-              <h3>{t('bench.stimulator')}</h3>
-              <p className="bench-note">
-                {lastStim
-                  ? `${text('上一次', 'Last')}: ${text('脑区', 'node')} ${lastStim.node} · ${fmt(lastStim.amplitude, 2)} · ${lastStim.durationMs} ms`
-                  : text('就绪', 'Ready')}
-              </p>
-        <ControlField label={text('目标脑区', 'Target region')}>
-          <Dropdown value={String(stimNode)} disabled={!engineReady || !data}
-            title={!engineReady ? notReadyReason : undefined}
-            onChange={(e) => { setStimTarget(Number(e.target.value)); onSelect(Number(e.target.value)); }}
-            aria-label={text('目标脑区', 'Target region')}>
-            {(data?.regions ?? []).map((r) => (
-              <option key={r.id} value={String(r.id)}>{r.label}</option>
+          <h3>{t('bench.trace')}</h3>
+          <ol className="bench-flow-hops" aria-label={text('最近几跳', 'Recent hops')}>
+            {flowHops.length === 0 && (
+              <li className="bench-flow-hop">{text('运行一次协议或发送一次刺激，信号就开始走。', 'Run a protocol or send one stimulus and the signal starts moving.')}</li>
+            )}
+            {flowHops.map((e, i) => (
+              <li key={e.seq} className={`bench-flow-hop${i === flowHops.length - 1 ? ' bench-flow-hop-now' : ''}`}>
+                {e.hop} · {e.label} · {fmt(e.tMs, 0)} ms
+              </li>
             ))}
-          </Dropdown>
-        </ControlField>
-        <RangeControl label={text('幅度', 'Amplitude')} unit=""
-          value={strength} min={0.5} max={2} step={0.05}
-          disabled={!engineReady} onChange={onStrength} />
-        <RangeControl label={text('时长', 'Duration')} unit="ms"
-          value={durationMs} min={20} max={500} step={10}
-          disabled={!engineReady} onChange={onDuration} />
-        <button className="ui-button ui-button-primary" type="button"
-          onClick={sendPulse} disabled={!engineReady}
-          title={!engineReady ? notReadyReason : undefined}>
-          {t('bench.sendPulse')}
-        </button>
-        <p className="bench-note">
-          {text('经 sim.pulseAt 直达 Worker；ACK 时间以 Worker 为准，不是点击时间。',
-            'Goes to the Worker via sim.pulseAt; the ACK time is the Worker time, not the click time.')}
-        </p>
-        <h3>{text('命令日志', 'Command log')}</h3>
-        <div className="bench-table-wrap">
-          <table className="bench-table">
-            <thead>
-              <tr>
-                <th>{text('目标', 'Target')}</th><th>{text('幅度', 'Amplitude')}</th>
-                <th>{text('时长', 'Duration')}</th><th>ACK</th><th>{text('确认', 'Confirmed')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stimLog.length === 0 && (
-                <tr><td colSpan={4}>{text('暂无命令', 'No commands yet')}</td></tr>
-              )}
-              {stimLog.slice(-8).map((e) => (
-                <tr key={e.key}>
-                  <td>{data?.regions[e.node]?.label ?? e.node}</td>
-                  <td>{fmt(e.amplitude, 2)}</td>
-                  <td>{e.durationMs} ms</td>
-                  <td>{e.ackTms !== null ? `${fmt(e.ackTms, 0)} ms` : '—'}</td>
-                  <td>{e.confirmed ? text('是', 'yes') : text('否', 'no')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-            </section>
+          </ol>
+          <div className="bench-actions">
+            <button className="ui-button" type="button"
+              onClick={() => { traceRef.current.clear(); setTraceList([]); }}>
+              {t('bench.clearTrace')}
+            </button>
           </div>
-        )}
-      </div>
+        </BenchDrillDown>
+      )}
+
+      {drill === 'amplifier' && (
+        <BenchDrillDown title={t('bench.amplifier')} drill="amplifier" onClose={() => setDrill(null)}>
+          <p className="bench-note">{t('bench.drill.amplifierNote')}</p>
+          <ControlField label={text('采样率', 'Sample rate')}>
+            <Dropdown value={String(sampleRate)} disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => setSampleRate(Number(e.target.value) as 250 | 500)}
+              aria-label={text('采样率', 'Sample rate')}>
+              <option value="250">250 Hz</option>
+              <option value="500">500 Hz</option>
+            </Dropdown>
+          </ControlField>
+          <ControlField label={text('参考', 'Reference')}>
+            <Dropdown
+              value={referenceSel}
+              disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => setReferenceSel(e.target.value as BenchReferenceSel)}
+              aria-label={text('参考', 'Reference')}>
+              <option value="average">{text('平均参考', 'Average reference')}</option>
+              <option value="cz">Cz</option>
+              <option value="m1" disabled={!hasM1}>
+                {text('乳突 M1（单侧）', 'Mastoid M1 (single-sided)')}
+              </option>
+            </Dropdown>
+          </ControlField>
+          {!hasM1 && (
+            <p className="bench-note">{text('当前导联无 M1', 'No M1 in the current montage')}</p>
+          )}
+          <ControlField label={text('带通滤波', 'Band-pass filter')}>
+            <button className="ui-button" type="button" disabled={!engineReady}
+              title={!engineReady ? notReadyReason : undefined}
+              onClick={() => setBenchSettings({ bandpassOn: !bandpassOn })}>
+              {bandpassOn ? text('带通：开', 'Band-pass: on') : text('带通：关', 'Band-pass: off')}
+            </button>
+          </ControlField>
+          <RangeControl label={text('带通下限', 'Band-pass low')} unit="Hz"
+            value={lowDraft} min={0.1} max={10} step={0.1}
+            disabled={!engineReady || !bandpassOn}
+            onChange={setLowDraft} />
+          <RangeControl label={text('带通上限', 'Band-pass high')} unit="Hz"
+            value={highDraft} min={10} max={125} step={0.5}
+            disabled={!engineReady || !bandpassOn}
+            onChange={setHighDraft} />
+          <button className="ui-button" type="button"
+            disabled={!engineReady || !bandpassOn || !bandpassValid}
+            title={!bandpassValid ? text('需满足 0 < 低 < 高 < 采样率/2', 'Requires 0 < low < high < sample rate / 2') : undefined}
+            onClick={() => { setLowHz(lowDraft); setHighHz(highDraft); }}>
+            {t('bench.applyBandpass')}
+          </button>
+          {!bandpassValid && (
+            <p className="bench-note">{text('带通无效：需满足低 < 高。', 'Invalid band-pass: low must be below high.')}</p>
+          )}
+          <RangeControl label={text('增益', 'Gain')} unit="×"
+            value={gain} min={0.5} max={5} step={0.1}
+            disabled={!engineReady} onChange={setGain}
+            hint={text('增益只放大显示，不改记录里的 µV。', 'Gain scales the display only, never the recorded µV.')} />
+          {referenceNote && <p className="bench-note">{referenceNote}</p>}
+          <div className="bench-readout">
+            <p>{text('瞬时值', 'Instant value')} {fmt(latestUv, 2)} µV · {text('选中通道', 'selected channel')} {selectedChannel}</p>
+            <p>{text('均方根', 'RMS')} {fmt(rmsUv, 2)} µV · {sampleRate} Hz</p>
+            <p>{text('滤波状态', 'Filter')}: {bandpassOn
+              ? `${text('带通', 'band-pass')} ${lowHz}–${highHz} Hz`
+              : text('直通（无带通）', 'Bypass (no band-pass)')}</p>
+            <p>{text('参考', 'Reference')}: {referenceSel === 'average'
+              ? text('平均', 'average') : referenceSel === 'cz' ? 'Cz' : 'M1'}</p>
+          </div>
+          {displayError && <p className="bench-error" role="alert">{displayError}</p>}
+          {acqError && <p className="bench-error" role="alert">{acqError}</p>}
+          <button className="ui-button" type="button" onClick={refreshAll}
+            disabled={!engineReady || acquiring}>
+            {acquiring ? text('采集中…', 'Acquiring…') : t('bench.refreshAcquisition')}
+          </button>
+        </BenchDrillDown>
+      )}
+
+      {drill === 'stimulator' && (
+        <BenchDrillDown title={t('bench.stimulator')} drill="stimulator" onClose={() => setDrill(null)}>
+          <p className="bench-note">{t('bench.drill.returnPathNote')}</p>
+          <p className="bench-note">
+            {lastStim
+              ? `${text('上一次', 'Last')}: ${text('脑区', 'node')} ${lastStim.node} · ${fmt(lastStim.amplitude, 2)} · ${lastStim.durationMs} ms`
+              : text('就绪', 'Ready')}
+          </p>
+          <ControlField label={text('目标脑区', 'Target region')}>
+            <Dropdown value={String(stimNode)} disabled={!engineReady || !data}
+              title={!engineReady ? notReadyReason : undefined}
+              onChange={(e) => { setStimTarget(Number(e.target.value)); onSelect(Number(e.target.value)); }}
+              aria-label={text('目标脑区', 'Target region')}>
+              {(data?.regions ?? []).map((r) => (
+                <option key={r.id} value={String(r.id)}>{r.label}</option>
+              ))}
+            </Dropdown>
+          </ControlField>
+          <RangeControl label={text('幅度', 'Amplitude')} unit=""
+            value={strength} min={0.5} max={2} step={0.05}
+            disabled={!engineReady} onChange={onStrength} />
+          <RangeControl label={text('时长', 'Duration')} unit="ms"
+            value={durationMs} min={20} max={500} step={10}
+            disabled={!engineReady} onChange={onDuration} />
+          <button className="ui-button ui-button-primary" type="button"
+            onClick={sendPulse} disabled={!engineReady}
+            title={!engineReady ? notReadyReason : undefined}>
+            {t('bench.sendPulse')}
+          </button>
+          <p className="bench-note">
+            {text('经 sim.pulseAt 直达 Worker；ACK 时间以 Worker 为准，不是点击时间。',
+              'Goes to the Worker via sim.pulseAt; the ACK time is the Worker time, not the click time.')}
+          </p>
+          <h3>{text('命令日志', 'Command log')}</h3>
+          <div className="bench-table-wrap">
+            <table className="bench-table">
+              <thead>
+                <tr>
+                  <th>{text('目标', 'Target')}</th><th>{text('幅度', 'Amplitude')}</th>
+                  <th>{text('时长', 'Duration')}</th><th>ACK</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stimLog.length === 0 && (
+                  <tr><td colSpan={4}>{text('暂无命令', 'No commands yet')}</td></tr>
+                )}
+                {stimLog.slice(-8).map((e) => (
+                  <tr key={e.key}>
+                    <td>{data?.regions[e.node]?.label ?? e.node}</td>
+                    <td>{fmt(e.amplitude, 2)}</td>
+                    <td>{e.durationMs} ms</td>
+                    <td>{e.ackTms !== null ? `${fmt(e.ackTms, 0)} ms` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </BenchDrillDown>
+      )}
+
+      {peripheralOpen && (
+        <BenchDrillDown title={text('外周生理传感器', 'Peripheral physiology sensors')} drill="peripheral"
+          onClose={() => setPeripheralOpen(false)}>
+          <p className="bench-note">{t('bench.peripheralReserved')}</p>
+        </BenchDrillDown>
+      )}
     </div>
   );
 }

@@ -660,6 +660,42 @@ Superseded（本节取代，不再作为入口登记；后端参数与数值仍�
 
 Superseded（本节取代，不再作为入口登记；后端参数与数值仍以原节为准）：
 §1.15 的“回路追踪面板：`confirmed` 标记 + 图例”改为“确认态只留在记录数据里，界面上再也不渲染确认标记与图例（见 §1.19）”；§1.15 响应锚定行“未修正则 provisional + RT（`confirmed: false`，trace 里标明未确认）”改为“未修正则 provisional + RT（`confirmed: false`，只记在数据里，不渲染）”；§1.17 的“六框图 → 流动指示”行改为“六角色长行已删，流动指示只剩主视图‘信号现在在’一行 + 诊断面板最近 5 跳（见 §1.19）”；§1.17 的“单舞台”行改为“控制条 = 四个协议按钮 + 运行/停止 + 一条状态行，舞台工具（背景活动、头模型）与帽预设说明进诊断面板（见 §1.19）”；§1.17 的“闭环延迟读数”行改为“进诊断面板回路追踪区（见 §1.19）”；§1.17 的“六个分析页 → 两个视图”行改为“波形常驻主视图，分析常驻诊断面板，不再用视图切换翻页（见 §1.19）”。
+### 1.20 图解闭环实验台（2026-11-19，分支 `fix/bench-pictorial`）
+
+用户 2026-11-19 定调：台子不是仪表盘，而是一张大的、立体的回路演示图，按他发的 Fig. 12.1 标准 EEG 记录装置图布局（左戴帽人头 + 心肺外周传感器、中蓝色放大器、右绿色波形记录电脑、下紫色刺激电脑 + 键盘，箭头标 EEG electrodes、USB、triggers，A/B/C/D 四步），做成闭环、符合真实实验场景的样子——记录/分析一路经刺激器回到大脑，补上原图没有的回程（刺激器画在回程上，triggers 箭头保留作事件标记）。主流程是用户在实验电脑里设计实验（选协议、参数）、组成被试（滑动条调模型参数空间），在电脑里运行测试，跑起来看大脑发生了什么变化、监测电脑上的波形是什么样——同一个实验，不同被试反应不同。被试不是选配式（不从预设的正常人/癫痫/其他类型里挑），而是多个滑动条调认知和各个方向的癫痫程度；认知和癫痫只是例子，滑动条涉及各个方面（按模型参数空间列完整的一套，分组呈现，每个都真接模型参数）。只改呈现与控件组织，不改物理、不改 lib、不重缩放数字、不放宽任何测试容差、不伪造确认；绿点电极代码直接删除（无开关）。
+
+| 项 | 值 / 口径 | 前端 | 后端 |
+|---|---|---|---|
+| 主视图 | 一张回路图（`PictorialLoop.tsx`，SVG viewBox 0 0 1200 760 + HTML 覆盖层）：左大脑节点（内嵌 `PictorialHead.tsx` Three.js 头 + 脑电帽，见下）、中放大器（B，蓝）、右测试电脑（D，绿边框，屏上波形缩略图只显示、不可点）、下实验电脑（C，紫边框，太阳图标 + 键盘 + 模拟手）、左下刺激器（闪电图标，在闭环回程上）、心肺外周传感器图标（只作入口，无数据）。正向箭头按原图：EEG electrodes（橙）、USB（橙）、triggers（蓝，事件标记）；闭环回程是新增的琥珀色虚线：测试电脑 → 实验电脑（“分析结果 → 决策”）→ 刺激器（“刺激命令”）→ 大脑（“刺激电流”），带 “E 闭环回程” 徽标与图例（实线 = 信号正向；虚线琥珀 = 闭环回程；蓝箭头 triggers = 事件标记）。回路流动动画由既有 `benchTrace` 驱动：最新一跳的节点高亮 + 该节点流出边的脉冲点，只在协议运行时动；不运行时图静止 | `PictorialLoop.tsx`；`ClosedLoopBench.tsx`（只改 render，hooks/callbacks/引擎接线不动）；`App.css` 新增 `.pict-*`，删 `.bench-stage` / `.bench-diag` / `.bench-flow` 死样式 | `benchTrace.ts`（hops：brain / amplifier / test-computer / experiment-computer / stimulator；cap 从不参与高亮）未动 |
+| 脑电帽 | `PictorialHead.tsx`：TVB cortex_16384 网格（与 BrainScene 同款灯光/相机/绝对 E 着色）+ LatheGeometry 半透明头壳（opacity 0.15）+ 1.02× 半径上半球帽壳（opacity 0.45）+ 弹性带 + 电极圆盘（CylinderGeometry r2.2 h1.2，#c8d2dc，位置仍由 `selectBenchElectrodes` 给）+ 电缆（选中通道 + Cz + 8 个最近朝相机邻居，TubeGeometry，束向放大器方向）。选中通道得琥珀色圆环。点脑 → 选中脑区 + 开大脑 drill-down；点帽盘/帽带 → 开脑电帽 drill-down。相机（95,120,330）与帽透明度是 R1 截图后定的（旧取景把 294 mm 头壳裁成球、近不透明帽盖住大脑）。诚实标签保留：电极位置为头模型方向示意，未与演示网络解剖配准 | `PictorialHead.tsx`；`benchFixture.ts`（`useSphereFixture`，模块级缓存，与 ClosedLoopBench 共用一次 fetch）；`App.tsx` 台子分支传 PictorialHead 作 networkView，`#basic` 仍是 BrainScene | `benchElectrodes.ts`（位置源）未动；`BrainScene.tsx` 绿点代码删除：`ELECTRODE_COLOR` / `ELECTRODE_MARKER_RADIUS` / `ELECTRODE_SHELL_MARGIN_MM`、`electrodes` prop、`electrodeGroup`、`rebuildElectrodes`、`getElectrodeMarkers` / `getElectrodeShellRadius` 桥接入口、清理释放 |
+| 模拟手 | 2D SVG 线条手（`SimulatedHand.tsx`），放在键盘空格键上方；`benchProtocol` response 事件（oddball 稀有试次 Space 按键）到时加 `.hand-pressing` 下压 6px + 淡出涟漪，250 ms 后复位；下方小字“模拟受试者（仿真）——按键由实验电脑驱动，不是真人。”点击手开实验电脑 drill-down；键盘可达（role="button"，Enter/Space） | `SimulatedHand.tsx`；`ClosedLoopBench.tsx`（`handleProtocolEvent` response 分支置位，定时器复位） | `benchProtocol.ts` response 事件未动 |
+| drill-down | 一个覆盖层壳（`BenchDrillDown.tsx`：“← 回到回路图”按钮 / Esc / 背景点击关闭；焦点进出管理；从不卸载 ClosedLoopBench，从不停止运行中的协议）：大脑（q 读数 + 高状态说明 + 重置；手动刺激为次要入口）、脑电帽（预设 + 头模型 + 全部通道网格）、实验电脑（固定三步：① 设计实验 ② 组成被试 ③ 运行与观察）、测试电脑（波形 + 记录 + 事件 + 5 个分析 tab + 回路追踪）、放大器、刺激器（命令日志删“确认”列，只留目标/幅度/时长/ACK）、外周传感器（信息弹窗，只有接口预留文案，无假数据） | `BenchDrillDown.tsx`；`ClosedLoopBench.tsx`（`drill` 状态 + `pictorial-open-cap` / `pictorial-open-brain` 窗口事件监听） | 未动；各 drill-down 里的控件与旧诊断面板同一批 setter/回调 |
+| 被试组成器 | 实验电脑第 ② 步，分组滑动条（`benchSubjects.ts` 纯数据/纯函数 + `benchSettings.ts` 字段，RangeError 校验沿用既有风格）。只接真实 WC/模型参数，不画假滑动条；“癫痫的各个方向”是 A/B 组合的只读读数（固定阈值、大白话、无疾病名、无临床判断）；模型变体标签三处同一 i18n 键（`bench.composer.modelVariant`） | `benchSubjects.ts`（新）；`ClosedLoopBench.tsx`（composer setters）；`i18n.tsx`（`bench.composer.*` 中英） | 见下表 |
+| 状态行 / q / 页脚 | 状态行仍是主视图唯一一条人话（`data-testid="bench-status-line"`），未开始文案改成流程版：“还没开始。先在实验电脑里设计实验、组成被试，再点‘运行协议’。”（`bench.status.notStarted` 键不变）。q 芯片移到大脑节点下方（`data-testid="bench-brain-q"` 不变，同一份派生，0.15 阈值与高状态说明 + 重置不变；大脑 drill-down 里同一数值用 `bench-brain-q-drilldown`，不共用 testid）。4 协议按钮 + 运行/停止在图下控制条（按钮 2 仍是“稀有刺激”；运行/停止在实验电脑 ③ 里镜像，同一状态/回调）。页脚 51× 诚实注原文保留。`bench-loop-timing` 只在闭环运行中有实测值时出现（实验电脑 ③） | `PictorialLoop.tsx`；`i18n.tsx`（`bench.subtitle` → “设计实验 → 组成被试 → 运行 → 看大脑与波形”，`bench.status.notStarted` 改文案） | `benchProtocol.ts` `protocolStatusKey` / `benchHighState.ts` 未动 |
+| 删除 | 诊断开关/面板、“这里是给调试看的细节”提示、命令日志“确认”列、主视图交互式波形通道下拉（只留测试电脑 drill-down 里的 + 图上缩略图）、绿点电极代码（见上） | `ClosedLoopBench.tsx`；`App.css` | 未动 |
+| ErpTab 改名 | 按钮“运行 oddball（同步全部分析）”→“运行稀有刺激实验（同步全部分析）”（`ErpTab.tsx:198`、`messageCatalog.ts:1203–1204`，中英）；`ErpTab.tsx:201/212/315/331` 与 `messageCatalog.ts:1207/1271/1279/1295` 里的 “oddball 实验”渲染文案同步改成“稀有刺激实验”；“运行 oddball”在 `app/src` 里不再出现。oddball 仍是数据/条件标识（`runOddballExperiment` 等函数名与条件字符串不动） | `ErpTab.tsx`；`messageCatalog.ts` | `lateResponse.ts` 未动 |
+| 控件登记 | 控件面 241 → 244（台子 29 → 27：主视图 4 协议按钮 + 运行 + 停止 + q 重置移入 PictorialLoop −7、诊断开关 −1、背景下拉 −1；新增大脑 drill-down q 重置 + 发送刺激 +2、帽通道网格 +1、背景分段 map +1、恢复默认被试 +1、实验电脑 drill-down 运行/停止镜像 +2；PictorialLoop +4、BenchDrillDown +1；Dropdown 56 → 55）；`docs/p0-1b-control-register.json` 与两处计数断言（`tests/p0-1/control-flow.test.mjs`、`tests/ui/design-system-i18n.test.mjs`）同步更新，计数逻辑未动。SVG 节点 `<g role="button">` 不在字面量口径内（只扫 button/input/select/textarea/Dropdown），不计入；其键盘可达性由浏览器测试钉住 | 同左 | — |
+| 测试 | 浏览器测试随 UI 改写（不断言删覆盖）：4 个 bench 浏览器测试（协议按钮进控制条；“不在主视图”改述为“drill-down 关闭时不在 DOM 里”；`assertNoUnconfirmed` 扩进每个 drill-down；q 芯片在大脑节点下；波形/记录断言进测试电脑 drill-down）；新增 `app/tests/bench-pictorial-browser.mjs` 钉住图解台子（7 节点 + 头节点 Three.js 画布 + 圆盘非绿球 + 各节点开 drill-down 有真控件 + 返回不丢运行态 + 稀有刺激运行时节点高亮与边脉冲 + 全页无“未确认” + 组成器真接线 + ERP 按钮新文案 + 手下压） | `app/tests/` | — |
+
+#### 组成器映射表（设计 §5.2；范围是引擎硬边界，不是 UI 选择）
+
+| 滑动条 | 参数 | 范围 | 默认 | 接线 |
+|---|---|---|---|---|
+| A1 脑区互相带动的强度 | 引擎 `g` | 0–0.4（≥0.5 翻基线，protocol.ts） | 0.35 | `benchSettings.g` + `sim.setParams({ g })` |
+| A2 抑制的强度 | 引擎 `c_ei` | 3–8（2 翻网络，protocol.ts） | 4.0 | `benchSettings.cEi` + `sim.setParams({ c_ei })` |
+| B1 背景活动 | `set_background_mode` | quiet / spontaneous / oscillatory | spontaneous | `onBackground`；切到 oscillatory 时引擎把正弦驱动重置为 0.30 @ 10 Hz，组成器字段同步跟进（`extSineAmp` → 0.30、`extSineFreqHz` → 10），滑动条不说谎 |
+| B2 背景噪声的起伏 | 引擎 `ou_sigma` | 0.02–0.15（0.20 在 1.3–35.9 s 内锁定，simClient.ts） | 0.10 | `benchSettings.ouSigma` + `sim.setParams({ ou_sigma })`（新增直通 setter，见下） |
+| B3 振荡驱动的幅度 | 引擎 `ext_sine_amp`（P 的模型单位） | 0–0.4（振荡预设 0.30 可回基线，0.50 回不去，crates/brain-core + pr4_pulse_safety.py） | 0（振荡模式下 0.30） | `benchSettings.extSineAmp` + `sim.setParams({ ext_sine_amp })`（新增直通 setter）；只在 oscillatory 模式下启用 |
+| B4 振荡驱动的频率 | 引擎 `ext_sine_freq_hz`（Hz，`P_sine(t) = amp · sin(2πft)`） | 1–30 Hz | 10 | `benchSettings.extSineFreqHz` + `sim.setParams({ ext_sine_freq_hz })`（新增直通 setter）；只在 oscillatory 模式下启用 |
+| C1 反应时下限 | `benchSubject` rtMin | 50–1000 ms | 320 | `benchSettings.rtMinMs`（既有）；引擎 effect 在 seed/rtMin/rtMax 变化时重建被试；运行中禁用 |
+| C2 反应时上限 | `benchSubject` rtMax | 50–2000 ms | 440 | `benchSettings.rtMaxMs`（既有） |
+| C3 随机种子 | `benchSubject` seed | 1–9999 | 1 | `benchSettings.subjectSeed`（既有） |
+| 组合小结 | 只读派生 | 固定阈值：g ≥ 0.38 高耦合、c_ei ≤ 3.5 弱抑制、ou_sigma ≥ 0.12 大噪声、振荡模式下 ext_sine_amp ≥ 0.2 强节律 | — | `summarizeCombination`（`benchSubjects.ts`）；两条以上特质 → “网络容易整体翻进高活动态” |
+| 癫痫方向 | 只读读数，无旋钮 | 四个方向各是一条真实 A/B 参数走向（耦合增强 / 抑制减弱 / 基线抬高 / 节律驱动增强），见 `EPILEPSY_DIRECTIONS` | — | 不接任何引擎参数；文案不含疾病名与临床判断 |
+
+#### 模式参数直通（mode-params pass-through；独立可丢弃提交）
+
+`ou_sigma` / `ext_sine_amp` / `ext_sine_freq_hz` 此前客户端只读（`simWorker.ts` 只有 getters）。B2–B4 滑动条要一处最小直通：Rust 加三个 setter（`crates/brain-wasm/src/lib.rs`，clamp：ou_sigma 0.02–0.15、ext_sine_amp 0–0.4、ext_sine_freq_hz 1–30），`SimParams` 加三个可选字段（`protocol.ts`），`simWorker.ts` 的 `set_params` 分支应用它们并复用既有 `mode_applied` 消息回发最新读数，`simClient.ts` `DEFAULT_PARAMS` 补三个引擎默认值（0.10 / 0 / 10）以便重置恢复。无 WC 集成改动、无默认值改动、无快照改动。实现为分支上单独标注的提交，合并时可丢弃；若丢弃，B2–B4 滑动条必须随之从 UI 删除，绝不画不接线的滑动条。
 
 ## 2. 坐标系
 

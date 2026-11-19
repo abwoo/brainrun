@@ -13,8 +13,8 @@
  *
  * - Brain: TVB cortex_16384, vertices centred, absolute-E heat colouring
  *   (dark blue-grey -> amber -> bright amber, BrainScene's absolute mode),
- *   hover/select blue mix. Click selects a region; drag rotates, wheel
- *   zooms. Clicking never stimulates here (bench main flow is the
+ *   hover/select blue mix. Click selects a region and opens the brain
+ *   drill-down; drag rotates, wheel zooms. Clicking never stimulates here (bench main flow is the
  *   experiment computer; manual stimulation lives in the brain drill-down).
  * - Head shell: LatheGeometry forehead->crown->occiput->neck profile,
  *   MeshPhysicalMaterial, opacity ~0.18, DoubleSide, depthWrite false.
@@ -99,10 +99,14 @@ export interface PictorialHeadProps {
    * 'pictorial-open-cap' CustomEvent that ClosedLoopBench listens for.
    * Either way no cloneElement is involved. */
   onCapOpen?: () => void;
+  /** Clicking the brain selects the region AND opens the brain
+   * drill-down ("点人头 / 脑", design §6.1). Same optional/event
+   * pattern as onCapOpen: 'pictorial-open-brain'. */
+  onBrainOpen?: () => void;
 }
 
 export default function PictorialHead(props: PictorialHeadProps) {
-  const { data, sim, selectedId, onSelect, selectedChannel, onCapOpen } = props;
+  const { data, sim, selectedId, onSelect, selectedChannel, onCapOpen, onBrainOpen } = props;
   const { locale } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverId, setHoverId] = useState<number | null>(null);
@@ -138,6 +142,8 @@ export default function PictorialHead(props: PictorialHeadProps) {
     colorAttr: THREE.BufferAttribute;
     capGroup: THREE.Group;
     discGroup: THREE.Group;
+    /** The elastic band: solid, so it counts as "cap" for picking. */
+    band: THREE.Mesh;
     cableGroup: THREE.Group;
     brainRadius: number;
     capRadius: number;
@@ -160,6 +166,12 @@ export default function PictorialHead(props: PictorialHeadProps) {
   const openCap = () => {
     if (onCapOpenRef.current) onCapOpenRef.current();
     else window.dispatchEvent(new CustomEvent('pictorial-open-cap'));
+  };
+  const onBrainOpenRef = useRef(onBrainOpen);
+  onBrainOpenRef.current = onBrainOpen;
+  const openBrain = () => {
+    if (onBrainOpenRef.current) onBrainOpenRef.current();
+    else window.dispatchEvent(new CustomEvent('pictorial-open-brain'));
   };
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -439,6 +451,10 @@ export default function PictorialHead(props: PictorialHeadProps) {
         transparent: true, opacity: 0.45, side: THREE.DoubleSide,
       }),
     );
+    // The cap veil is translucent: clicking "through" it at the brain is
+    // a brain click, not a cap click (R2). Only the solid parts — discs
+    // and band — count as cap for picking, so the veil never intercepts.
+    capShell.raycast = () => {};
     const capGroup = new THREE.Group();
     capGroup.add(capShell);
     scene.add(capGroup);
@@ -460,7 +476,7 @@ export default function PictorialHead(props: PictorialHeadProps) {
     const raycaster = new THREE.Raycaster();
     sceneRef.current = {
       renderer, scene, camera, controls, mesh, geometry, colors, colorAttr,
-      capGroup, discGroup, cableGroup, brainRadius, capRadius, raycaster,
+      capGroup, discGroup, band, cableGroup, brainRadius, capRadius, raycaster,
     };
     rebuildElectrodes();
 
@@ -473,8 +489,10 @@ export default function PictorialHead(props: PictorialHeadProps) {
         -((clientY - rect.top) / rect.height) * 2 + 1,
       );
       s.raycaster.setFromCamera(ndc, s.camera);
-      // Cap first: discs and cap shell open the cap drill-down.
-      if (s.raycaster.intersectObjects(s.capGroup.children, true).length > 0) return 'cap';
+      // Cap first — but only the SOLID cap parts (discs + band). The
+      // translucent cap veil and head shell never intercept (raycast off).
+      const capHits = s.raycaster.intersectObjects([s.discGroup, s.band], true);
+      if (capHits.length > 0) return 'cap';
       const hits = s.raycaster.intersectObject(s.mesh, false);
       if (hits.length === 0 || !hits[0].face) return null;
       return dataRef.current.regionMap[hits[0].face.a];
@@ -487,7 +505,10 @@ export default function PictorialHead(props: PictorialHeadProps) {
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > CLICK_MOVE_THRESHOLD_PX) return;
       const hit = pick(e.clientX, e.clientY);
       if (hit === 'cap') openCap();
-      else if (typeof hit === 'number') onSelectRef.current(hit);
+      else if (typeof hit === 'number') {
+        onSelectRef.current(hit);
+        openBrain();
+      }
     };
     const onPointerMove = (e: PointerEvent) => {
       if (e.buttons !== 0) return;

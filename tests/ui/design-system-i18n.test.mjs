@@ -62,9 +62,10 @@ test('control audit is updated, not weakened by migrating 36 selects',()=>{
  // Option A 补项（2026-11-18）分析视图内恢复 More/Less + Comparisons +2 → 239，PhysicsHome 15，NAV 20。
  // 简化（2026-11-19）台子 27 → 28，+1 → 240；Dropdown 56（57 − 协议下拉）。
  // 高状态说明（2026-11-19）q 读数旁加重置按钮，台子 28 → 29，+1 → 241。
- assert.equal(c.counts.total,241);
- assert.equal(c.entries.length,241);
- assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,56);
+ // 图解台子（2026-11-19）台子 29 → 27、PictorialLoop +4、BenchDrillDown +1 → 244；Dropdown 55（56 − 背景下拉改分段按钮）。
+ assert.equal(c.counts.total,244);
+ assert.equal(c.entries.length,244);
+ assert.equal(c.entries.filter(x=>x.element==='Dropdown').length,55);
  assert.ok(c.entries.every(x=>x.evidence.includes('not runtime-proven')));
 });
 
