@@ -168,6 +168,14 @@ try {
     console.log('canvas box:', canvasBox);
     assert.ok(canvasBox.w >= 380 && canvasBox.h >= 800,
       `canvas must be viewport-size, got ${canvasBox.w}x${canvasBox.h}`);
+    // The 64 discs appear when the sphere fixture finishes loading, which
+    // races the sim-ready signal the wait above just observed (both land
+    // ~2-4 s after load). Asserting immediately is flaky by construction:
+    // wait for the discs instead. (CI failed twice at ~33 s — the mobile
+    // viewport's immediate discs assert, right after the bridge wait.)
+    await page.waitForFunction(
+      "() => window.__minimalLoop?.getDiscCount?.() === 64",
+      { timeout: 60000 });
     assert.equal(await page.evaluate(() => window.__minimalLoop?.getDiscCount?.()), 64);
     assert.equal(await page.evaluate(() => window.__brainSim?.isReady?.()), true);
     assert.match(await statusText(page), /还没开始/);
