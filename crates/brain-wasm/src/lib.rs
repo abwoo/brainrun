@@ -254,6 +254,16 @@ impl WasmSim {
         self.sim.params.ou_sigma
     }
 
+    /// Pictorial bench (mode-params pass-through, 2026-11-19): set the OU
+    /// noise strength. Clamped to 0.02–0.15 — 0.20 locks the network with
+    /// no input within 1.3–35.9 s (simClient.ts), 0.10 is the largest
+    /// value that passed; the clamp keeps a UI slip from locking the
+    /// network. Takes effect from the next step; no reset, no default
+    /// change (default stays 0.10).
+    pub fn set_ou_sigma(&mut self, v: f64) {
+        self.sim.params.ou_sigma = v.clamp(0.02, 0.15);
+    }
+
     /// Constant background input (model units of P; 0 = none).
     pub fn drive_const(&self) -> f64 {
         self.sim.params.drive_const
@@ -264,9 +274,25 @@ impl WasmSim {
         self.sim.params.ext_sine_amp
     }
 
+    /// Pictorial bench (mode-params pass-through): set the external sine
+    /// drive amplitude. Clamped to 0–0.4 — the oscillatory preset drives
+    /// at 0.30 and returns to baseline; a 0.50 drive does NOT return
+    /// (reference/python-model/pr4_pulse_safety.py). Only meaningful in
+    /// Oscillatory mode (the step function ignores it otherwise).
+    pub fn set_ext_sine_amp(&mut self, v: f64) {
+        self.sim.params.ext_sine_amp = v.clamp(0.0, 0.4);
+    }
+
     /// External sine drive frequency (Hz; Oscillatory mode).
     pub fn ext_sine_freq_hz(&self) -> f64 {
         self.sim.params.ext_sine_freq_hz
+    }
+
+    /// Pictorial bench (mode-params pass-through): set the external sine
+    /// drive frequency in Hz. Clamped to 1–30 Hz (the flicker protocol's
+    /// frequency range). Only meaningful in Oscillatory mode.
+    pub fn set_ext_sine_freq_hz(&mut self, v: f64) {
+        self.sim.params.ext_sine_freq_hz = v.clamp(1.0, 30.0);
     }
 
     /// Current OU background-drive state (model units of P).

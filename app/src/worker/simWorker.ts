@@ -53,9 +53,12 @@ interface WasmSimInstance {
   seed(): number;
   ou_tau_ms(): number;
   ou_sigma(): number;
+  set_ou_sigma(v: number): void;
   drive_const(): number;
   ext_sine_amp(): number;
+  set_ext_sine_amp(v: number): void;
   ext_sine_freq_hz(): number;
+  set_ext_sine_freq_hz(v: number): void;
   snapshot_ou(): Float64Array;
   take_snapshot(): string;
   restore_snapshot(json: string): void;
@@ -348,7 +351,32 @@ self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {
         if (p.c_ei !== undefined) sim.set_c_ei(p.c_ei);
         if (p.stim_amplitude !== undefined) sim.set_stim_amplitude(p.stim_amplitude);
         if (p.stim_duration_ms !== undefined) sim.set_stim_duration_ms(p.stim_duration_ms);
+        // Pictorial bench mode-params pass-through: the three background
+        // / rhythm fields are write-through only (same set_params path,
+        // no new message type, no WC change, no default change). After
+        // applying, echo the applied values via the existing
+        // 'mode_applied' confirmation so the client mirror
+        // (simClient.getModeParams) reads back what the engine holds
+        // instead of assuming it.
+        const modeTouched = p.ou_sigma !== undefined
+          || p.ext_sine_amp !== undefined || p.ext_sine_freq_hz !== undefined;
+        if (p.ou_sigma !== undefined) sim.set_ou_sigma(p.ou_sigma);
+        if (p.ext_sine_amp !== undefined) sim.set_ext_sine_amp(p.ext_sine_amp);
+        if (p.ext_sine_freq_hz !== undefined) sim.set_ext_sine_freq_hz(p.ext_sine_freq_hz);
         acknowledge(msg);
+        if (modeTouched) {
+          const mode = (['quiet', 'spontaneous', 'oscillatory'] as const)[sim.background_mode()];
+          post({
+            type: 'mode_applied',
+            params: {
+              mode,
+              ou_tau_ms: sim.ou_tau_ms(),
+              ou_sigma: sim.ou_sigma(),
+              ext_sine_amp: sim.ext_sine_amp(),
+              ext_sine_freq_hz: sim.ext_sine_freq_hz(),
+            },
+          });
+        }
         return;
       }
       // PR3 — direct manipulation.  Weight edits take effect from the
