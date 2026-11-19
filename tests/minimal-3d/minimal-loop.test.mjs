@@ -12,8 +12,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -84,6 +86,66 @@ test('overlays are memoized and throttle rendering while open', () => {
   assert.match(minimalScene, /overlayOpenRef\.current \|\| document\.hidden/,
     'scene must throttle WebGL rendering while an overlay is open or the tab is hidden');
   assert.match(minimalScene, /now - lastRender < 500/, 'throttled rendering must cap at ~2 fps');
+});
+
+/**
+ * Big single-channel view must show the real model output (2026-11-19).
+ *
+ * Live defect: the brain overlay's big waveform was one flat line with a
+ * "±1.0 µV" label while the 8-channel view on the same run visibly
+ * fluctuated. Root cause was benchWaveform.ts drawWaveform flooring its
+ * auto-scale peak at 1 µV (the multi-channel painter floors at 1e-6):
+ * a ~0.001 µV model signal (R-05) deflects ~0.1 px under a 1 µV scale.
+ * This test draws a 0.001 µV sine through the real drawWaveform (the
+ * repo's own typescript transpiles the single dependency-free module)
+ * onto a stub canvas and asserts the trace actually spans the canvas
+ * and the label prints the true peak instead of "±1.0 µV" / "±0.0 µV".
+ */
+test('big single-channel waveform auto-scales to model-scale (~0.001 uV) signal', async () => {
+  const outDir = mkdtempSync(join(tmpdir(), 'benchwave-test-'));
+  const prevWindow = globalThis.window;
+  try {
+    execFileSync(join(root, 'app/node_modules/.bin/tsc'), [
+      join(root, 'app/src/lib/benchWaveform.ts'),
+      '--module', 'nodenext', '--target', 'es2022', '--outDir', outDir,
+    ], { stdio: 'pipe' });
+    const { drawWaveform } = await import(pathToFileURL(join(outDir, 'benchWaveform.js')).href);
+    globalThis.window = { devicePixelRatio: 1 };
+    // Stub canvas: records one point list per beginPath() (grid lines
+    // have exactly 2 points; the trace has one per sample) and the label.
+    const paths = [];
+    const texts = [];
+    let cur = null;
+    const ctx = {
+      scale() {}, setTransform() {}, fillRect() {},
+      beginPath() { cur = []; paths.push(cur); },
+      moveTo(x, y) { cur.push([x, y]); },
+      lineTo(x, y) { cur.push([x, y]); },
+      stroke() {}, fillText(t) { texts.push(String(t)); },
+    };
+    const canvas = {
+      clientWidth: 600, clientHeight: 160, width: 0, height: 0,
+      getContext: () => ctx,
+    };
+    // 5 s @ 250 Hz of a 0.001 uV sine — the model-scale signal.
+    const series = Array.from({ length: 1250 },
+      (_, j) => 0.001 * Math.sin((2 * Math.PI * j) / 125));
+    drawWaveform(canvas, series);
+    const trace = paths.reduce((a, b) => (b.length > a.length ? b : a), []);
+    assert.ok(trace.length > 100, `trace must have one point per sample, got ${trace.length}`);
+    const ys = trace.map((p) => p[1]);
+    const span = Math.max(...ys) - Math.min(...ys);
+    assert.ok(span >= 0.5 * canvas.clientHeight,
+      `0.001 uV trace must span >= half the canvas, spanned ${span.toFixed(2)} px of ${canvas.clientHeight}`);
+    assert.ok(!texts.some((t) => t.includes('±1.0 µV')),
+      `peak label must not claim ±1.0 µV for a 0.001 µV signal, got ${JSON.stringify(texts)}`);
+    assert.ok(texts.some((t) => t.includes('0.001')),
+      `peak label must show the true ~0.001 µV peak, got ${JSON.stringify(texts)}`);
+  } finally {
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+    rmSync(outDir, { recursive: true, force: true });
+  }
 });
 
 test('waveform shows 8 channels; channel view lists all 64', () => {
