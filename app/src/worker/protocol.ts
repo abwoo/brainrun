@@ -19,6 +19,16 @@ export interface SimParams {
   stim_amplitude: number;
   /** 脉冲持续时间 ms（DURATION 滑杆），范围 20–500。 */
   stim_duration_ms: number;
+  /** Pictorial bench mode-params pass-through (2026-11-19): OU noise
+   *  strength, model units of P. Rust clamps to 0.02–0.15 (lib.rs
+   *  set_ou_sigma). Optional: absent = leave the engine value alone. */
+  ou_sigma?: number;
+  /** External sine drive amplitude, model units of P. Rust clamps to
+   *  0–0.4. Only meaningful in Oscillatory mode. Optional. */
+  ext_sine_amp?: number;
+  /** External sine drive frequency in Hz. Rust clamps to 1–30.
+   *  Only meaningful in Oscillatory mode. Optional. */
+  ext_sine_freq_hz?: number;
 }
 
 export type WorkerInMessage = (

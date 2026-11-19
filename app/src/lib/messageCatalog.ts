@@ -1200,11 +1200,11 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
     "en": "Create epochs"
   },
   {
-    "zh": "运行 oddball（同步全部分析）",
-    "en": "Run oddball and update all analyses"
+    "zh": "运行稀有刺激实验（同步全部分析）",
+    "en": "Run the rare-stimulus experiment and update all analyses"
   },
   {
-    "zh": "右边按钮跑 late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 + 8 oddball）， 此操作同时载入原始记录、事件与试次；EEG、PSD、ERP、时频与可适用的分析使用同一次运行。单通道记录不支持多电极地形或源定位。 左边按钮只切分 EEG 页的当前记录；late 实验才有 0.174 µV 的晚期峰。",
+    "zh": "右边按钮跑 late 机制稀有刺激实验（单通道 Pz，40 试次：32 标准 + 8 稀有刺激）， 此操作同时载入原始记录、事件与试次；EEG、PSD、ERP、时频与可适用的分析使用同一次运行。单通道记录不支持多电极地形或源定位。 左边按钮只切分 EEG 页的当前记录；late 实验才有 0.174 µV 的晚期峰。",
     "en": "The oddball experiment runs 40 Pz trials (32 standard, 8 oddball) with the late-response mechanism. It loads Raw, events and epochs together, so EEG, spectrum, ERP and time-frequency views share that run. A single channel cannot support multielectrode topography or source localization. The other button only epochs the current EEG recording. The late experiment produces the approximately 0.174 µV late peak."
   },
   {
@@ -1268,7 +1268,7 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
     "en": "Model peak about 0.17 µV (this run:"
   },
   {
-    "zh": "注意：上面表格是壳实验记录（plain WC/JR 模型，无 late 机制）算出的——250–600 ms 窗内基本无响应，峰值小于 0.001 µV（表格按 3 位小数显示为 0.000）、潜伏期落在窗首 252 ms（窗内只有早期峰的衰减尾巴，最大 |值| 在窗首）。late 机制的模型峰约 0.17 µV @352 ms（docs/pr6-erp-mechanism.md §4）要点上面“运行 oddball 实验 （late 机制）”才会出现；幅度差约 50 倍是结构性缺口，没有靠重缩放修掉。",
+    "zh": "注意：上面表格是壳实验记录（plain WC/JR 模型，无 late 机制）算出的——250–600 ms 窗内基本无响应，峰值小于 0.001 µV（表格按 3 位小数显示为 0.000）、潜伏期落在窗首 252 ms（窗内只有早期峰的衰减尾巴，最大 |值| 在窗首）。late 机制的模型峰约 0.17 µV @352 ms（docs/pr6-erp-mechanism.md §4）要点上面“运行稀有刺激实验 （late 机制）”才会出现；幅度差约 50 倍是结构性缺口，没有靠重缩放修掉。",
     "en": "This table uses the basic WC/JR recording without the late-response mechanism. Response in the 250–600 ms window is below 0.001 µV, displayed as 0.000 at three decimals. The peak occurs at the window's first sample, 252 ms, because only the early response's decay remains. Run the late oddball experiment to obtain the approximately 0.17 µV peak at 352 ms. Its roughly 50-fold amplitude gap is a structural limitation; values are not rescaled to hide it."
   },
   {
@@ -1276,7 +1276,7 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
     "en": "SEM scales approximately as σ/√n. Noiseless deterministic trials are identical, apart from shared-boundary differences around 1e−4 µV. With measurement noise, quadrupling the trial count approximately halves SEM."
   },
   {
-    "zh": "late 机制 oddball 实验只出单通道 Pz：请在 EEG tab 把通道切到 Pz 再看本页， 或点“切分试次”回到壳实验记录。",
+    "zh": "late 机制稀有刺激实验只出单通道 Pz：请在 EEG tab 把通道切到 Pz 再看本页， 或点“切分试次”回到壳实验记录。",
     "en": "This late-response experiment produces Pz only. Choose Pz in the EEG view, or create epochs from the main recording."
   },
   {
@@ -1292,7 +1292,7 @@ export const messageCatalog: ReadonlyArray<{ zh: string; en: string }> = [
     "en": "Run an experiment to generate an event table."
   },
   {
-    "zh": "late 机制 oddball 实验（单通道 Pz）",
+    "zh": "late 机制稀有刺激实验（单通道 Pz）",
     "en": "Late-response oddball experiment · Pz"
   },
   {

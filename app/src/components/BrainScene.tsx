@@ -31,7 +31,6 @@ import type { BrainData } from '../lib/brainData';
 import { topConnections } from '../lib/brainData';
 import type { ResponseGroups, SimClient } from '../lib/simClient';
 import { DELTA_FULL } from '../lib/simClient';
-import type { BenchElectrodeDirection } from '../lib/benchElectrodes';
 
 const BASE_COLOR = new THREE.Color('#2a4a66'); // Phase 4：提亮后的皮层底色（仍为暗蓝灰系）
 const AMBER_COLOR = new THREE.Color('#ffb340'); // 活动：CHIMERA 琥珀
@@ -74,14 +73,6 @@ const HOLD_DELAY_MS = 300; // 静止按住超过此时长即视为持续输入�
 const E_BASELINE = 0.011; // 演示预设基线 E（Phase 2 实测）
 const E_PEAK = 0.5; // 脉冲峰值附近 E（Phase 2 实测 ΔE≈0.48）
 
-// Phase 2 闭环实验台：帽电极覆盖层。绿色小球，与选区（浅蓝球）、偏置
-// （紫色八面体）、响应（琥珀环/球、蓝色小点）形状与颜色都不同。
-const ELECTRODE_COLOR = 0x2fd47a;
-const ELECTRODE_MARKER_RADIUS = 1.6;
-// 电极画在包住整个脑网格的球壳上：脑包围球半径 + 该余量。只按方向放，
-// 不声称与 TVB 脑区解剖配准（见 benchElectrodes.ts 的说明）。
-const ELECTRODE_SHELL_MARGIN_MM = 8;
-
 // Phase 4：默认改为微俯视的三维视角（右前上方），脑回的深度层次
 // 比正顶视更易读；距离与正顶视相当，仍以大脑为视觉中心。
 const DEFAULT_CAMERA_POS = new THREE.Vector3(75, 95, 245);
@@ -115,10 +106,6 @@ interface BrainSceneProps {
    *  与脉冲的琥珀色扩散环形状、颜色、含义都不同：这是持续输入的标记
    *  （紫色八面体，每脑区一个）。 */
   biasList: Array<{ node: number; value: number }>;
-  /** Phase 2 闭环实验台：帽电极的方向（单位向量），画在包住脑网格的
-   *  球壳上。方向只表示电极在头模型里的朝向，不与 TVB 脑区解剖配准；
-   *  null/空 = 不画。默认不传时行为与以前完全一致。 */
-  electrodes?: BenchElectrodeDirection[] | null;
 }
 
 export default function BrainScene({
@@ -139,7 +126,6 @@ export default function BrainScene({
   replayE,
   responseGroups,
   biasList,
-  electrodes,
 }: BrainSceneProps) {
   const {locale}=useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -166,11 +152,6 @@ export default function BrainScene({
     /** PR3：持续偏置输入的标记组（紫色八面体，每脑区一个，画在偏置
      *  脑区的中心）。与脉冲的琥珀色扩散环形状、颜色、含义都不同。 */
     biasGroup: THREE.Group;
-    /** Phase 2：帽电极标记组（绿色小球，每电极一个，画在包围球壳上）。 */
-    electrodeGroup: THREE.Group;
-    /** Phase 2：脑网格包围球半径（mm，居中后的几何）；电极壳半径 =
-     *  brainRadius + ELECTRODE_SHELL_MARGIN_MM。 */
-    brainRadius: number;
     centerOffset: THREE.Vector3;
     raycaster: THREE.Raycaster;
   } | null>(null);
@@ -454,52 +435,6 @@ export default function BrainScene({
     }
   }, [biasList, data]);
 
-  // Phase 2：帽电极标记（绿色小球，每电极一个，画在包围球壳上）。
-  // 只按方向放：位置 = 方向 × (脑包围球半径 + 余量)，不声称与 TVB 脑区
-  // 解剖配准。标记只进 electrodeGroup，拾取射线只交 mesh（pickHit 里
-  // intersectObject(s.mesh, false)），所以电极标记永远截获不了指针选择；
-  // 也不参与任何神经计算。预设/通道数一变（electrodes prop 换新数组）
-  // 就重建；场景初始化时（本 effect 可能先于 init 跑、那时 scene 为
-  // null）由 init 结尾再调一次 rebuildElectrodes 补画。
-  const electrodesRef = useRef<BenchElectrodeDirection[] | null>(null);
-  electrodesRef.current = electrodes ?? null;
-  const rebuildElectrodes = () => {
-    const s = sceneRef.current;
-    if (!s) return;
-    const { electrodeGroup } = s;
-    let geo: THREE.BufferGeometry | null = null;
-    let mat: THREE.Material | null = null;
-    while (electrodeGroup.children.length > 0) {
-      const child = electrodeGroup.children.pop()!;
-      if (child instanceof THREE.Mesh) {
-        // 全组共用一份几何与材质，只释放一次。
-        geo ??= child.geometry;
-        mat ??= child.material as THREE.Material;
-      }
-    }
-    geo?.dispose();
-    mat?.dispose();
-    const list = electrodesRef.current;
-    if (!list || list.length === 0) return;
-    const shellR = s.brainRadius + ELECTRODE_SHELL_MARGIN_MM;
-    const sharedGeo = new THREE.SphereGeometry(ELECTRODE_MARKER_RADIUS, 12, 12);
-    const sharedMat = new THREE.MeshBasicMaterial({ color: ELECTRODE_COLOR });
-    for (const e of list) {
-      const marker = new THREE.Mesh(sharedGeo, sharedMat);
-      marker.position.set(
-        e.direction[0] * shellR,
-        e.direction[1] * shellR,
-        e.direction[2] * shellR,
-      );
-      marker.userData.electrodeLabel = e.label;
-      electrodeGroup.add(marker);
-    }
-  };
-  useEffect(() => {
-    rebuildElectrodes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [electrodes, data]);
-
   // 连接线：选中脑区的前 5 条主要连接弧线
   useEffect(() => {
     const s = sceneRef.current;
@@ -608,8 +543,6 @@ export default function BrainScene({
       box.expandByPoint(tmp);
     }
     const centerOffset = box.getCenter(new THREE.Vector3());
-    // Phase 2：脑包围球半径（居中不改变半径）；电极壳 = 该半径 + 余量。
-    const brainRadius = box.getBoundingSphere(new THREE.Sphere()).radius;
     for (let i = 0; i < positions.length; i += 3) {
       positions[i] -= centerOffset.x;
       positions[i + 1] -= centerOffset.y;
@@ -674,10 +607,6 @@ export default function BrainScene({
     const biasGroup = new THREE.Group();
     scene.add(biasGroup);
 
-    // Phase 2：帽电极标记组——绿色小球，每电极一个（见 rebuildElectrodes）。
-    const electrodeGroup = new THREE.Group();
-    scene.add(electrodeGroup);
-
     const raycaster = new THREE.Raycaster();
     sceneRef.current = {
       renderer,
@@ -693,16 +622,9 @@ export default function BrainScene({
       respGroup,
       selMarker,
       biasGroup,
-      electrodeGroup,
-      brainRadius,
       centerOffset,
       raycaster,
     };
-
-    // 场景刚建好：若 electrodes prop 已就绪（首屏即有预设），本 effect
-    // 跑在 init 之后才画得出标记；electrodes effect 在挂载时可能先于
-    // init 跑过一次（那时 scene 为 null），这里补画一次。
-    rebuildElectrodes();
 
     /** PR3：射线拾取，返回脑区 id 与射线命中的皮层表面实际点。
      *  交点是 Three.js Raycaster 的 intersection.point（场景坐标；
@@ -1203,29 +1125,6 @@ export default function BrainScene({
           };
         });
       },
-      /** Phase 2：帽电极标记（绿色小球），供测试确认数量与预设通道数
-       *  一致、形状/颜色与选区/偏置/响应标记不同、且落在包围球壳上。 */
-      getElectrodeMarkers: () => {
-        const sc = sceneRef.current;
-        if (!sc) return null;
-        return sc.electrodeGroup.children.map((child) => {
-          const mesh = child as THREE.Mesh;
-          const mat = mesh.material as THREE.MeshBasicMaterial;
-          return {
-            label: mesh.userData.electrodeLabel as string,
-            geometry: mesh.geometry.type,
-            color: mat.color ? `#${mat.color.getHexString()}` : null,
-            position: [mesh.position.x, mesh.position.y, mesh.position.z],
-            radius: (mesh.geometry as THREE.SphereGeometry).parameters?.radius ?? null,
-          };
-        });
-      },
-      /** Phase 2：电极壳半径（脑包围球半径 + 余量，mm），供测试确认
-       *  标记到原点的距离等于该值。 */
-      getElectrodeShellRadius: () => {
-        const sc = sceneRef.current;
-        return sc ? sc.brainRadius + ELECTRODE_SHELL_MARGIN_MM : null;
-      },
     };
 
     tick();
@@ -1249,12 +1148,6 @@ export default function BrainScene({
       geometry.dispose();
       (mesh.material as THREE.Material).dispose();
       (wire.material as THREE.Material).dispose();
-      // Phase 2：电极组共用一份几何与材质，只释放一次。
-      if (electrodeGroup.children.length > 0) {
-        const m0 = electrodeGroup.children[0] as THREE.Mesh;
-        m0.geometry.dispose();
-        (m0.material as THREE.Material).dispose();
-      }
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);

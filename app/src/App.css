@@ -1483,10 +1483,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .bench-subtitle { color:#8ebcda; font-size:13px; margin:6px 0 0; }
 .bench-header-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .bench-error { color:#ffcc9b; padding:10px 12px; border:1px solid #79563a; border-radius:5px; font-size:13px; }
-/* Simplification (2026-11-19): the strip holds four protocol buttons +
-   run/stop + one plain-language status line; everything else lives behind
-   the single diagnostics toggle. The amplifier popover, the six-role line
-   and the stage-tools row are gone with the controls they held. */
+/* Pictorial bench (2026-11-19): the strip holds four protocol buttons +
+   run/stop + one plain-language status line under the picture; everything
+   else lives in the node drill-downs. The diagnostics toggle/panel, the
+   six-role flow line and the old two-column stage are gone with the
+   controls they held. */
 .bench-strip { display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px 16px; padding:14px 16px; margin:16px 0; border:1px solid #2b4254; border-radius:10px; background:#0d1824; }
 .bench-protocols { display:flex; gap:8px; flex-wrap:wrap; flex:1; min-width:280px; }
 .bench-protocol-btn { flex:1; min-width:150px; text-align:left; padding:10px 12px; border:1px solid #2b4254; border-radius:8px; background:#08121c; color:#dcecf5; cursor:pointer; }
@@ -1507,27 +1508,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 /* 高状态说明（stuck-q）：与锁定横幅同款琥珀色——提醒，不是报错。 */
 .bench-q-high { margin:6px 0 0; font-size:13px; line-height:1.65; color:#ffb340; }
 .bench-q-high .ui-button { margin-left:8px; }
-.bench-diag { margin-top:8px; }
-.bench-diag-panel { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:16px 20px; margin-top:12px; display:flex; flex-direction:column; gap:20px; }
-.bench-diag-section { display:flex; flex-direction:column; gap:12px; padding-top:16px; border-top:1px solid #203545; }
-.bench-diag-section:first-of-type { border-top:0; padding-top:0; }
-.bench-diag-section>h3 { margin:0; font-size:15px; font-weight:600; color:#d9e6ee; }
-.bench-diag-section .control-field { width:100%; }
-.bench-flow { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:14px 16px; margin-bottom:24px; display:flex; flex-direction:column; gap:10px; }
-.bench-flow-now { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; }
-.bench-flow-label { color:#9fb6c6; font-size:13px; }
 .bench-flow-hops { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0; }
 .bench-flow-hop { border:1px solid #284255; border-radius:999px; padding:4px 10px; font-size:12px; color:#9fb6c6; background:#08121c; }
 .bench-flow-hop-now { border-color:#22d3ee; color:#d7e5ef; }
-.bench-stage { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:24px; align-items:start; margin-bottom:24px; }
-.bench-stage-head { min-width:0; display:flex; flex-direction:column; gap:12px; }
-.bench-stage-head>h2 { margin:0; font-size:16px; font-weight:600; }
-.bench-stage-side { min-width:0; display:flex; flex-direction:column; gap:14px; }
-.bench-stage-side>h2 { margin:0; font-size:16px; font-weight:600; }
-.bench-stage-side>h3 { margin:4px 0 0; font-size:14px; font-weight:600; color:#c6dce9; }
 .bench-view-toggle { display:flex; gap:8px; flex-wrap:wrap; }
-.bench-network { min-height:360px; border:1px solid #283f51; border-radius:10px; background:#070e16; overflow:hidden; }
-.bench-network .manual-brain { height:clamp(360px,52vh,560px); }
 .bench-note { color:#9fb6c6; font-size:13px; line-height:1.65; margin:0; }
 .bench-readout { padding:12px; background:#08121c; border:1px solid #284255; border-radius:5px; font-size:13px; }
 .bench-readout p { margin:4px 0; overflow-wrap:anywhere; }
@@ -1539,9 +1523,85 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .bench-table th, .bench-table td { padding:6px 8px; text-align:left; border-bottom:1px solid #203545; color:#b6cbd8; white-space:nowrap; }
 .bench-table th { color:#c6dce9; }
 .bench-footnote { padding-top:18px; font-size:12px; color:#819aaf; }
-@media(max-width:1100px) { .bench-stage { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:900px) {
   .bench-header-actions { width:100%; }
-  .bench-diag-panel { padding:14px 16px; }
   .bench-wave { height:180px; }
+  .pict-drill { padding:16px 8px; }
+  .pict-drill-panel { padding:14px 16px; }
 }
+
+/* Pictorial bench head node (PictorialHead.tsx): canvas fills the slot,
+ * honest-label caption sits under it. */
+.pict-head { display:flex; flex-direction:column; height:100%; min-height:0; }
+.pict-head-canvas { flex:1; min-height:0; position:relative; }
+.pict-head-canvas canvas { display:block; width:100%; height:100%; }
+.pict-head-note { margin:8px 0 0; color:#9fb6c6; font-size:12px; line-height:1.5; }
+
+/* Pictorial loop diagram (PictorialLoop.tsx): one SVG in Fig. 12.1 layout
+ * (viewBox 0 0 1200 760) with HTML overlays positioned in the same
+ * percentage coordinates as the SVG node boxes. The SVG scales with the
+ * wrapper (aspect-ratio locks the geometry); the overlays scale with it. */
+.pict { display:flex; flex-direction:column; }
+.pict-canvas-wrap { position:relative; width:100%; aspect-ratio:1200 / 760; }
+.pict-svg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.pict-node { cursor:pointer; outline:none; }
+.pict-node-box { fill:#0d1824; stroke:#2b4254; stroke-width:1.5; }
+.pict-node-amplifier { fill:#12283e; stroke:#4fb6f2; }
+.pict-node-test { fill:#0d1f16; stroke:#2fd47a; }
+.pict-node-experiment { fill:#1a1426; stroke:#8052ff; }
+.pict-node-stimulator { fill:#1f1608; stroke:#ffb340; }
+.pict-node:hover .pict-node-box, .pict-node:focus-visible .pict-node-box { stroke:#22d3ee; }
+.pict-node-active .pict-node-box { stroke:#ffb340; stroke-width:2.5; filter:drop-shadow(0 0 6px rgba(255,179,64,.5)); }
+.pict-node-label { fill:#d7e5ef; font-size:14px; }
+.pict-node-title { fill:#9fc8ff; font-size:13px; font-weight:600; }
+.pict-node-sub { fill:#9fb6c6; font-size:11px; }
+.pict-step-letter { fill:#ffb829; font-size:15px; font-weight:700; }
+.pict-step-badge circle { fill:#ffb829; }
+.pict-step-badge text { fill:#0d1824; font-size:12px; font-weight:700; }
+.pict-step-badge-inline { display:inline-block; background:#ffb829; color:#0d1824; border-radius:50%; width:18px; height:18px; line-height:18px; text-align:center; font-size:12px; font-weight:700; margin-right:4px; vertical-align:1px; }
+.pict-edge { fill:none; stroke-width:2; }
+.pict-edge-eeg { stroke:#ff9a3c; }
+.pict-edge-usb { stroke:#ff9a3c; }
+.pict-edge-triggers { stroke:#4fb6f2; }
+.pict-edge-periph { stroke:#2fd47a; }
+.pict-edge-return { stroke:#ffb340; stroke-dasharray:6 4; }
+.pict-edge-label { fill:#9fb6c6; font-size:12px; }
+.pict-edge-label-return { fill:#ffb340; }
+.pict-flow-sub { fill:#ffb340; font-size:12px; font-weight:600; }
+.pict-pulse { fill:#ffb340; }
+.pict-screen { fill:#08131d; stroke:#2b4254; }
+.pict-stand { fill:#2b4254; }
+.pict-keyboard { fill:#0d1824; stroke:#2b4254; }
+.pict-spacebar { fill:#1c3041; stroke:#2b4254; }
+.pict-spacebar-pressed { fill:#ffb340; }
+.pict-legend { fill:#819aaf; font-size:11px; }
+/* HTML overlays, same coordinates as the SVG node boxes. */
+.pict-head-slot { position:absolute; left:3.33%; top:7.89%; width:20%; height:28.9%; }
+.pict-thumb { position:absolute; left:75%; top:16.4%; width:20%; height:18.4%; pointer-events:none; }
+.pict-thumb canvas { display:block; width:100%; height:100%; }
+.pict-q { position:absolute; left:3.33%; top:65.8%; width:20%; }
+.pict-q-subject { margin:6px 0 0; font-size:12px; color:#9fb6c6; line-height:1.5; }
+/* Simulated hand (SimulatedHand.tsx): 2D SVG line drawing over the
+ * keyboard; .hand-pressing drops it 6px onto the spacebar with a fading
+ * ripple. */
+.pict-hand { cursor:pointer; outline:none; }
+.pict-hand:focus-visible { outline:2px solid #22d3ee; outline-offset:2px; }
+.hand-pressing { transform:translateY(6px); }
+.pict-hand-ripple { fill:none; stroke:#ffb340; stroke-width:2; opacity:0; transform-box:fill-box; transform-origin:center; }
+.hand-pressing .pict-hand-ripple { animation:pict-ripple .5s ease-out; }
+@keyframes pict-ripple { from { opacity:.8; transform:scale(.6); } to { opacity:0; transform:scale(1.6); } }
+/* Drill-down overlay shell (BenchDrillDown.tsx). */
+.pict-drill { position:fixed; inset:0; z-index:50; display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; box-sizing:border-box; }
+.pict-drill-backdrop { position:absolute; inset:0; background:rgba(4,8,14,.72); }
+.pict-drill-panel { position:relative; width:min(860px,100%); max-height:calc(100dvh - 80px); overflow:auto; background:#0d1824; border:1px solid #2b4254; border-radius:12px; padding:20px 24px; box-sizing:border-box; }
+.pict-drill-header { display:flex; justify-content:space-between; align-items:center; gap:12px; position:sticky; top:0; background:#0d1824; padding-bottom:12px; z-index:1; }
+.pict-drill-header h2 { margin:0; font-size:18px; }
+.pict-drill-body { display:flex; flex-direction:column; gap:14px; }
+.pict-drill-body h3 { margin:8px 0 0; font-size:15px; }
+.pict-drill-body h4 { margin:8px 0 0; font-size:13px; color:#c6dce9; }
+.pict-drill-body .control-field { width:100%; }
+.bench-channel-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.bench-segmented { display:flex; gap:8px; flex-wrap:wrap; }
+.bench-directions { margin:0; padding-left:18px; color:#9fb6c6; font-size:13px; line-height:1.65; }
+.bench-directions li { margin-bottom:6px; }
+.bench-directions strong { color:#d7e5ef; }

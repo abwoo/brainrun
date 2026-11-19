@@ -1,7 +1,8 @@
 /**
  * Bench live-refresh browser test (fix for the frozen 样本数/波形/事件数).
- * 2026-11-19 简化改写：协议下拉改成四个大按钮，样本数/事件数读数与
- * 记录分析进“详情 / 诊断”面板；先开面板再读数。
+ * 2026-11-19 图解改写：样本数/事件数读数与记录分析进测试电脑
+ * drill-down；先开 drill-down 读数，点协议按钮前先关掉它（覆盖层会
+ * 盖住控制条）。
  *
  * 回归：样本数/波形/事件数都读同一份记录，记录只在引擎就绪时组装一次，
  * 运行中不刷新（除非手动点“更新记录”），导致运行中样本数卡住、波形是
@@ -96,18 +97,24 @@ try {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
 
-  // 诊断面板先打开、一直开着：样本数/事件数读数与记录分析都在里面。
-  const diagToggle = page.getByTestId('bench-diagnostics-toggle');
-  await diagToggle.click();
-  const diag = page.getByTestId('bench-diagnostics');
-  await diag.waitFor({ timeout: 15000 });
-  const waveStage = diag.locator('section[aria-label="记录"]');
+  const openNode = async (node) => {
+    await page.getByTestId(`pict-node-${node}`).focus();
+    await page.keyboard.press('Enter');
+    await page.getByTestId('bench-drilldown').waitFor({ timeout: 15000 });
+  };
+  const closeDrill = async () => {
+    await page.getByTestId('bench-drilldown-back').click();
+    await page.getByTestId('bench-drilldown').waitFor({ state: 'detached', timeout: 15000 });
+  };
+  // 测试电脑 drill-down 里的记录读数（含“样本数”的那个 .bench-readout）。
+  const waveStage = page.getByTestId('bench-drilldown').locator('.bench-readout', { hasText: '样本数' });
 
-  // 等自动采集出一份记录（诊断面板记录读数 “样本数 N>0”）。
+  // 测试电脑先打开、等自动采集出一份记录（记录读数 “样本数 N>0”）。
+  await openNode('test');
   await waveStage.getByText(/样本数\s+[1-9]\d*/).first().waitFor({ timeout: 180000 });
 
   const readWave = async () => {
-    const txt = (await waveStage.locator('.bench-readout').first().textContent() ?? '')
+    const txt = (await waveStage.textContent() ?? '')
       .replace(/\s+/g, ' ').trim();
     return {
       txt,
@@ -123,10 +130,12 @@ try {
   assert.ok(baseline.samples !== null && baseline.samples > 0,
     `baseline samples must be > 0, got ${JSON.stringify(baseline)}`);
   console.log('baseline:', baseline.txt);
+  await closeDrill();
 
   // 跑 oddball：10 次试次保证 2 个 oddball（每 5 次一次）+ 8 个 standard。
   await page.locator('.bench-protocol-btn', { hasText: '稀有刺激' }).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
+  await openNode('test');
 
   // 轮询直到三条同时成立（240 秒上限；无头渲染慢，只认增长量）：
   // 样本数比基线多 250 以上（10 秒窗内可达约 2500），事件数大于 0，
@@ -148,8 +157,10 @@ try {
     `baseline samples=${baseline.samples}, last=${JSON.stringify(last)}`);
 
   // 停止协议：停表时自动再刷一次，记录里应已含受试者响应。
+  await closeDrill();
   await page.getByRole('button', { name: '停止协议', exact: true }).click();
   await page.waitForTimeout(3000);
+  await openNode('test');
   const finalWave = await readWave();
   assert.ok(finalWave.samples !== null && finalWave.samples > baseline.samples,
     `samples must stay above baseline after stop, got ${finalWave.samples} vs baseline ${baseline.samples}`);

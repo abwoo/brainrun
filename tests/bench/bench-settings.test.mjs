@@ -47,6 +47,11 @@ test('defaults match the Phase 1 useState initial values', () => {
     clCooldownMs: 500,
     clMaxTriggers: 100,
     stimTarget: null,
+    g: 0.35,
+    cEi: 4.0,
+    ouSigma: 0.10,
+    extSineAmp: 0,
+    extSineFreqHz: 10,
   });
   assert.deepEqual(BENCH_SETTINGS_DEFAULTS, getBenchSettings());
 });
@@ -83,6 +88,7 @@ test('every setting field round-trips through the store', () => {
     flickerFreqHz: 12, flickerAmp: 1.2, flickerDurationMs: 80,
     clFeature: 'rms', clThreshold: 0.7, clAmplitude: 1.5, clDurationMs: 120,
     clPeriodMs: 800, clCooldownMs: 200, clMaxTriggers: 10, stimTarget: 12,
+    g: 0.2, cEi: 5.5, ouSigma: 0.12, extSineAmp: 0.3, extSineFreqHz: 12,
   });
   const s = getBenchSettings();
   assert.equal(s.capPreset, '10-20-19');
@@ -113,6 +119,28 @@ test('every setting field round-trips through the store', () => {
   assert.equal(s.clCooldownMs, 200);
   assert.equal(s.clMaxTriggers, 10);
   assert.equal(s.stimTarget, 12);
+  assert.equal(s.g, 0.2);
+  assert.equal(s.cEi, 5.5);
+  assert.equal(s.ouSigma, 0.12);
+  assert.equal(s.extSineAmp, 0.3);
+  assert.equal(s.extSineFreqHz, 12);
+});
+
+test('composer fields reject out-of-range values instead of clamping silently', () => {
+  resetBenchSettings();
+  assert.throws(() => setBenchSettings({ g: 0.5 }), RangeError);
+  assert.throws(() => setBenchSettings({ g: -0.1 }), RangeError);
+  assert.throws(() => setBenchSettings({ cEi: 2 }), RangeError);
+  assert.throws(() => setBenchSettings({ cEi: 9 }), RangeError);
+  assert.throws(() => setBenchSettings({ ouSigma: 0.2 }), RangeError);
+  assert.throws(() => setBenchSettings({ ouSigma: 0.01 }), RangeError);
+  assert.throws(() => setBenchSettings({ extSineAmp: 0.5 }), RangeError);
+  assert.throws(() => setBenchSettings({ extSineFreqHz: 31 }), RangeError);
+  assert.throws(() => setBenchSettings({ extSineFreqHz: 0 }), RangeError);
+  // Boundary values are accepted.
+  setBenchSettings({ g: 0.4, cEi: 3, ouSigma: 0.15, extSineAmp: 0.4, extSineFreqHz: 30 });
+  assert.equal(getBenchSettings().g, 0.4);
+  assert.equal(getBenchSettings().extSineFreqHz, 30);
 });
 
 test('state survives a simulated unmount/remount cycle', () => {

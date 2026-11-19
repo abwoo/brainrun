@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import PhysicsHome from './components/PhysicsHome';
 import ClosedLoopBench from './components/ClosedLoopBench';
+import PictorialHead from './components/PictorialHead';
 import { useI18n } from './lib/i18n';
 import { getBenchSettings, subscribeBenchSettings } from './lib/benchSettings';
 import BrainScene from './components/BrainScene';
@@ -304,11 +305,9 @@ export default function App() {
     onReset={() => { const id = selectedId; handleBackgroundMode(DEFAULT_BACKGROUND_MODE); handleReset(); setSelectedId(id); }}
     onRecover={() => handleRestoreSnapshot('pulse-baseline')}
     onExitToPhysicsHome={() => { window.location.hash = 'basic'; setWorkspace('basic'); }}
-    networkView={data ? <BrainScene pointerStimulates={false} data={data} autoRotate={false}
-      showConnections={true} selectedId={selectedId} resetSignal={resetSignal} onSelect={setSelectedId}
-      sim={simRef.current} onPulse={handlePulse} onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd}
-      onHoldRetract={handleHoldRetract} colorMode="delta" baselineE={resp.baselineE} replayE={null}
-      responseGroups={resp.summary ? resp.groups : null} biasList={[]} /> :
+    networkView={data ? <PictorialHead data={data}
+      sim={simRef.current} selectedId={selectedId} onSelect={setSelectedId}
+      selectedChannel={benchSettings.selectedChannel} /> :
       <p className="model-loading">{locale === 'zh-CN' ? '正在加载脑区模型…' : 'Loading the region model…'}</p>}
   />;
   return <PhysicsHome

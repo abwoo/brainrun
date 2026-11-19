@@ -195,6 +195,11 @@ export const DEFAULT_PARAMS: SimParams = {
   c_ei: 4.0,
   stim_amplitude: 2.0,
   stim_duration_ms: 100,
+  // Pictorial bench mode-params pass-through: engine defaults, so a
+  // reset (setParams({...DEFAULT_PARAMS})) restores them too.
+  ou_sigma: 0.10,
+  ext_sine_amp: 0,
+  ext_sine_freq_hz: 10,
 };
 
 export type SnapshotListener = (snap: Snapshot) => void;

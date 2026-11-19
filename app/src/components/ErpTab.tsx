@@ -195,10 +195,10 @@ export default function ErpTab({
             fontSize: 13,
           }}
         >
-          运行 oddball（同步全部分析）
+          运行稀有刺激实验（同步全部分析）
         </button>
         <p style={note}>
-          右边按钮跑 late 机制 oddball 实验（单通道 Pz，40 试次：32 标准 + 8 oddball），
+          右边按钮跑 late 机制稀有刺激实验（单通道 Pz，40 试次：32 标准 + 8 稀有刺激），
           此操作同时载入原始记录、事件与试次；EEG、PSD、ERP、时频与可适用的分析使用同一次运行。单通道记录不支持多电极地形或源定位。
           左边按钮只切分 EEG 页的当前记录；late 实验才有 0.174 µV 的晚期峰。
         </p>
@@ -209,7 +209,7 @@ export default function ErpTab({
             已切分：{epochSource.kept} / {epochSource.total} 试次保留，
             {epochSource.total - epochSource.kept} 试次被剔除（峰峰值超限或出界）。
             来源：{epochSource.kind === 'late'
-              ? 'late 机制 oddball 实验（单通道 Pz）'
+              ? 'late 机制稀有刺激实验（单通道 Pz）'
               : 'EEG 页的壳实验记录'}。
           </p>
         )}
@@ -312,7 +312,7 @@ export default function ErpTab({
                 注意：上面表格是壳实验记录（plain WC/JR 模型，无 late 机制）算出的——250–600 ms
                 窗内基本无响应，峰值小于 0.001 µV（表格按 3 位小数显示为 0.000）、潜伏期落在窗首
                 252 ms（窗内只有早期峰的衰减尾巴，最大 |值| 在窗首）。late 机制的模型峰约
-                0.17 µV @352 ms（docs/pr6-erp-mechanism.md §4）要点上面“运行 oddball 实验
+                0.17 µV @352 ms（docs/pr6-erp-mechanism.md §4）要点上面“运行稀有刺激实验
                 （late 机制）”才会出现；幅度差约 50 倍是结构性缺口，没有靠重缩放修掉。
               </p>
             )}
@@ -328,7 +328,7 @@ export default function ErpTab({
           <p style={note}>{analysis.error}</p>
           {epochSource?.kind === 'late' && (
             <p style={note}>
-              late 机制 oddball 实验只出单通道 Pz：请在 EEG tab 把通道切到 Pz 再看本页，
+              late 机制稀有刺激实验只出单通道 Pz：请在 EEG tab 把通道切到 Pz 再看本页，
               或点“切分试次”回到壳实验记录。
             </p>
           )}
