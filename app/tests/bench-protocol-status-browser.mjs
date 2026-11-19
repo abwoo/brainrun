@@ -33,7 +33,7 @@ import { chromium } from 'playwright';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const appDir = join(root, 'app');
-const PORT = 4173;
+const PORT = Number(process.env.BENCH_PREVIEW_PORT ?? 4173);
 const BASE = `http://127.0.0.1:${PORT}/`;
 
 async function reachable(url) {
@@ -63,7 +63,7 @@ assert.ok(existsSync(join(appDir, 'dist', 'index.html')),
 assert.ok(existsSync(join(appDir, 'dist', 'forward-assets', 'sphere-model.json')),
   'dist lacks the sphere fixture: regenerate the fixture, then `npm run build` again');
 
-// 3. 预览服务器：先探活 4173，死了重起。
+// 3. 预览服务器：先探活（默认 4173，BENCH_PREVIEW_PORT 可改），死了重起。
 let serverProc = null;
 if (await reachable(BASE)) {
   console.log(`reusing preview server on ${BASE}`);
@@ -76,7 +76,7 @@ if (await reachable(BASE)) {
   while (!(await reachable(BASE))) {
     if (Date.now() > deadline) {
       serverProc.kill();
-      throw new Error('vite preview did not come up on 4173 within 30 s');
+      throw new Error(`vite preview did not come up on ${PORT} within 30 s`);
     }
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -104,7 +104,7 @@ try {
 
   // 协议按钮（四个大按钮，取代旧下拉）与主视图状态行；诊断面板里的
   // 顶栏按钮与记录读数（样本数 / 模型时间）另见下文 openDiag。
-  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: 'oddball' });
+  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: '稀有刺激' });
   const statusLine = page.getByTestId('bench-status-line');
   const diagToggle = page.getByTestId('bench-diagnostics-toggle');
   const openDiag = async () => {
@@ -175,7 +175,7 @@ try {
   // 跑 oddball → “正在运行”。
   await clickStripButton('运行协议');
   status = await waitForStatus('正在运行');
-  assert.ok(status.includes('oddball'), `status line must name the running protocol; status: ${status}`);
+  assert.ok(status.includes('稀有刺激'), `status line must name the running protocol; status: ${status}`);
   console.log('running:', status);
 
   // 全局暂停（诊断面板里的“暂停”）：协议仍在跑、模型时钟冻住 → “已暂停”

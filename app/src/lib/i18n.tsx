@@ -40,7 +40,7 @@ const zh = {
   'bench.amplifier': '放大器', 'bench.testComputer': '测试电脑',
   'bench.experimentComputer': '实验电脑', 'bench.stimulator': '刺激器',
   'bench.trace': '回路追踪', 'bench.signalDetection': '信号检测',
-  'bench.protocol.single-pulse': '单脉冲', 'bench.protocol.oddball': 'oddball',
+  'bench.protocol.single-pulse': '单脉冲', 'bench.protocol.oddball': '稀有刺激',
   'bench.protocol.flicker': '闪烁', 'bench.protocol.closed-loop': '闭环触发',
   'bench.protocolDesc.single-pulse': '发一次刺激，看脑电怎么变',
   'bench.protocolDesc.oddball': '重复刺激里偶尔混一个不一样的',

@@ -99,7 +99,7 @@ try {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 120000 });
 
-  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: 'oddball' });
+  const oddballBtn = page.locator('.bench-protocol-btn', { hasText: '稀有刺激' });
   const btnDeadline = Date.now() + 120000;
   for (;;) {
     if (!(await oddballBtn.isDisabled())) break;
@@ -141,7 +141,10 @@ try {
   assert.ok(qHigh !== null && qHigh > 1, `q must be stuck high, got ${qHigh}`);
   await page.waitForTimeout(4000);
   const qHigh2 = await qVal(page);
-  assert.equal(qHigh2, qHigh, `q must stay put in the high state, got ${qHigh} then ${qHigh2}`);
+  // 高态是带噪声的稳态（E 在 0.4995–0.4997 量级晃动），q 读数保留 3 位小数，
+  // 4 秒内漂 0.001 属“几乎不动”，不断言逐位相等，只断言停在高位且漂移极小。
+  assert.ok(qHigh2 !== null && Math.abs(qHigh2 - qHigh) <= 0.005,
+    `q must stay put in the high state, got ${qHigh} then ${qHigh2}`);
   console.log(`high state: q stuck at ${qHigh}, note: ${noteText}`);
 
   // ---- 停止协议后高态仍在（状态不靠协议跑不跑），说明不消失 ----

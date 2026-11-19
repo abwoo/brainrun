@@ -3058,7 +3058,7 @@
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 926,
    "element": "button",
-   "visibleName": "协议：oddball",
+   "visibleName": "协议：稀有刺激",
    "events": [
     "onClick"
    ],

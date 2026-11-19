@@ -1496,6 +1496,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .bench-protocol-name { display:block; font-size:14px; font-weight:600; }
 .bench-protocol-desc { display:block; font-size:12px; color:#9fb6c6; margin-top:2px; line-height:1.4; }
 .bench-strip-run { display:flex; gap:8px; align-items:center; }
+/* 2026-11-19 修：“停止协议”折成两行——.ui-button-primary 的 width:100%
+   在横向的 .bench-strip-run 里把运行按钮撑满整行，挤得停止按钮只能
+   收缩折行。条里的两个按钮都不许收缩、不许折行，primary 在此不限宽。 */
+.bench-strip-run .ui-button { flex:0 0 auto; min-width:104px; white-space:nowrap; }
+.bench-strip-run .ui-button-primary { width:auto; }
 .bench-status { flex-basis:100%; margin:0; font-size:14px; color:#d7e5ef; }
 .bench-strip-timing { font-size:13px; color:#9fb6c6; padding-bottom:10px; }
 .bench-q { margin:0; font-size:13px; color:#c6dce9; }

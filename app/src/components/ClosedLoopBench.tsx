@@ -8,7 +8,7 @@ import { ControlField, RangeControl } from './ui/ControlField';
 import LanguageSwitch from './ui/LanguageSwitch';
 import type { BrainData } from '../lib/brainData';
 import type {
-  BackgroundMode, ResponseSummary, SimClient,
+  BackgroundMode, ResponseSummary, SimClient, StimulusMarker,
 } from '../lib/simClient';
 import type { Snapshot } from '../worker/protocol';
 import {
@@ -90,6 +90,10 @@ interface Acquisition {
 interface StimLogEntry {
   key: number; node: number; amplitude: number; durationMs: number;
   dispatchTms: number; ackTms: number | null; confirmed: boolean;
+  /** 本次刺激的 marker 对象（pulseAt 返回值）：ACK 凭引用确认，
+   * 不会套住邻试次的 marker；假 pulseAt 不返回值时为 undefined，
+   * 回退到窗口匹配。 */
+  marker?: StimulusMarker;
 }
 interface ResponseRow {
   trialIndex: number; stimulusTms: number; responseTms: number;
@@ -447,6 +451,16 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
         label: text('协议停止', 'Protocol stopped'), value: e.reason ?? '', confirmed: false });
     } else if (e.kind === 'stimulus-sent') {
       setLastStimulusTms(e.tMs);
+      // 2026-11-19 修：协议刺激也是真实的刺激器命令，进命令日志——
+      // 之前日志只在手动 sendPulse 里记，跑 81 次 oddball 也还是
+      // “暂无命令”。dispatchTms/marker 随事件来（见 benchProtocol），
+      // ACK 匹配走下面轮询里的引用路径，与手动刺激同一套逻辑。
+      setStimLog((prev) => [...prev.slice(-19), {
+        key: stimKeyRef.current++, node: e.node ?? 0,
+        amplitude: e.amplitude ?? 1, durationMs: e.durationMs ?? 100,
+        dispatchTms: e.dispatchTms ?? e.tMs, ackTms: null, confirmed: false,
+        marker: e.marker,
+      }]);
       extraEventsRef.current.push({
         id: extraIdRef.current++, type: 'pulse',
         condition: e.condition ?? 'unclassified', tMs: e.tMs,
@@ -477,6 +491,16 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
         label: text('闭环特征检出', 'Closed-loop feature detected'),
         value: `${text('脑区', 'node')} ${e.node ?? '—'}`, confirmed: true });
     } else if (e.kind === 'feedback-applied') {
+      // 2026-11-19 修：闭环刺激由 Worker 施加、没有客户端 dispatch，
+      // 但它仍是真实的刺激器命令，进命令日志；applied 上报本身就是
+      // Worker 的确认（施加时刻 applyMs 即 Worker 时间），所以直接记
+      // 已确认，不走轮询的 marker 匹配。
+      setStimLog((prev) => [...prev.slice(-19), {
+        key: stimKeyRef.current++, node: e.node ?? 0,
+        amplitude: e.amplitude ?? 1, durationMs: e.durationMs ?? 100,
+        dispatchTms: e.applyMs ?? e.tMs, ackTms: e.applyMs ?? e.tMs,
+        confirmed: true,
+      }]);
       appendTrace({ tMs: e.tMs, hop: 'stimulator', kind: 'feedback-applied',
         label: text('闭环刺激已施加', 'Closed-loop stimulus applied'),
         value: `${text('脑区', 'node')} ${e.node ?? '—'} · ${fmt(e.amplitude, 2)}`, confirmed: true });
@@ -565,11 +589,11 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const sendPulse = useCallback(() => {
     if (!sim || !ready) return;
     const dispatchTms = sim.getLatest()?.t_ms ?? snap?.t_ms ?? 0;
-    sim.pulseAt(stimNode, strength, durationMs);
+    const marker = sim.pulseAt(stimNode, strength, durationMs);
     const key = stimKeyRef.current++;
     setStimLog((prev) => [...prev.slice(-19), {
       key, node: stimNode, amplitude: strength, durationMs,
-      dispatchTms, ackTms: null, confirmed: false,
+      dispatchTms, ackTms: null, confirmed: false, marker,
     }]);
     appendTrace({ tMs: dispatchTms, hop: 'stimulator', kind: 'command',
       label: text('手动刺激已发送', 'Manual stimulus sent'),
@@ -638,16 +662,27 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
         }
         wasProtocolRunningRef.current = running;
       }
-      // Match manual stimulator commands to Worker-corrected markers (ACK time).
+      // Match stimulator commands to Worker-corrected markers (ACK time).
       // Phase 4 — 只认修正过的 marker（见 findAckMarker）：provisional
       // marker 的 t_ms 仍等于点击时的快照时间，认它就等于点击后第一次轮询
       // 就“确认”，ackTms 还是点击时间，与“ACK 时间以 Worker 为准”矛盾。
+      // 2026-11-19 修：带 marker 引用的条目（手动 + 全部协议刺激）凭
+      // 引用确认——与引擎 confirmFromMarkers 同一套机制，不会套住邻试
+      // 次的 marker（flicker 100 ms 一发时窗口匹配会错认）；没有 marker
+      // 的条目（假 pulseAt 不返回值）才回退到窗口匹配。
       const markers = sim.getMarkers();
       setStimLog((prev) => {
         if (!prev.some((e) => !e.confirmed)) return prev;
         let changed = false;
         const next = prev.map((e) => {
           if (e.confirmed) return e;
+          if (e.marker) {
+            if (markers.includes(e.marker) && e.marker.t_ms !== e.dispatchTms) {
+              changed = true;
+              return { ...e, ackTms: e.marker.t_ms, confirmed: true };
+            }
+            return e;
+          }
           const m = findAckMarker(markers, e.node, e.dispatchTms);
           if (m) { changed = true; return { ...e, ackTms: m.t_ms, confirmed: true }; }
           return e;
@@ -825,15 +860,22 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
   const totalEvents = benchRecording?.events.length ?? acquisition?.events.length ?? 0;
 
   // Phase 3 — 控制条上的闭环时延小读数（设计 §2d：只在控制条露一个小实时读数，不另开面板）。
-  // 每快照重渲染时从引擎与最新 native_feedback 消息现读；只在闭环协议运行中显示数值，
-  // 其余时间只显示 "—"。trigger→command 与 observation lag 取自 getLoopTiming()，
+  // 每快照重渲染时从引擎与最新 native_feedback 消息现读；只在闭环协议运行中、且至少一个
+  // 实测值已到时才显示这一行，其余时间整行不渲染（2026-11-19 修：不再挂 "—"）。
+  // trigger→command 与 observation lag 取自 getLoopTiming()，
   // 冷却剩余取自 NativeFeedback 快照；dispatch→ACK 只在开环分发路径上测到，闭环里恒为 null，故不放进这一行。
   const loopTiming = engineRef.current?.getLoopTiming() ?? null;
   const feedbackState = sim?.getNativeFeedback()?.state ?? null;
   const cooldownRemaining = feedbackState ? cooldownRemainingMs(feedbackState, snap?.t_ms ?? 0) : 0;
+  // 2026-11-19 修：没有真值就不渲染这一行（而不是挂一个 "—"）——
+  // trigger→command 与 observation lag 都是实测值，只在闭环协议跑出
+  // 第一个反馈动作后才有；跑之前这行根本不存在。底层测量
+  // getLoopTiming() 不动。
   const loopTimingText = protocolId === 'closed-loop' && protocolRunning
+    && (loopTiming?.triggerToCommandMs != null
+      || loopTiming?.observationLagMs != null)
     ? `${text('触发→命令', 'trigger→command')} ${fmt(loopTiming?.triggerToCommandMs, 0)} ms · ${text('观测滞后', 'observation lag')} ${fmt(loopTiming?.observationLagMs, 0)} ms · ${text('冷却中', 'cooldown')} ${(cooldownRemaining / 1000).toFixed(1)} s`
-    : '—';
+    : null;
 
   // 协议状态文案：三处（回路角色行、实验电脑折叠标题、细节读数）共用同一份
   // 派生，见 benchProtocol.ts protocolStatusKey——停过的协议显示“已停止”，
@@ -1097,9 +1139,11 @@ export default function ClosedLoopBench(props: ClosedLoopBenchProps) {
                   onClick={() => { traceRef.current.clear(); setTraceList([]); }}>
                   {t('bench.clearTrace')}
                 </button>
-                <span className="bench-strip-timing" data-testid="bench-loop-timing">
-                  {text('闭环延迟', 'Closed-loop latency')}: {loopTimingText}
-                </span>
+                {loopTimingText !== null && (
+                  <span className="bench-strip-timing" data-testid="bench-loop-timing">
+                    {text('闭环延迟', 'Closed-loop latency')}: {loopTimingText}
+                  </span>
+                )}
               </div>
             </section>
 
