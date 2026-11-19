@@ -1499,6 +1499,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
 .bench-status { flex-basis:100%; margin:0; font-size:14px; color:#d7e5ef; }
 .bench-strip-timing { font-size:13px; color:#9fb6c6; padding-bottom:10px; }
 .bench-q { margin:0; font-size:13px; color:#c6dce9; }
+/* 高状态说明（stuck-q）：与锁定横幅同款琥珀色——提醒，不是报错。 */
+.bench-q-high { margin:6px 0 0; font-size:13px; line-height:1.65; color:#ffb340; }
+.bench-q-high .ui-button { margin-left:8px; }
 .bench-diag { margin-top:8px; }
 .bench-diag-panel { border:1px solid #2b4254; border-radius:10px; background:#0d1824; padding:16px 20px; margin-top:12px; display:flex; flex-direction:column; gap:20px; }
 .bench-diag-section { display:flex; flex-direction:column; gap:12px; padding-top:16px; border-top:1px solid #203545; }

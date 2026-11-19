@@ -1,13 +1,13 @@
 {
  "auditVersion": "manual-physics-workbench-v1",
  "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
- "disclaimer": "240 source-classified controls; source inventory is not runtime proof.",
+ "disclaimer": "241 source-classified controls; source inventory is not runtime proof.",
  "counts": {
-  "total": 240,
+  "total": 241,
   "bySource": {
    "ActivityChart": 1,
    "CellularLab": 18,
-   "ClosedLoopBench": 28,
+   "ClosedLoopBench": 29,
    "ControlField": 2,
    "DipoleLab": 7,
    "EegAnalysisLab": 4,
@@ -34,7 +34,7 @@
    "DIAGNOSTIC": 2,
    "EXPORT": 7,
    "INDEPENDENT": 75,
-   "LIVE": 20,
+   "LIVE": 21,
    "MIXED": 15,
    "NAV": 20,
    "SELECTION": 4,
@@ -3124,7 +3124,21 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:7",
+   "controlId": "ClosedLoopBench:button:7",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1015,
+   "element": "button",
+   "visibleName": "重置，回到安静状态",
+   "events": [
+    "onClick"
+   ],
+   "category": "LIVE",
+   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:8",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1020,
    "element": "Dropdown",
@@ -3138,7 +3152,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:8",
+   "controlId": "ClosedLoopBench:button:9",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1041,
    "element": "button",
@@ -3151,7 +3165,7 @@
    "evidence": "static-handler-bound (not runtime-proven)"
   },
   {
-   "controlId": "ClosedLoopBench:button:9",
+   "controlId": "ClosedLoopBench:button:10",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1050,
    "element": "button",
@@ -3165,7 +3179,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:10",
+   "controlId": "ClosedLoopBench:button:11",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1053,
    "element": "button",
@@ -3179,7 +3193,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:11",
+   "controlId": "ClosedLoopBench:button:12",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1057,
    "element": "button",
@@ -3193,7 +3207,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:12",
+   "controlId": "ClosedLoopBench:button:13",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1061,
    "element": "button",
@@ -3207,7 +3221,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:13",
+   "controlId": "ClosedLoopBench:button:14",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1081,
    "element": "button",
@@ -3221,7 +3235,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:14",
+   "controlId": "ClosedLoopBench:Dropdown:15",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1094,
    "element": "Dropdown",
@@ -3235,7 +3249,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:15",
+   "controlId": "ClosedLoopBench:Dropdown:16",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1103,
    "element": "Dropdown",
@@ -3249,7 +3263,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:16",
+   "controlId": "ClosedLoopBench:button:17",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1120,
    "element": "button",
@@ -3263,7 +3277,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:17",
+   "controlId": "ClosedLoopBench:button:18",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1134,
    "element": "button",
@@ -3277,7 +3291,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:18",
+   "controlId": "ClosedLoopBench:button:19",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1160,
    "element": "button",
@@ -3291,7 +3305,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:19",
+   "controlId": "ClosedLoopBench:Dropdown:20",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1169,
    "element": "Dropdown",
@@ -3305,7 +3319,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:20",
+   "controlId": "ClosedLoopBench:Dropdown:21",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1179,
    "element": "Dropdown",
@@ -3319,7 +3333,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:21",
+   "controlId": "ClosedLoopBench:Dropdown:22",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1188,
    "element": "Dropdown",
@@ -3333,7 +3347,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:22",
+   "controlId": "ClosedLoopBench:button:23",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1220,
    "element": "button",
@@ -3347,7 +3361,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:23",
+   "controlId": "ClosedLoopBench:button:24",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1222,
    "element": "button",
@@ -3361,7 +3375,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:24",
+   "controlId": "ClosedLoopBench:button:25",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1224,
    "element": "button",
@@ -3375,7 +3389,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:25",
+   "controlId": "ClosedLoopBench:button:26",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1277,
    "element": "button",
@@ -3389,7 +3403,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:26",
+   "controlId": "ClosedLoopBench:Dropdown:27",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1345,
    "element": "Dropdown",
@@ -3403,7 +3417,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:27",
+   "controlId": "ClosedLoopBench:Dropdown:28",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1440,
    "element": "Dropdown",
@@ -3417,7 +3431,7 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:28",
+   "controlId": "ClosedLoopBench:button:29",
    "path": "app/src/components/ClosedLoopBench.tsx",
    "line": 1455,
    "element": "button",
