@@ -250,7 +250,14 @@ try {
   const seedNum = page.locator('input.range-number[aria-label="随机种子 "]');
   await seedNum.fill('2');
   await seedNum.press('Enter');
-  assert.equal(await seedNum.inputValue(), '2', 'seed input must take 2');
+  // Read the DOM value directly: after Enter the subject rebuilds and the
+  // control can be briefly non-actionable; inputValue()'s actionability
+  // wait flaked in CI (30 s timeout) while the value itself was already '2'.
+  await page.waitForFunction(
+    () => document.querySelector('input.range-number[aria-label="随机种子 "]')?.value === '2',
+    null, { timeout: 30000 });
+  assert.ok(await page.getByTestId('bench-drilldown').count(),
+    'experiment drill-down must stay open after applying the seed');
   console.log('seed control accepts 2 (subject RT seed; does not touch the waveform)');
 
   // 5. B2 新 tab 冒烟：跑 oddball 协议攒出 standard + oddball 试次，
