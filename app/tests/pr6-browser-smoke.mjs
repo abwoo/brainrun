@@ -247,12 +247,24 @@ try {
   // 旧断言“换种子 + 开噪声后波形变”无等价物（见 DROPPED），只断言控件本身。
   await closeDrill();
   await openNode('experiment');
-  const seedNum = page.locator('input.range-number[aria-label="随机种子 "]');
-  await seedNum.fill('2');
-  await seedNum.press('Enter');
-  // Read the DOM value directly: after Enter the subject rebuilds and the
-  // control can be briefly non-actionable; inputValue()'s actionability
-  // wait flaked in CI (30 s timeout) while the value itself was already '2'.
+  // 种子控件（实验电脑 drill-down 作曲器里的“种子” RangeControl）。
+  // 旧断言“换种子 + 开噪声后波形变”无等价物（见 DROPPED），只断言控件本身。
+  // 走 range 滑条（onChange 直通 setSubjectSeed），不用 number 输入框的
+  // draft + Enter 路径：后者在快 CI 里填完值粘不住（两次 30 s 超时），
+  // 本地同版 Chromium 却次次通过。fill 不成时用原生 setter + 事件兜底
+  //（与 bench-pictorial-browser.mjs 的 setSlider 同一做法）。
+  const seedSlider = page.getByRole('slider', { name: '随机种子', exact: true });
+  await seedSlider.waitFor({ timeout: 15000 });
+  try {
+    await seedSlider.fill('2', { timeout: 5000 });
+  } catch {
+    await seedSlider.evaluate((el, v) => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(el, String(v));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '2');
+  }
   await page.waitForFunction(
     () => document.querySelector('input.range-number[aria-label="随机种子 "]')?.value === '2',
     null, { timeout: 30000 });
