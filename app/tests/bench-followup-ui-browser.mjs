@@ -2,15 +2,19 @@
  * Bench follow-up UI browser test (2026-11-19, PR #41 live-run follow-ups).
  *
  * 钉住四件事（每件修前失败、修后通过）：
- * 1. 命令日志记协议刺激：跑 oddball 攒出 ≥3 个试次后，诊断面板里刺激器
- *    一节的命令日志必须有真实行（目标/幅度/时长都是真值），不再是
- *    “暂无命令”；停表后点“发送一次刺激”，日志行数再涨 1。
- * 2. 闭环延迟读数没有真值就不出现：没跑闭环协议时，诊断面板里
- *    `bench-loop-timing` 必须不存在（而不是挂一个 "—"）。
+ * 1. 命令日志记协议刺激：跑 oddball 攒出 ≥3 个试次后，刺激器
+ *    drill-down 里的命令日志必须有真实行（目标/幅度/时长都是真值），
+ *    不再是“暂无命令”；停表后点“发送一次刺激”，日志行数再涨 1。
+ * 2. 闭环延迟读数没有真值就不出现：没跑闭环协议时，实验电脑
+ *    drill-down 里 `bench-loop-timing` 必须不存在（而不是挂一个 "—"）。
  * 3. “停止协议”按钮不折行：1920px 与 978px 下标签都只占一行
  *    （Range 量出的文本行盒数为 1）。
  * 4. 协议按钮 2 是中文名：四个协议按钮依次为
  *    单脉冲 / 稀有刺激 / 闪烁 / 闭环触发。
+ *
+ * 2026-11-19 图像化改写：诊断面板按设计删除，命令日志在刺激器
+ * drill-down，闭环延迟读数在实验电脑 drill-down ③，试次数在同一
+ * 处的记录读数里；主视图协议按钮须先关掉 drill-down 遮层才能点。
  *
  * 跑法：BENCH_PREVIEW_PORT=4174 node app/tests/bench-followup-ui-browser.mjs
  * 前置：`npm run build` 已跑过（dist 须含最新代码 + 球形 fixture；
@@ -96,9 +100,22 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('crash', () => errors.push('PAGE CRASHED'));
 
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('closed-loop-bench').waitFor({ timeout: 60000 });
+
+  // drill-down 开关：SVG 节点用键盘 Enter 打开；一次只开一个。
+  const openNode = async (node) => {
+    await page.getByTestId(`pict-node-${node}`).focus();
+    await page.keyboard.press('Enter');
+    await page.getByTestId('bench-drilldown').waitFor({ timeout: 15000 });
+  };
+  const closeDrill = async () => {
+    await page.getByTestId('bench-drilldown-back').click();
+    await page.getByTestId('bench-drilldown').waitFor({ state: 'detached', timeout: 15000 });
+  };
+  const drill = () => page.getByTestId('bench-drilldown');
 
   // ---- 引擎就绪：协议按钮可用（按位置取第 2 个跑 oddball，不依赖名字） ----
   const protocolBtns = page.locator('.bench-protocol-btn');
@@ -141,31 +158,35 @@ try {
   console.log(`stop button @978: lines=${lines} height=${box?.height}`);
   assert.equal(lines, 1, `stop button label must fit on one line @978px, got ${lines} lines`);
 
-  // ---- 打开诊断面板 ----
-  await page.getByTestId('bench-diagnostics-toggle').click();
-  await page.getByTestId('bench-diagnostics').waitFor({ timeout: 15000 });
-
   // ---- (2) 没跑闭环协议时，闭环延迟读数根本不出现 ----
+  // 读数在实验电脑 drill-down ③；先打开再断言（关着时本来就不存在，
+  // 断言没有意义）。
+  await openNode('experiment');
   assert.equal(await page.getByTestId('bench-loop-timing').count(), 0,
     'loop-timing readout must not render without a real value (no dash placeholder)');
+  await closeDrill();
 
   // ---- (1) 跑 oddball：命令日志必须记下协议刺激 ----
   await protocolBtns.nth(1).click();
   await page.getByRole('button', { name: '运行协议', exact: true }).click();
-  const expReadout = page.locator('[data-testid="bench-experiment-computer"] .bench-readout').first();
+  // 试次数在实验电脑 drill-down ③ 的记录读数里。
+  await openNode('experiment');
   const trialDeadline = Date.now() + 240000;
   let trials = 0;
   for (;;) {
-    const txt = (await expReadout.textContent() ?? '').replace(/\s+/g, ' ').trim();
+    const txt = (await drill().getByText(/试次数/).first().textContent() ?? '').replace(/\s+/g, ' ').trim();
     trials = num(txt, /试次数[:：]?\s*(\d+)/) ?? 0;
     if (trials >= 3) break;
     if (Date.now() > trialDeadline) throw new Error(`oddball produced only ${trials} trials in 240 s`);
     await page.waitForTimeout(2000);
   }
   console.log('oddball trials fired:', trials);
-  const stimRows = page.locator('[data-testid="bench-stimulator"] table tbody tr');
+  // 命令日志在刺激器 drill-down。
+  await closeDrill();
+  await openNode('stimulator');
+  const stimRows = drill().locator('table tbody tr');
   const stimSectionText = async () =>
-    ((await page.getByTestId('bench-stimulator').innerText()) ?? '').replace(/\s+/g, ' ').trim();
+    ((await drill().innerText()) ?? '').replace(/\s+/g, ' ').trim();
   // 日志行是 250 ms 轮询里由 marker 匹配确认、但行本身在刺激发出时就记下；
   // 给渲染留一点时间，再数行。
   const logDeadline = Date.now() + 60000;
@@ -188,8 +209,10 @@ try {
   // ---- 停表，再手动发一次刺激：日志末行变成新的一条 ----
   // 表只显示最后 8 行，行数到顶后不再涨，改认末行内容变化（手动那条
   // 的 ACK 时间是新的模型时间，末行文本一定变）。
+  await closeDrill();
   await page.getByRole('button', { name: '停止协议', exact: true }).click();
   await page.waitForTimeout(3000);
+  await openNode('stimulator');
   const lastRowText = async () =>
     ((await stimRows.last().innerText().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim();
   const beforeManual = await lastRowText();
