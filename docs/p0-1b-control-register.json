@@ -1,13 +1,13 @@
 {
  "auditVersion": "manual-physics-workbench-v1",
  "base": "1518375b957c2e9f6dc5114600b1e0f5895c3cf5",
- "disclaimer": "239 source-classified controls; source inventory is not runtime proof.",
+ "disclaimer": "240 source-classified controls; source inventory is not runtime proof.",
  "counts": {
-  "total": 239,
+  "total": 240,
   "bySource": {
    "ActivityChart": 1,
    "CellularLab": 18,
-   "ClosedLoopBench": 27,
+   "ClosedLoopBench": 28,
    "ControlField": 2,
    "DipoleLab": 7,
    "EegAnalysisLab": 4,
@@ -29,7 +29,7 @@
    "WavesTab": 1
   },
   "byScope": {
-   "CONFIG": 67,
+   "CONFIG": 70,
    "DERIVED": 17,
    "DIAGNOSTIC": 2,
    "EXPORT": 7,
@@ -38,7 +38,7 @@
    "MIXED": 15,
    "NAV": 20,
    "SELECTION": 4,
-   "VISUAL": 12
+   "VISUAL": 10
   }
  },
  "nativeCanvas": {
@@ -3042,67 +3042,11 @@
   {
    "controlId": "ClosedLoopBench:button:1",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 849,
+   "line": 918,
    "element": "button",
-   "visibleName": "返回物理工作台",
+   "visibleName": "协议：单脉冲",
    "events": [
     "onClick"
-   ],
-   "category": "NAV",
-   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:2",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 852,
-   "element": "button",
-   "visibleName": "暂停/继续",
-   "events": [
-    "onClick"
-   ],
-   "category": "LIVE",
-   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:3",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 856,
-   "element": "button",
-   "visibleName": "恢复默认",
-   "events": [
-    "onClick"
-   ],
-   "category": "LIVE",
-   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:4",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 860,
-   "element": "button",
-   "visibleName": "恢复快照",
-   "events": [
-    "onClick"
-   ],
-   "category": "LIVE",
-   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:5",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 876,
-   "element": "Dropdown",
-   "visibleName": "协议",
-   "events": [
-    "onChange"
    ],
    "category": "CONFIG",
    "modelBoundary": "Bench protocol selection (single-pulse / oddball / flicker / closed-loop); triggers share the Worker clock, parameters stay in the bench",
@@ -3110,23 +3054,51 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:6",
+   "controlId": "ClosedLoopBench:button:2",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 888,
-   "element": "Dropdown",
-   "visibleName": "脑电帽预设",
+   "line": 926,
+   "element": "button",
+   "visibleName": "协议：oddball",
    "events": [
-    "onChange"
+    "onClick"
    ],
    "category": "CONFIG",
-   "modelBoundary": "Cap preset 32/64/128/256 channels on the sphere head model; the template BEM brings its own electrodes",
+   "modelBoundary": "Bench protocol selection (single-pulse / oddball / flicker / closed-loop); triggers share the Worker clock, parameters stay in the bench",
    "evidence": "static-handler-bound (not runtime-proven)",
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:7",
+   "controlId": "ClosedLoopBench:button:3",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 902,
+   "line": 934,
+   "element": "button",
+   "visibleName": "协议：闪烁",
+   "events": [
+    "onClick"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Bench protocol selection (single-pulse / oddball / flicker / closed-loop); triggers share the Worker clock, parameters stay in the bench",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:4",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 942,
+   "element": "button",
+   "visibleName": "协议：闭环触发",
+   "events": [
+    "onClick"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Bench protocol selection (single-pulse / oddball / flicker / closed-loop); triggers share the Worker clock, parameters stay in the bench",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:5",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 952,
    "element": "button",
    "visibleName": "运行协议",
    "events": [
@@ -3138,9 +3110,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:8",
+   "controlId": "ClosedLoopBench:button:6",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 907,
+   "line": 957,
    "element": "button",
    "visibleName": "停止协议",
    "events": [
@@ -3152,163 +3124,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:9",
+   "controlId": "ClosedLoopBench:Dropdown:7",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 916,
-   "element": "button",
-   "visibleName": "放大器设置",
-   "events": [
-    "onClick"
-   ],
-   "category": "VISUAL",
-   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:10",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 923,
-   "element": "Dropdown",
-   "visibleName": "采样率",
-   "events": [
-    "onChange"
-   ],
-   "category": "CONFIG",
-   "modelBoundary": "Amplifier sample rate 250/500 Hz; acquisition setting only, does not change the model clock",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:11",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 932,
-   "element": "Dropdown",
-   "visibleName": "参考",
-   "events": [
-    "onChange"
-   ],
-   "category": "CONFIG",
-   "modelBoundary": "Re-reference off raw infinity data (average / Cz / M1); lossless switch, does not re-run the model",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:12",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 949,
-   "element": "button",
-   "visibleName": "带通开关",
-   "events": [
-    "onClick"
-   ],
-   "category": "CONFIG",
-   "modelBoundary": "Band-pass filter toggle; display and acquisition filtering only, never rewrites recorded µV",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:13",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 963,
-   "element": "button",
-   "visibleName": "应用带通",
-   "events": [
-    "onClick"
-   ],
-   "category": "CONFIG",
-   "modelBoundary": "Band-pass filter toggle; display and acquisition filtering only, never rewrites recorded µV",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:14",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 988,
-   "element": "button",
-   "visibleName": "刷新采集",
-   "events": [
-    "onClick"
-   ],
-   "category": "DERIVED",
-   "modelBoundary": "Re-reads the bench recording from the shared experiment session; no new stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:15",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1003,
-   "element": "button",
-   "visibleName": "清除回路追踪",
-   "events": [
-    "onClick"
-   ],
-   "category": "VISUAL",
-   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:16",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1057,
-   "element": "Dropdown",
-   "visibleName": "背景活动",
-   "events": [
-    "onChange"
-   ],
-   "category": "LIVE",
-   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:17",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1067,
-   "element": "Dropdown",
-   "visibleName": "头模型",
-   "events": [
-    "onChange"
-   ],
-   "category": "CONFIG",
-   "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:18",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1089,
-   "element": "button",
-   "visibleName": "波形视图",
-   "events": [
-    "onClick"
-   ],
-   "category": "VISUAL",
-   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:button:19",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1093,
-   "element": "button",
-   "visibleName": "记录分析视图",
-   "events": [
-    "onClick"
-   ],
-   "category": "VISUAL",
-   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
-   "evidence": "static-handler-bound (not runtime-proven)",
-   "explicitFollowUp": false
-  },
-  {
-   "controlId": "ClosedLoopBench:Dropdown:20",
-   "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1106,
+   "line": 1020,
    "element": "Dropdown",
    "visibleName": "波形通道",
    "events": [
@@ -3320,9 +3138,204 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:21",
+   "controlId": "ClosedLoopBench:button:8",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1123,
+   "line": 1041,
+   "element": "button",
+   "visibleName": "详情 / 诊断",
+   "events": [
+    "onClick"
+   ],
+   "category": "VISUAL",
+   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+   "evidence": "static-handler-bound (not runtime-proven)"
+  },
+  {
+   "controlId": "ClosedLoopBench:button:9",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1050,
+   "element": "button",
+   "visibleName": "返回物理工作台",
+   "events": [
+    "onClick"
+   ],
+   "category": "NAV",
+   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:10",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1053,
+   "element": "button",
+   "visibleName": "暂停/继续",
+   "events": [
+    "onClick"
+   ],
+   "category": "LIVE",
+   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:11",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1057,
+   "element": "button",
+   "visibleName": "恢复默认",
+   "events": [
+    "onClick"
+   ],
+   "category": "LIVE",
+   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:12",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1061,
+   "element": "button",
+   "visibleName": "恢复快照",
+   "events": [
+    "onClick"
+   ],
+   "category": "LIVE",
+   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:13",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1081,
+   "element": "button",
+   "visibleName": "清除回路追踪",
+   "events": [
+    "onClick"
+   ],
+   "category": "VISUAL",
+   "modelBoundary": "Navigation, selection or presentation control; no implicit stimulation",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:14",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1094,
+   "element": "Dropdown",
+   "visibleName": "采样率",
+   "events": [
+    "onChange"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Amplifier sample rate 250/500 Hz; acquisition setting only, does not change the model clock",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:15",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1103,
+   "element": "Dropdown",
+   "visibleName": "参考",
+   "events": [
+    "onChange"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Re-reference off raw infinity data (average / Cz / M1); lossless switch, does not re-run the model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:16",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1120,
+   "element": "button",
+   "visibleName": "带通开关",
+   "events": [
+    "onClick"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Band-pass filter toggle; display and acquisition filtering only, never rewrites recorded µV",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:17",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1134,
+   "element": "button",
+   "visibleName": "应用带通",
+   "events": [
+    "onClick"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Band-pass filter toggle; display and acquisition filtering only, never rewrites recorded µV",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:18",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1160,
+   "element": "button",
+   "visibleName": "刷新采集",
+   "events": [
+    "onClick"
+   ],
+   "category": "DERIVED",
+   "modelBoundary": "Re-reads the bench recording from the shared experiment session; no new stimulation",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:19",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1169,
+   "element": "Dropdown",
+   "visibleName": "背景活动",
+   "events": [
+    "onChange"
+   ],
+   "category": "LIVE",
+   "modelBoundary": "App → SimClient → Worker → Rust/WASM model",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:20",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1179,
+   "element": "Dropdown",
+   "visibleName": "头模型",
+   "events": [
+    "onChange"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Shared template BEM forward matrix, registered sources and EEG analysis recording",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:Dropdown:21",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1188,
+   "element": "Dropdown",
+   "visibleName": "脑电帽预设",
+   "events": [
+    "onChange"
+   ],
+   "category": "CONFIG",
+   "modelBoundary": "Cap preset 32/64/128/256 channels on the sphere head model; the template BEM brings its own electrodes",
+   "evidence": "static-handler-bound (not runtime-proven)",
+   "explicitFollowUp": false
+  },
+  {
+   "controlId": "ClosedLoopBench:button:22",
+   "path": "app/src/components/ClosedLoopBench.tsx",
+   "line": 1220,
    "element": "button",
    "visibleName": "更新记录",
    "events": [
@@ -3334,9 +3347,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:22",
+   "controlId": "ClosedLoopBench:button:23",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1125,
+   "line": 1222,
    "element": "button",
    "visibleName": "导出 JSON",
    "events": [
@@ -3348,9 +3361,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:23",
+   "controlId": "ClosedLoopBench:button:24",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1127,
+   "line": 1224,
    "element": "button",
    "visibleName": "导出 CSV",
    "events": [
@@ -3362,9 +3375,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:24",
+   "controlId": "ClosedLoopBench:button:25",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1181,
+   "line": 1277,
    "element": "button",
    "visibleName": "分析页签",
    "events": [
@@ -3376,9 +3389,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:25",
+   "controlId": "ClosedLoopBench:Dropdown:26",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1254,
+   "line": 1345,
    "element": "Dropdown",
    "visibleName": "闭环特征",
    "events": [
@@ -3390,9 +3403,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:Dropdown:26",
+   "controlId": "ClosedLoopBench:Dropdown:27",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1346,
+   "line": 1440,
    "element": "Dropdown",
    "visibleName": "目标脑区",
    "events": [
@@ -3404,9 +3417,9 @@
    "explicitFollowUp": false
   },
   {
-   "controlId": "ClosedLoopBench:button:27",
+   "controlId": "ClosedLoopBench:button:28",
    "path": "app/src/components/ClosedLoopBench.tsx",
-   "line": 1361,
+   "line": 1455,
    "element": "button",
    "visibleName": "发送刺激",
    "events": [
