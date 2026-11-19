@@ -24,12 +24,19 @@ export default function BenchDrillDown(props: BenchDrillDownProps) {
   const { t } = useI18n();
   const backRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<Element | null>(null);
+  // onClose arrives as a fresh inline closure on every parent render, so it
+  // must NOT be an effect dep: with [onClose] the effect re-ran ~15x/s
+  // (Worker snapshots), yanking focus back to the Back button ~80 ms after
+  // it landed in any control — typed keys never reached the input and Enter
+  // activated Back instead. Mount-only effect; onClose read via a ref.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     openerRef.current = document.activeElement;
     backRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -37,7 +44,7 @@ export default function BenchDrillDown(props: BenchDrillDownProps) {
       const opener = openerRef.current as HTMLElement | null;
       if (opener && typeof opener.focus === 'function') opener.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="pict-drill" data-testid="bench-drilldown" data-drill={drill}>
