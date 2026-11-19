@@ -1545,3 +1545,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid #78ceff; outline-
   .bench-diag-panel { padding:14px 16px; }
   .bench-wave { height:180px; }
 }
+
+/* Pictorial bench head node (PictorialHead.tsx): canvas fills the slot,
+ * honest-label caption sits under it. Full .pict-* styles land with
+ * PictorialLoop. */
+.pict-head { display:flex; flex-direction:column; height:100%; min-height:0; }
+.pict-head-canvas { flex:1; min-height:0; position:relative; }
+.pict-head-canvas canvas { display:block; width:100%; height:100%; }
+.pict-head-note { margin:8px 0 0; color:#9fb6c6; font-size:12px; line-height:1.5; }
