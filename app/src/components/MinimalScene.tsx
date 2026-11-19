@@ -334,8 +334,8 @@ export default function MinimalScene(props: MinimalSceneProps) {
     const capShell = new THREE.Mesh(
       capGeo,
       new THREE.MeshStandardMaterial({
-        color: 0x41546a, roughness: 0.9, metalness: 0.05,
-        transparent: true, opacity: 0.32, side: THREE.DoubleSide,
+        color: 0x7a9cc0, roughness: 0.9, metalness: 0.05,
+        transparent: true, opacity: 0.75, side: THREE.DoubleSide,
       }),
     );
     capShell.raycast = () => {};
@@ -346,7 +346,7 @@ export default function MinimalScene(props: MinimalSceneProps) {
     capGroup.add(discGroup);
     const edgeTheta = Math.PI * 0.55;
     const band = new THREE.Mesh(
-      new THREE.TorusGeometry(capRadius * Math.sin(edgeTheta), 2.2, 12, 64),
+      new THREE.TorusGeometry(capRadius * Math.sin(edgeTheta), 4.0, 12, 64),
       new THREE.MeshStandardMaterial({ color: 0x1c2836, roughness: 0.85 }),
     );
     band.rotation.x = Math.PI / 2;
